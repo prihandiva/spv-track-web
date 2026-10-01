@@ -2,19 +2,23 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Models\EvidenceItem;
 use App\Models\Karyawan;
 use App\Models\Shipment;
 use App\Models\SopPhotoPoint;
-use App\Models\EvidenceItem;
+use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use thiagoalessio\TesseractOCR\TesseractOCR;
 
 class FieldAppController extends Controller
 {
     public function create()
     {
-        // For development, we assume user_id = 1 (Admin) is acting as operator 
+        // For development, we assume user_id = 1 (Admin) is acting as operator
         // In real app, we'd use auth()->id()
         $karyawans = Karyawan::where('status', 'aktif')->get();
+
         return view('field-app.create', compact('karyawans'));
     }
 
@@ -39,6 +43,13 @@ class FieldAppController extends Controller
         $validated['user_id'] = 1;
         $validated['status'] = 'draft';
 
+        // Ensure nomor_container_atau_plat is never empty (fallback to plat_nomor or shipment_no)
+        if (empty($validated['nomor_container_atau_plat'])) {
+            $validated['nomor_container_atau_plat'] = ! empty($validated['plat_nomor'])
+                ? $validated['plat_nomor']
+                : (! empty($validated['shipment_no']) ? $validated['shipment_no'] : 'SPV-'.date('Ymd-His'));
+        }
+
         $shipment = Shipment::create($validated);
 
         return redirect()->route('field-app.timeline', $shipment->id);
@@ -46,10 +57,9 @@ class FieldAppController extends Controller
 
     public function timeline(Shipment $shipment)
     {
-        // Load the 27 SOP points
+        $shipment->load('evidenceItems');
         $points = SopPhotoPoint::orderBy('urutan')->get();
-        
-        // Group by 3 for layouting if needed, or just list
+
         return view('field-app.timeline', compact('shipment', 'points'));
     }
 
@@ -62,38 +72,86 @@ class FieldAppController extends Controller
         ]);
 
         $file = $request->file('file');
-        
-        // Simulating GPS extraction from EXIF
-        $lat = -6.200000; 
-        $lng = 106.816666;
+        $ext = strtolower($file->getClientOriginalExtension());
+        $pointId = $request->input('sop_photo_point_id');
 
-        // Path & naming convention NOMOR(n)
-        $ext = $file->getClientOriginalExtension();
+        // Timestamp tahun-bulan-hari jam:menit:detik
+        $capturedAt = $request->input('captured_at') ? Carbon::parse($request->input('captured_at')) : now();
+        $timestampText = $capturedAt->format('Y-m-d H:i:s').' WIB';
+
+        $safePlate = preg_replace('/[^A-Za-z0-9]/', '', $shipment->nomor_container_atau_plat ?? 'SPV');
         $count = $shipment->evidenceItems()->count() + 1;
-        $fileName = preg_replace('/[^A-Za-z0-9]/', '', $shipment->nomor_container_atau_plat) . "({$count}).{$ext}";
-        
-        $path = $file->storeAs("shipments/{$shipment->id}", $fileName, 'public');
+        $fileName = "{$safePlate}_p{$pointId}_{$count}.{$ext}";
 
-        $evidence = EvidenceItem::create([
-            'shipment_id' => $shipment->id,
-            'sop_photo_point_id' => $request->sop_photo_point_id,
-            'file_path' => $path,
-            'file_name' => $fileName,
-            'tipe_item' => in_array($ext, ['mp4','mov']) ? 'video' : 'foto',
-            'captured_at' => now(), // Mocked timestamp
-            'gps_lat' => $lat,
-            'gps_lng' => $lng,
-            'is_tambahan' => $request->boolean('is_tambahan', false),
-        ]);
+        $storageDir = storage_path("app/public/shipments/{$shipment->id}");
+        if (! is_dir($storageDir)) {
+            mkdir($storageDir, 0755, true);
+        }
+        $targetPath = "{$storageDir}/{$fileName}";
+        $relPath = "shipments/{$shipment->id}/{$fileName}";
 
-        // Mock async OCR job dispatch here
-        // ProcessOcrJob::dispatch($evidence);
+        // Watermark timestamp directly on image if supported
+        if (in_array($ext, ['jpg', 'jpeg', 'png']) && extension_loaded('gd')) {
+            $img = null;
+            if (in_array($ext, ['jpg', 'jpeg'])) {
+                $img = @imagecreatefromjpeg($file->getPathname());
+            } elseif ($ext === 'png') {
+                $img = @imagecreatefrompng($file->getPathname());
+            }
+
+            if ($img) {
+                $w = imagesx($img);
+                $h = imagesy($img);
+
+                // Draw dark translucent bar at the bottom
+                $barHeight = max(42, (int) ($h * 0.055));
+                $barY = $h - $barHeight;
+                $barColor = imagecolorallocatealpha($img, 0, 0, 0, 45);
+                imagefilledrectangle($img, 0, $barY, $w, $h, $barColor);
+
+                // Watermark text: YYYY-MM-DD HH:mm:ss | No. Container
+                $textColor = imagecolorallocate($img, 255, 255, 255);
+                $stampStr = "{$timestampText} | {$shipment->nomor_container_atau_plat}";
+                $textY = $barY + (int) (($barHeight - 16) / 2);
+                imagestring($img, 5, 14, $textY, $stampStr, $textColor);
+
+                if (in_array($ext, ['jpg', 'jpeg'])) {
+                    imagejpeg($img, $targetPath, 88);
+                } else {
+                    imagepng($img, $targetPath, 8);
+                }
+                imagedestroy($img);
+            } else {
+                $file->move($storageDir, $fileName);
+            }
+        } else {
+            $file->move($storageDir, $fileName);
+        }
+
+        // Update or create evidence item
+        $evidence = EvidenceItem::updateOrCreate(
+            [
+                'shipment_id' => $shipment->id,
+                'sop_photo_point_id' => $pointId,
+            ],
+            [
+                'file_path' => $relPath,
+                'file_name' => $fileName,
+                'tipe_item' => in_array($ext, ['mp4', 'mov']) ? 'video' : 'foto',
+                'captured_at' => $capturedAt,
+                'gps_lat' => -6.200000,
+                'gps_lng' => 106.816666,
+                'is_tambahan' => $request->boolean('is_tambahan', false),
+            ]
+        );
 
         return response()->json([
             'success' => true,
-            'message' => 'File uploaded',
+            'message' => 'Foto berhasil diunggah',
             'evidence_id' => $evidence->id,
-            'file_url' => asset('storage/' . $path)
+            'file_url' => asset('storage/'.$relPath),
+            'captured_at' => $capturedAt->format('Y-m-d H:i:s \W\I\B'),
+            'uploaded_count' => $shipment->evidenceItems()->count(),
         ]);
     }
 
@@ -124,25 +182,41 @@ class FieldAppController extends Controller
     {
         $request->validate(['image' => 'required|image']);
         $path = $request->file('image')->store('ocr', 'public');
-        $fullPath = storage_path('app/public/' . $path);
-        
-        $ocr = new \thiagoalessio\TesseractOCR\TesseractOCR($fullPath);
-        $ocr->executable('C:\Program Files\Tesseract-OCR\tesseract.exe');
-        $text = $ocr->run();
-        
+        $fullPath = storage_path('app/public/'.$path);
+
+        $text = '';
+        try {
+            $ocr = new TesseractOCR($fullPath);
+            $ocr->executable('C:\\Program Files\\Tesseract-OCR\\tesseract.exe');
+            $ocr->lang('ind', 'eng');
+            $text = $ocr->run();
+        } catch (\Throwable $e) {
+            Log::warning('Tesseract OCR error in shipment order: '.$e->getMessage());
+        }
+
         $data = [
             'shipment_group' => '',
             'shipment_no' => '',
+            'plat_nomor' => '',
+            'nama_sopir' => '',
             'raw_text' => $text,
         ];
-        
-        if (preg_match('/Shipment Group:?\s*([\d\/]+)/i', $text, $matches)) {
-            $data['shipment_group'] = trim($matches[1]);
+
+        if (! empty($text)) {
+            if (preg_match('/(?:Shipment\s*Group|Group)[\s\.:]*([\d\/]+)/i', $text, $matches)) {
+                $data['shipment_group'] = trim($matches[1]);
+            }
+            if (preg_match('/(?:Shipment\s*No|No\.?\s*Shipment)[\s\.:]*(\d+)/i', $text, $matches)) {
+                $data['shipment_no'] = trim($matches[1]);
+            }
+            if (preg_match('/(?:Plat|No\.?\s*Pol|Polisi)[\s\.:]*([A-Z0-9\s]{4,14})/i', $text, $matches)) {
+                $data['plat_nomor'] = trim($matches[1]);
+            }
+            if (preg_match('/(?:Driver|Sopir|Nama\s*Sopir)[\s\.:]*([A-Za-z\s]{3,30})/i', $text, $matches)) {
+                $data['nama_sopir'] = trim($matches[1]);
+            }
         }
-        if (preg_match('/Shipment No\.?:?\s*(\d+)/i', $text, $matches)) {
-            $data['shipment_no'] = trim($matches[1]);
-        }
-        
+
         return response()->json($data);
     }
 
@@ -150,41 +224,43 @@ class FieldAppController extends Controller
     {
         $request->validate(['image' => 'required|image']);
         $path = $request->file('image')->store('ocr', 'public');
-        $fullPath = storage_path('app/public/' . $path);
-        
-        $ocr = new \thiagoalessio\TesseractOCR\TesseractOCR($fullPath);
-        $ocr->executable('C:\Program Files\Tesseract-OCR\tesseract.exe');
-        $text = $ocr->run();
-        
+        $fullPath = storage_path('app/public/'.$path);
+
+        $text = '';
+        try {
+            $ocr = new TesseractOCR($fullPath);
+            $ocr->executable('C:\\Program Files\\Tesseract-OCR\\tesseract.exe');
+            $ocr->lang('ind', 'eng');
+            $text = $ocr->run();
+        } catch (\Throwable $e) {
+            Log::warning('Tesseract OCR error in surat jalan: '.$e->getMessage());
+        }
+
         $data = [
             'packing_list_no' => '',
             'tujuan_pengiriman' => '',
             'agen_forwarding' => '',
             'raw_text' => $text,
         ];
-        
-        // Simple heuristics for Packing List Number
-        if (preg_match('/Number\s*(\d+)/i', $text, $matches)) {
-            $data['packing_list_no'] = trim($matches[1]);
-        } else if (preg_match('/Packing List.*?(\d+)/is', $text, $matches)) {
-            $data['packing_list_no'] = trim($matches[1]);
+
+        if (! empty($text)) {
+            if (preg_match('/Number\s*(\d+)/i', $text, $matches)) {
+                $data['packing_list_no'] = trim($matches[1]);
+            } elseif (preg_match('/Packing List.*?(\d+)/is', $text, $matches)) {
+                $data['packing_list_no'] = trim($matches[1]);
+            }
+
+            if (preg_match('/(?:www\.[a-z0-9-]+\.com|Indonesia)\s*\n+(.*?)(?:forwarding agent|Reference no)/is', $text, $matches)) {
+                $tujuan = trim($matches[1]);
+                $tujuan = preg_replace('/^\s*(?:\d{4,6}\b.*?|\'?Packing\b.*?)\s*\n/is', '', $tujuan);
+                $data['tujuan_pengiriman'] = trim($tujuan);
+            }
+
+            if (preg_match('/forwarding agent\s*(?:Company)?\s*(.*?)(?:BANGKOK|via TANJUNG|Seal no|Container no)/is', $text, $matches)) {
+                $data['agen_forwarding'] = trim($matches[1]);
+            }
         }
-        
-        // Heuristics for Tujuan Pengiriman
-        // Usually located after "www.pt-spv.com" and before "forwarding agent" or "Reference no"
-        if (preg_match('/(?:www\.[a-z0-9-]+\.com|Indonesia)\s*\n+(.*?)(?:forwarding agent|Reference no)/is', $text, $matches)) {
-            $tujuan = trim($matches[1]);
-            // Clean up accidental OCR noise at the start (like "54732 'Packing |" or "41333")
-            $tujuan = preg_replace('/^\s*(?:\d{4,6}\b.*?|\'?Packing\b.*?)\s*\n/is', '', $tujuan);
-            $data['tujuan_pengiriman'] = trim($tujuan);
-        }
-        
-        // Heuristics for Agen Forwarding
-        // Located between "forwarding agent" and shipping vessel details ("BANGKOK", "via", "Seal no")
-        if (preg_match('/forwarding agent\s*(?:Company)?\s*(.*?)(?:BANGKOK|via TANJUNG|Seal no|Container no)/is', $text, $matches)) {
-            $data['agen_forwarding'] = trim($matches[1]);
-        }
-        
+
         return response()->json($data);
     }
 }

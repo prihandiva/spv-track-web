@@ -1,151 +1,228 @@
-<x-layout>
-    @section('title', 'Dashboard')
+<x-layout :title="'Dashboard'">
 
-    <!-- Overview Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
-        
-        <!-- Card 1 -->
-        <div class="bg-white rounded-2xl p-6 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-gray-100 flex items-center justify-between group hover:shadow-[0_8px_20px_-6px_rgba(6,81,237,0.15)] transition-all duration-300">
-            <div>
-                <p class="text-sm font-medium text-gray-500 mb-1">Total Shipments</p>
-                <h3 class="text-3xl font-bold text-gray-800">1,284</h3>
-                <p class="text-xs font-medium text-spv-green mt-2 flex items-center">
-                    <i class="ph-bold ph-trend-up mr-1"></i> +12% dari bulan lalu
-                </p>
+    <!-- Quick Stats -->
+    <div class="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
+
+        <div class="bg-white rounded-2xl p-4 lg:p-5 group cursor-default transition-all duration-300 hover:-translate-y-0.5"
+             style="border: 1px solid #e8edf3; box-shadow: 0 1px 6px rgba(40,84,145,0.05);"
+             onmouseover="this.style.boxShadow='0 8px 24px rgba(40,84,145,0.12)'; this.style.borderColor='#c5d4ea'"
+             onmouseout="this.style.boxShadow='0 1px 6px rgba(40,84,145,0.05)'; this.style.borderColor='#e8edf3'">
+            <div class="flex items-start justify-between mb-3">
+                <div class="w-10 h-10 rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110" style="background:#e1f8eb;">
+                    <i class="ph-fill ph-package text-xl" style="color:#059e3d;"></i>
+                </div>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1" style="background:#e1f8eb; color:#059e3d;">
+                    <i class="ph-bold ph-trend-up text-xs"></i>Live
+                </span>
             </div>
-            <div class="w-14 h-14 rounded-full bg-spv-light-green text-spv-green flex items-center justify-center text-2xl group-hover:scale-110 transition-transform duration-300">
-                <i class="ph-fill ph-package"></i>
-            </div>
+            <p class="text-xs font-medium text-gray-400 mb-0.5">Total Shipments</p>
+            <p class="text-2xl font-bold text-gray-800">{{ $totalShipments ?? \App\Models\Shipment::count() }}</p>
         </div>
 
-        <!-- Card 2 -->
-        <div class="bg-white rounded-2xl p-6 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-gray-100 flex items-center justify-between group hover:shadow-[0_8px_20px_-6px_rgba(6,81,237,0.15)] transition-all duration-300">
-            <div>
-                <p class="text-sm font-medium text-gray-500 mb-1">Staging Hari Ini</p>
-                <h3 class="text-3xl font-bold text-gray-800">42</h3>
-                <p class="text-xs font-medium text-gray-400 mt-2 flex items-center">
-                    <i class="ph-bold ph-clock mr-1"></i> Terakhir update 5mnt lalu
-                </p>
+        <div class="bg-white rounded-2xl p-4 lg:p-5 group cursor-default transition-all duration-300 hover:-translate-y-0.5"
+             style="border: 1px solid #e8edf3; box-shadow: 0 1px 6px rgba(40,84,145,0.05);"
+             onmouseover="this.style.boxShadow='0 8px 24px rgba(40,84,145,0.12)'; this.style.borderColor='#c5d4ea'"
+             onmouseout="this.style.boxShadow='0 1px 6px rgba(40,84,145,0.05)'; this.style.borderColor='#e8edf3'">
+            <div class="flex items-start justify-between mb-3">
+                <div class="w-10 h-10 rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110" style="background:#eff4fc;">
+                    <i class="ph-fill ph-truck text-xl" style="color:#285491;"></i>
+                </div>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1" style="background:#eff4fc; color:#285491;">
+                    <i class="ph-bold ph-check-circle text-xs"></i>Selesai
+                </span>
             </div>
-            <div class="w-14 h-14 rounded-full bg-blue-50 text-spv-blue flex items-center justify-center text-2xl group-hover:scale-110 transition-transform duration-300">
-                <i class="ph-fill ph-truck"></i>
-            </div>
+            <p class="text-xs font-medium text-gray-400 mb-0.5">Submitted</p>
+            <p class="text-2xl font-bold text-gray-800">{{ $totalSubmitted ?? \App\Models\Shipment::where('status','submitted')->count() }}</p>
         </div>
 
-        <!-- Card 3 -->
-        <div class="bg-white rounded-2xl p-6 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-gray-100 flex items-center justify-between group hover:shadow-[0_8px_20px_-6px_rgba(6,81,237,0.15)] transition-all duration-300">
-            <div>
-                <p class="text-sm font-medium text-gray-500 mb-1">Menunggu Validasi</p>
-                <h3 class="text-3xl font-bold text-gray-800">8</h3>
-                <p class="text-xs font-medium text-yellow-500 mt-2 flex items-center">
-                    <i class="ph-bold ph-warning mr-1"></i> Butuh review Admin
-                </p>
+        <div class="bg-white rounded-2xl p-4 lg:p-5 group cursor-default transition-all duration-300 hover:-translate-y-0.5"
+             style="border: 1px solid #e8edf3; box-shadow: 0 1px 6px rgba(40,84,145,0.05);"
+             onmouseover="this.style.boxShadow='0 8px 24px rgba(40,84,145,0.12)'; this.style.borderColor='#c5d4ea'"
+             onmouseout="this.style.boxShadow='0 1px 6px rgba(40,84,145,0.05)'; this.style.borderColor='#e8edf3'">
+            <div class="flex items-start justify-between mb-3">
+                <div class="w-10 h-10 rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110" style="background:#fffbeb;">
+                    <i class="ph-fill ph-clock-countdown text-xl" style="color:#d97706;"></i>
+                </div>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:#fffbeb; color:#d97706;">
+                    Draft
+                </span>
             </div>
-            <div class="w-14 h-14 rounded-full bg-yellow-50 text-yellow-500 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform duration-300">
-                <i class="ph-fill ph-clipboard-text"></i>
-            </div>
+            <p class="text-xs font-medium text-gray-400 mb-0.5">Sedang Berjalan</p>
+            <p class="text-2xl font-bold text-gray-800">{{ $totalDraft ?? \App\Models\Shipment::where('status','draft')->count() }}</p>
         </div>
 
-        <!-- Card 4 -->
-        <div class="bg-white rounded-2xl p-6 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-gray-100 flex items-center justify-between group hover:shadow-[0_8px_20px_-6px_rgba(6,81,237,0.15)] transition-all duration-300">
-            <div>
-                <p class="text-sm font-medium text-gray-500 mb-1">Petugas Aktif</p>
-                <h3 class="text-3xl font-bold text-gray-800">15</h3>
-                <p class="text-xs font-medium text-spv-dark-teal mt-2 flex items-center">
-                    <i class="ph-bold ph-users mr-1"></i> 3 shift berjalan
-                </p>
+        <div class="bg-white rounded-2xl p-4 lg:p-5 group cursor-default transition-all duration-300 hover:-translate-y-0.5"
+             style="border: 1px solid #e8edf3; box-shadow: 0 1px 6px rgba(40,84,145,0.05);"
+             onmouseover="this.style.boxShadow='0 8px 24px rgba(40,84,145,0.12)'; this.style.borderColor='#c5d4ea'"
+             onmouseout="this.style.boxShadow='0 1px 6px rgba(40,84,145,0.05)'; this.style.borderColor='#e8edf3'">
+            <div class="flex items-start justify-between mb-3">
+                <div class="w-10 h-10 rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110" style="background:#e8f5f3;">
+                    <i class="ph-fill ph-users text-xl" style="color:#0d5950;"></i>
+                </div>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:#e8f5f3; color:#0d5950;">Aktif</span>
             </div>
-            <div class="w-14 h-14 rounded-full bg-[#0d5950]/10 text-spv-dark-teal flex items-center justify-center text-2xl group-hover:scale-110 transition-transform duration-300">
-                <i class="ph-fill ph-user-circle-gear"></i>
-            </div>
+            <p class="text-xs font-medium text-gray-400 mb-0.5">Petugas Staging</p>
+            <p class="text-2xl font-bold text-gray-800">{{ $totalPetugas ?? \App\Models\Karyawan::count() }}</p>
         </div>
 
     </div>
 
-    <!-- Recent Shipments Table -->
-    <div class="bg-white rounded-2xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-gray-100 overflow-hidden">
-        <div class="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
-            <h3 class="font-semibold text-lg text-gray-800">Shipments Terbaru</h3>
-            <button class="text-sm font-medium text-spv-blue hover:text-spv-dark-teal transition-colors flex items-center">
-                Lihat Semua <i class="ph-bold ph-arrow-right ml-1"></i>
-            </button>
+    <!-- Main Content Grid -->
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+
+        <!-- Recent Shipments Table (Left 2 cols) -->
+        <div class="xl:col-span-2 bg-white rounded-2xl shadow-[0_1px_6px_rgba(40,84,145,0.05)] border border-gray-100 overflow-hidden">
+            <div class="p-5 flex items-center justify-between" style="border-bottom: 1px solid #f0f4f9;">
+                <div>
+                    <h2 class="text-sm font-bold text-gray-800">Shipment Terbaru</h2>
+                    <p class="text-xs text-gray-400 mt-0.5">Pantauan staging kontainer dan truk terkini</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <a href="{{ route('shipments.index') }}"
+                       class="text-xs font-semibold px-3 py-1.5 rounded-xl border border-gray-200 text-gray-600 hover:text-spv-blue hover:border-spv-blue transition-all"
+                       onmouseover="this.style.background='#eff4fc'" onmouseout="this.style.background='transparent'">
+                        Lihat Semua
+                    </a>
+                    <a href="{{ route('field-app.create') }}" target="_blank"
+                       class="text-xs font-bold px-3.5 py-1.5 rounded-xl text-white flex items-center gap-1.5 shadow-sm transition-all"
+                       style="background: linear-gradient(135deg, #285491, #0d5950);"
+                       onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
+                        <i class="ph-bold ph-plus text-xs"></i>
+                        <span>Buat Staging</span>
+                    </a>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left whitespace-nowrap">
+                    <thead style="background:#fafbfd;">
+                        <tr>
+                            <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Identitas</th>
+                            <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider hidden sm:table-cell">Produk</th>
+                            <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider hidden md:table-cell">Tipe</th>
+                            <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider hidden lg:table-cell">Petugas</th>
+                            <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider hidden lg:table-cell">Waktu</th>
+                            <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Status</th>
+                            <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-right">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($shipments ?? \App\Models\Shipment::with('karyawan')->latest()->take(5)->get() as $s)
+                            <tr style="border-top: 1px solid #f0f4f9;" onmouseover="this.style.background='#fafcff'" onmouseout="this.style.background='transparent'">
+                                <td class="px-5 py-3.5">
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style="background:#eff4fc;">
+                                            <i class="ph-fill {{ $s->jenis_pengiriman === 'export' ? 'ph-shipping-container' : 'ph-truck' }} text-sm" style="color:#285491;"></i>
+                                        </div>
+                                        <div>
+                                            <a href="{{ route('shipments.show', $s->id) }}" class="text-xs font-bold text-gray-800 hover:text-spv-blue">
+                                                {{ $s->nomor_container_atau_plat ?? 'SPV-' . $s->id }}
+                                            </a>
+                                            <p class="text-[10px] text-gray-400">{{ $s->plat_nomor ?? '—' }}</p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-5 py-3.5 hidden sm:table-cell"><p class="text-xs text-gray-600 capitalize">{{ $s->jenis_produk }}</p></td>
+                                <td class="px-5 py-3.5 hidden md:table-cell">
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize {{ $s->jenis_pengiriman === 'export' ? 'bg-purple-50 text-purple-700' : 'bg-gray-100 text-gray-700' }}">
+                                        {{ $s->jenis_pengiriman }}
+                                    </span>
+                                </td>
+                                <td class="px-5 py-3.5 hidden lg:table-cell"><p class="text-xs text-gray-600">{{ $s->karyawan?->nama ?? '-' }}</p></td>
+                                <td class="px-5 py-3.5 hidden lg:table-cell"><p class="text-[10px] text-gray-400">{{ $s->created_at->format('d M, H:i') }}</p></td>
+                                <td class="px-5 py-3.5">
+                                    @if($s->status === 'submitted')
+                                        <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-green-50 text-green-700 border border-green-200">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>Submitted
+                                        </span>
+                                    @else
+                                        <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>Draft
+                                        </span>
+                                    @endif
+                                </td>
+                                <td class="px-5 py-3.5 text-right">
+                                    <div class="flex items-center justify-end gap-1">
+                                        <a href="{{ route('shipments.show', $s->id) }}"
+                                           title="Lihat Detail (Read)"
+                                           class="p-1.5 rounded-lg transition-all text-gray-400 hover:text-spv-blue hover:bg-blue-50">
+                                            <i class="ph-bold ph-eye text-base"></i>
+                                        </a>
+                                        <a href="{{ route('field-app.timeline', $s->id) }}"
+                                           title="Buka Timeline"
+                                           target="_blank"
+                                           class="p-1.5 rounded-lg transition-all text-gray-400 hover:text-spv-green hover:bg-emerald-50">
+                                            <i class="ph-bold ph-device-mobile text-base"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="7" class="text-center py-8 text-xs text-gray-400">Belum ada shipment</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
         </div>
-        <div class="overflow-x-auto">
-            <table class="w-full text-left text-sm whitespace-nowrap">
-                <thead class="bg-gray-50/50 text-gray-500 uppercase text-xs font-semibold tracking-wider">
-                    <tr>
-                        <th class="px-6 py-4">No. Container / Plat</th>
-                        <th class="px-6 py-4">Produk</th>
-                        <th class="px-6 py-4">Tipe</th>
-                        <th class="px-6 py-4">Petugas</th>
-                        <th class="px-6 py-4">Waktu</th>
-                        <th class="px-6 py-4">Status</th>
-                        <th class="px-6 py-4 text-right">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-100">
-                    <!-- Row 1 -->
-                    <tr class="hover:bg-blue-50/30 transition-colors group">
-                        <td class="px-6 py-4">
-                            <div class="flex items-center">
-                                <i class="ph-fill ph-shipping-container text-spv-blue text-lg mr-2"></i>
-                                <span class="font-medium text-gray-800">MSKU1234567</span>
-                            </div>
-                        </td>
-                        <td class="px-6 py-4 text-gray-600">Fiber</td>
-                        <td class="px-6 py-4">
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-spv-light-green text-spv-green">
-                                Export
-                            </span>
-                        </td>
-                        <td class="px-6 py-4 text-gray-600">Budi Santoso</td>
-                        <td class="px-6 py-4 text-gray-500 text-xs">Hari ini, 14:30</td>
-                        <td class="px-6 py-4">
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-600 border border-green-200">
-                                <div class="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5"></div> Submitted
-                            </span>
-                        </td>
-                        <td class="px-6 py-4 text-right">
-                            <button class="p-1.5 text-gray-400 hover:text-spv-blue hover:bg-blue-50 rounded-lg transition-colors">
-                                <i class="ph-bold ph-eye text-lg"></i>
-                            </button>
-                            <button class="p-1.5 text-gray-400 hover:text-spv-dark-teal hover:bg-[#0d5950]/10 rounded-lg transition-colors">
-                                <i class="ph-bold ph-download-simple text-lg"></i>
-                            </button>
-                        </td>
-                    </tr>
-                    <!-- Row 2 -->
-                    <tr class="hover:bg-blue-50/30 transition-colors group">
-                        <td class="px-6 py-4">
-                            <div class="flex items-center">
-                                <i class="ph-fill ph-truck text-gray-400 text-lg mr-2"></i>
-                                <span class="font-medium text-gray-800">B 1234 CD</span>
-                            </div>
-                        </td>
-                        <td class="px-6 py-4 text-gray-600">Sodium</td>
-                        <td class="px-6 py-4">
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                                Lokal
-                            </span>
-                        </td>
-                        <td class="px-6 py-4 text-gray-600">Agus Supriyadi</td>
-                        <td class="px-6 py-4 text-gray-500 text-xs">Hari ini, 13:15</td>
-                        <td class="px-6 py-4">
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-50 text-yellow-600 border border-yellow-200">
-                                <div class="w-1.5 h-1.5 rounded-full bg-yellow-500 mr-1.5 animate-pulse"></div> Draft
-                            </span>
-                        </td>
-                        <td class="px-6 py-4 text-right">
-                            <button class="p-1.5 text-gray-400 hover:text-spv-blue hover:bg-blue-50 rounded-lg transition-colors">
-                                <i class="ph-bold ph-eye text-lg"></i>
-                            </button>
-                            <button disabled class="p-1.5 text-gray-200 cursor-not-allowed rounded-lg">
-                                <i class="ph-bold ph-download-simple text-lg"></i>
-                            </button>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+
+        <!-- Right Side: Field App Simulator Card & Info -->
+        <div class="flex flex-col gap-5">
+
+            <!-- Field App Mobile Simulator Promotion Card -->
+            <div class="rounded-2xl p-5 text-white relative overflow-hidden shadow-lg"
+                 style="background: linear-gradient(145deg, #1a3c6e 0%, #285491 55%, #0d5950 100%); box-shadow: 0 8px 24px rgba(40,84,145,0.25);">
+                <div class="relative z-10">
+                    <div class="w-10 h-10 rounded-xl flex items-center justify-center mb-3"
+                         style="background: linear-gradient(135deg, #059e3d, #63c384); box-shadow: 0 4px 14px rgba(5,158,61,0.4);">
+                        <i class="ph-fill ph-device-mobile text-xl text-white"></i>
+                    </div>
+                    <h3 class="text-base font-bold leading-snug">Field App Simulator</h3>
+                    <p class="text-xs mt-1" style="color: rgba(255,255,255,0.7);">
+                        Aplikasi mobile staging untuk operator di lapangan. Dilengkapi fitur <strong>OCR Surat Jalan</strong>, stempel <strong>Timestamp otomatis</strong>, dan <strong>27 Titik SOP Foto</strong>.
+                    </p>
+                    <div class="mt-4 flex flex-col sm:flex-row gap-2">
+                        <a href="{{ route('field-app.create') }}" target="_blank"
+                           class="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all shadow-md"
+                           style="background: white; color: #285491;"
+                           onmouseover="this.style.background='#f0f4f9'" onmouseout="this.style.background='white'">
+                            <i class="ph-bold ph-arrow-square-out text-sm"></i>
+                            Buka Field App
+                        </a>
+                        <a href="{{ route('shipments.index') }}"
+                           class="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs border transition-all text-white"
+                           style="border-color: rgba(255,255,255,0.25);"
+                           onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">
+                            Semua Data
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Status Guide -->
+            <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-[0_1px_6px_rgba(40,84,145,0.05)]">
+                <h3 class="text-xs font-bold text-gray-800 mb-3">Panduan Status Staging</h3>
+                <div class="space-y-2.5">
+                    <div class="flex items-start gap-2.5">
+                        <span class="w-2 h-2 rounded-full bg-amber-500 mt-1.5 shrink-0"></span>
+                        <div>
+                            <p class="text-xs font-bold text-gray-700">Draft / Berjalan</p>
+                            <p class="text-[11px] text-gray-400">Petugas sedang mengunggah 27 bukti foto SOP dan belum submit final.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-2.5">
+                        <span class="w-2 h-2 rounded-full bg-green-500 mt-1.5 shrink-0"></span>
+                        <div>
+                            <p class="text-xs font-bold text-gray-700">Submitted / Selesai</p>
+                            <p class="text-[11px] text-gray-400">Seluruh foto SOP dan data surat jalan telah divalidasi dan di-submit.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
+
     </div>
+
 </x-layout>

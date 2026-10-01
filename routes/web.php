@@ -1,17 +1,32 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\FieldAppController;
+use App\Http\Controllers\ShipmentController;
+use App\Models\Karyawan;
+use App\Models\Shipment;
+use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return view('dashboard');
+    $shipments = Shipment::with('karyawan')->latest()->take(6)->get();
+    $totalShipments = Shipment::count();
+    $totalDraft = Shipment::where('status', 'draft')->count();
+    $totalSubmitted = Shipment::where('status', 'submitted')->count();
+    $totalPetugas = Karyawan::where('status', 'aktif')->count();
+
+    return view('dashboard', compact('shipments', 'totalShipments', 'totalDraft', 'totalSubmitted', 'totalPetugas'));
 })->name('dashboard');
 
-Route::get('/shipments', function () { return "<x-layout><div class='p-8'><h1 class='text-2xl font-bold'>Daftar Shipments</h1><p class='mt-4'>(Mock Page)</p><a href='".route('field-app.create')."' class='mt-4 inline-block bg-spv-blue text-white px-4 py-2 rounded'>+ Buat Shipment Lapangan (Simulator)</a></div></x-layout>"; })->name('shipments.index');
-Route::get('/karyawan', function () { return "<x-layout><div class='p-8'><h1 class='text-2xl font-bold'>Daftar Petugas</h1><p class='mt-4'>(Mock Page)</p></div></x-layout>"; })->name('karyawan.index');
-Route::get('/laporan', function () { return "<x-layout><div class='p-8'><h1 class='text-2xl font-bold'>Laporan</h1><p class='mt-4'>(Mock Page)</p></div></x-layout>"; })->name('laporan.index');
-Route::get('/pengaturan', function () { return "<x-layout><div class='p-8'><h1 class='text-2xl font-bold'>Pengaturan</h1><p class='mt-4'>(Mock Page)</p></div></x-layout>"; })->name('settings.index');
-
+Route::get('/shipments', [ShipmentController::class, 'index'])->name('shipments.index');
+Route::get('/shipments/{shipment}', [ShipmentController::class, 'show'])->name('shipments.show');
+Route::get('/karyawan', function () {
+    return "<x-layout><div class='p-8'><h1 class='text-2xl font-bold'>Daftar Petugas</h1><p class='mt-4'>(Mock Page)</p></div></x-layout>";
+})->name('karyawan.index');
+Route::get('/laporan', function () {
+    return "<x-layout><div class='p-8'><h1 class='text-2xl font-bold'>Laporan</h1><p class='mt-4'>(Mock Page)</p></div></x-layout>";
+})->name('laporan.index');
+Route::get('/pengaturan', function () {
+    return "<x-layout><div class='p-8'><h1 class='text-2xl font-bold'>Pengaturan</h1><p class='mt-4'>(Mock Page)</p></div></x-layout>";
+})->name('settings.index');
 
 // Field App Routes
 Route::get('/field-app/create', [FieldAppController::class, 'create'])->name('field-app.create');
