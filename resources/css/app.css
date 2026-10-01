@@ -1,0 +1,27 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+
+@theme {
+    --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+
+    --color-spv-blue: #285491;
+    --color-spv-green: #059e3d;
+    --color-spv-dark-teal: #0d5950;
+    --color-spv-light-green: #e1f8eb;
+    --color-spv-grey-1: #c8c5c0;
+    --color-spv-grey-2: #d7d7d5;
+    --color-spv-grey-3: #aeacad;
+    --color-spv-soft-green: #63c384;
+}
+
+@layer base {
+    body {
+        background-color: var(--color-gray-50);
+        color: var(--color-gray-800);
+        font-family: var(--font-sans);
+        -webkit-font-smoothing: antialiased;
+    }
+}
