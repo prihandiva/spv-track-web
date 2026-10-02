@@ -51,10 +51,11 @@
             <p class="text-2xl font-bold text-gray-800">{{ $totalDraft ?? \App\Models\Shipment::where('status','draft')->count() }}</p>
         </div>
 
-        <div class="bg-white rounded-2xl p-4 lg:p-5 group cursor-default transition-all duration-300 hover:-translate-y-0.5"
-             style="border: 1px solid #e8edf3; box-shadow: 0 1px 6px rgba(40,84,145,0.05);"
-             onmouseover="this.style.boxShadow='0 8px 24px rgba(40,84,145,0.12)'; this.style.borderColor='#c5d4ea'"
-             onmouseout="this.style.boxShadow='0 1px 6px rgba(40,84,145,0.05)'; this.style.borderColor='#e8edf3'">
+        <a href="{{ route('karyawan.index') }}"
+           class="bg-white rounded-2xl p-4 lg:p-5 group transition-all duration-300 hover:-translate-y-0.5 block"
+           style="border: 1px solid #e8edf3; box-shadow: 0 1px 6px rgba(40,84,145,0.05);"
+           onmouseover="this.style.boxShadow='0 8px 24px rgba(40,84,145,0.12)'; this.style.borderColor='#c5d4ea'"
+           onmouseout="this.style.boxShadow='0 1px 6px rgba(40,84,145,0.05)'; this.style.borderColor='#e8edf3'">
             <div class="flex items-start justify-between mb-3">
                 <div class="w-10 h-10 rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110" style="background:#e8f5f3;">
                     <i class="ph-fill ph-users text-xl" style="color:#0d5950;"></i>
@@ -63,7 +64,7 @@
             </div>
             <p class="text-xs font-medium text-gray-400 mb-0.5">Petugas Staging</p>
             <p class="text-2xl font-bold text-gray-800">{{ $totalPetugas ?? \App\Models\Karyawan::count() }}</p>
-        </div>
+        </a>
 
     </div>
 
@@ -116,9 +117,9 @@
                                         </div>
                                         <div>
                                             <a href="{{ route('shipments.show', $s->id) }}" class="text-xs font-bold text-gray-800 hover:text-spv-blue">
-                                                {{ $s->nomor_container_atau_plat ?? 'SPV-' . $s->id }}
+                                                {{ $s->packing_list_no ?: ($s->nomor_container_atau_plat ?? 'SPV-' . $s->id) }}
                                             </a>
-                                            <p class="text-[10px] text-gray-400">{{ $s->plat_nomor ?? '—' }}</p>
+                                            <p class="text-[10px] text-gray-400">Cont: {{ $s->nomor_container_atau_plat ?? '-' }} &bull; Plat: {{ $s->plat_nomor ?? '—' }}</p>
                                         </div>
                                     </div>
                                 </td>
@@ -149,10 +150,10 @@
                                             <i class="ph-bold ph-eye text-base"></i>
                                         </a>
                                         <a href="{{ route('field-app.timeline', $s->id) }}"
-                                           title="Buka Timeline"
+                                           title="Buka Loading Evidence"
                                            target="_blank"
                                            class="p-1.5 rounded-lg transition-all text-gray-400 hover:text-spv-green hover:bg-emerald-50">
-                                            <i class="ph-bold ph-device-mobile text-base"></i>
+                                            <i class="ph-bold ph-camera text-base"></i>
                                         </a>
                                     </div>
                                 </td>
@@ -167,10 +168,10 @@
             </div>
         </div>
 
-        <!-- Right Side: Field App Simulator Card & Info -->
+        <!-- Right Side: Field App Mobile Card & Info -->
         <div class="flex flex-col gap-5">
 
-            <!-- Field App Mobile Simulator Promotion Card -->
+            <!-- Field App Mobile Card -->
             <div class="rounded-2xl p-5 text-white relative overflow-hidden shadow-lg"
                  style="background: linear-gradient(145deg, #1a3c6e 0%, #285491 55%, #0d5950 100%); box-shadow: 0 8px 24px rgba(40,84,145,0.25);">
                 <div class="relative z-10">
@@ -178,9 +179,9 @@
                          style="background: linear-gradient(135deg, #059e3d, #63c384); box-shadow: 0 4px 14px rgba(5,158,61,0.4);">
                         <i class="ph-fill ph-device-mobile text-xl text-white"></i>
                     </div>
-                    <h3 class="text-base font-bold leading-snug">Field App Simulator</h3>
+                    <h3 class="text-base font-bold leading-snug">Field App Mobile</h3>
                     <p class="text-xs mt-1" style="color: rgba(255,255,255,0.7);">
-                        Aplikasi mobile staging untuk operator di lapangan. Dilengkapi fitur <strong>OCR Surat Jalan</strong>, stempel <strong>Timestamp otomatis</strong>, dan <strong>27 Titik SOP Foto</strong>.
+                        Aplikasi mobile staging untuk operator di lapangan. Dilengkapi fitur <strong>OCR Surat Jalan</strong>, stempel <strong>Timestamp otomatis</strong>, dan <strong>Loading Evidence 27 Titik SOP</strong>.
                     </p>
                     <div class="mt-4 flex flex-col sm:flex-row gap-2">
                         <a href="{{ route('field-app.create') }}" target="_blank"

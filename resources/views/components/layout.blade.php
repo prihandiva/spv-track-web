@@ -46,7 +46,7 @@
         
         @keyframes fadeSlideIn {
             from { opacity: 0; transform: translateY(8px); }
-            to { opacity: 1; transform: translateY(0); }
+            to { opacity: 1; transform: none; }
         }
         .animate-fade-in { animation: fadeSlideIn 0.35s ease forwards; }
         
@@ -184,9 +184,9 @@
     <!-- MAIN -->
     <div class="flex-1 flex flex-col h-screen overflow-hidden">
 
-        <header class="h-[68px] bg-white flex items-center justify-between px-4 lg:px-7 shrink-0"
+        <header class="h-[68px] bg-white flex items-center justify-between px-4 lg:px-7 shrink-0 gap-4"
                 style="border-bottom: 1px solid #e8edf3; box-shadow: 0 1px 6px rgba(40,84,145,0.06);">
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-3 shrink-0">
                 <button type="button" @click="sidebarOpen = true" class="lg:hidden p-2 rounded-xl text-gray-500 hover:text-spv-blue hover:bg-gray-100 transition-all" aria-label="Buka Menu">
                     <i class="ph-bold ph-list text-2xl"></i>
                 </button>
@@ -198,7 +198,12 @@
                 </div>
             </div>
 
-            <div class="flex items-center gap-2">
+            <!-- Server Time (WIB) -->
+            <div class="flex items-center justify-center">
+                <x-server-clock />
+            </div>
+
+            <div class="flex items-center gap-2 shrink-0">
                 <button class="flex items-center gap-1.5 text-gray-400 text-xs font-medium px-3 py-2 rounded-xl hover:text-red-600 hover:bg-red-50 transition-all">
                     <span class="hidden lg:inline">Keluar</span>
                     <i class="ph-bold ph-sign-out text-base"></i>
@@ -207,8 +212,44 @@
         </header>
 
         <main class="flex-1 overflow-x-hidden overflow-y-auto p-4 lg:p-6 animate-fade-in">
+            <!-- Toast / Flash Notifications -->
+            @if(session('success'))
+                <div x-data="{ show: true }" x-show="show" x-transition.duration.300ms class="mb-5 flex items-center justify-between p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 shadow-sm">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                            <i class="ph-bold ph-check text-lg"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs font-bold leading-tight text-emerald-900">Berhasil</p>
+                            <p class="text-xs text-emerald-700 mt-0.5">{{ session('success') }}</p>
+                        </div>
+                    </div>
+                    <button type="button" @click="show = false" class="text-emerald-500 hover:text-emerald-800 p-1.5 rounded-lg transition-colors" aria-label="Tutup">
+                        <i class="ph-bold ph-x text-base"></i>
+                    </button>
+                </div>
+            @endif
+
+            @if(session('error'))
+                <div x-data="{ show: true }" x-show="show" x-transition.duration.300ms class="mb-5 flex items-center justify-between p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 shadow-sm">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                            <i class="ph-bold ph-warning-circle text-lg"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs font-bold leading-tight text-rose-900">Perhatian</p>
+                            <p class="text-xs text-rose-700 mt-0.5">{{ session('error') }}</p>
+                        </div>
+                    </div>
+                    <button type="button" @click="show = false" class="text-rose-500 hover:text-rose-800 p-1.5 rounded-lg transition-colors" aria-label="Tutup">
+                        <i class="ph-bold ph-x text-base"></i>
+                    </button>
+                </div>
+            @endif
+
             {{ $slot }}
         </main>
+
     </div>
 
 </body>

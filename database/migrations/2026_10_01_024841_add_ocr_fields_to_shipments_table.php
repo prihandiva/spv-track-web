@@ -39,7 +39,7 @@ return new class extends Migration
                 'tujuan_pengiriman',
                 'agen_forwarding',
                 'waktu_kedatangan_container',
-                'waktu_keberangkatan_container'
+                'waktu_keberangkatan_container',
             ]);
         });
     }

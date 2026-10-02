@@ -10,7 +10,7 @@
             <a href="{{ route('field-app.create') }}" target="_blank"
                class="flex items-center gap-2 bg-spv-blue hover:bg-blue-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-[0_4px_12px_rgba(40,84,145,0.25)] hover:-translate-y-0.5 transition-all">
                 <i class="ph-bold ph-plus text-sm"></i>
-                Buat Shipment (Simulator)
+                Buat Shipment (Field App)
             </a>
         </div>
     </div>
@@ -20,9 +20,9 @@
         
         <!-- Toolbar & Search -->
         <form method="GET" action="{{ route('shipments.index') }}" class="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4" style="border-bottom: 1px solid #f0f4f9;">
-            <div class="relative w-full md:w-72">
+            <div class="relative w-full md:w-80">
                 <i class="ph-bold ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
-                <input type="text" name="search" value="{{ request('search') }}" placeholder="Cari nomor plat / container / sopir..." 
+                <input type="text" name="search" value="{{ request('search') }}" placeholder="Cari No. Packing List / Plat / Container / Sopir..." 
                        class="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-spv-blue focus:border-spv-blue outline-none transition-all">
             </div>
             
@@ -40,7 +40,7 @@
             <table class="w-full text-left whitespace-nowrap">
                 <thead style="background:#fafbfd;">
                     <tr>
-                        <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Identitas</th>
+                        <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">No. Packing List / Identitas</th>
                         <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Produk</th>
                         <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Tipe</th>
                         <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Petugas</th>
@@ -59,9 +59,9 @@
                                     </div>
                                     <div>
                                         <a href="{{ route('shipments.show', $shipment->id) }}" class="text-xs font-bold text-gray-800 hover:text-spv-blue transition-colors">
-                                            {{ $shipment->nomor_container_atau_plat ?? 'SPV-' . $shipment->id }}
+                                            {{ $shipment->packing_list_no ?: ($shipment->nomor_container_atau_plat ?? 'SPV-' . $shipment->id) }}
                                         </a>
-                                        <p class="text-[10px] text-gray-400">{{ $shipment->plat_nomor ?? ($shipment->shipment_no ?? '—') }}</p>
+                                        <p class="text-[10px] text-gray-400">Cont: {{ $shipment->nomor_container_atau_plat ?? '-' }} &bull; Plat: {{ $shipment->plat_nomor ?? ($shipment->shipment_no ?? '—') }}</p>
                                     </div>
                                 </div>
                             </td>
@@ -94,10 +94,10 @@
                                         <i class="ph-bold ph-eye text-base"></i>
                                     </a>
                                     <a href="{{ route('field-app.timeline', $shipment->id) }}"
-                                       title="Buka Timeline Lapangan"
+                                       title="Buka Loading Evidence"
                                        target="_blank"
                                        class="p-1.5 rounded-lg transition-all text-gray-400 hover:text-spv-green hover:bg-emerald-50">
-                                        <i class="ph-bold ph-device-mobile text-base"></i>
+                                        <i class="ph-bold ph-camera text-base"></i>
                                     </a>
                                 </div>
                             </td>

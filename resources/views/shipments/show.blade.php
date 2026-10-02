@@ -1,4 +1,4 @@
-<x-layout :title="'Detail Shipment: ' . ($shipment->nomor_container_atau_plat ?? 'SPV-' . $shipment->id)">
+<x-layout :title="'Detail Shipment: ' . ($shipment->packing_list_no ?: ($shipment->nomor_container_atau_plat ?? 'SPV-' . $shipment->id))">
 
     <!-- Top Navigation & Actions -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -10,7 +10,7 @@
             <div>
                 <div class="flex items-center gap-2">
                     <h1 class="text-xl font-bold text-gray-800 leading-tight">
-                        {{ $shipment->nomor_container_atau_plat ?? 'Shipment #' . $shipment->id }}
+                        {{ $shipment->packing_list_no ?: ($shipment->nomor_container_atau_plat ?? 'Shipment #' . $shipment->id) }}
                     </h1>
                     @if($shipment->status === 'submitted')
                         <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-50 text-green-700 border border-green-200">
@@ -25,7 +25,7 @@
                     @endif
                 </div>
                 <p class="text-xs text-gray-500 mt-0.5">
-                    Dibuat pada {{ $shipment->created_at->format('d M Y, H:i') }} WIB &bull; Petugas: <strong class="text-gray-700">{{ $shipment->karyawan?->nama ?? '-' }}</strong>
+                    No. Container: <strong class="text-gray-700">{{ $shipment->nomor_container_atau_plat ?? '-' }}</strong> &bull; Plat: <strong class="text-gray-700">{{ $shipment->plat_nomor ?? '-' }}</strong> &bull; Dibuat pada {{ $shipment->created_at->format('d M Y, H:i') }} WIB &bull; Petugas: <strong class="text-gray-700">{{ $shipment->karyawan?->nama ?? '-' }}</strong>
                 </p>
             </div>
         </div>
@@ -38,8 +38,8 @@
             </button>
             <a href="{{ route('field-app.timeline', $shipment->id) }}" target="_blank"
                class="flex items-center gap-2 bg-spv-blue hover:bg-blue-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-[0_4px_12px_rgba(40,84,145,0.25)] hover:-translate-y-0.5 transition-all">
-                <i class="ph-bold ph-device-mobile text-base"></i>
-                <span>Buka di Field App</span>
+                <i class="ph-bold ph-camera text-base"></i>
+                <span>Buka Loading Evidence</span>
             </a>
         </div>
     </div>
@@ -170,24 +170,107 @@
     </div>
 
     <!-- Section 3: Galeri Bukti Foto SOP (27 Titik Inspeksi) -->
-    <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-[0_1px_6px_rgba(40,84,145,0.05)] mb-8" x-data="{ modalOpen: false, modalSrc: '', modalTitle: '', modalTs: '' }">
+    @php
+        $galleryItems = [];
+        foreach ($points as $p) {
+            $photo = $shipment->photos->firstWhere('point_no', $p->urutan);
+            $evidence = $photo ?: $shipment->evidenceItems->firstWhere('sop_photo_point_id', $p->id);
+            if ($evidence) {
+                $galleryItems[] = [
+                    'id' => 'point-' . $p->urutan,
+                    'point_no' => (int) $p->urutan,
+                    'title' => 'Titik ' . $p->urutan . ': ' . $p->nama_titik,
+                    'ts' => $photo ? $photo->stamped_at?->format('Y-m-d H:i:s \W\I\B') : ($evidence->captured_at ? $evidence->captured_at->format('Y-m-d H:i:s \W\I\B') : '-'),
+                    'src' => $photo ? $photo->stamped_url : asset('storage/' . $evidence->file_path),
+                    'orig' => $photo ? $photo->original_url : asset('storage/' . $evidence->file_path),
+                    'thumb' => $photo ? $photo->thumbnail_url : asset('storage/' . $evidence->file_path),
+                ];
+            }
+        }
+        foreach ($shipment->extraPhotos as $extra) {
+            $galleryItems[] = [
+                'id' => 'extra-' . $extra->id,
+                'point_no' => null,
+                'title' => 'Foto Ekstra: ' . $extra->point_label,
+                'ts' => $extra->stamped_at?->format('Y-m-d H:i:s \W\I\B') ?? '-',
+                'src' => $extra->stamped_url,
+                'orig' => $extra->original_url,
+                'thumb' => $extra->thumbnail_url,
+            ];
+        }
+    @endphp
+
+    <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-[0_1px_6px_rgba(40,84,145,0.05)] mb-8"
+         x-data="{
+             modalOpen: false,
+             currentIndex: 0,
+             gallery: {{ Js::from($galleryItems) }},
+             openModal(idx) {
+                 if (idx >= 0 && idx < this.gallery.length) {
+                     this.currentIndex = idx;
+                     this.modalOpen = true;
+                 }
+             },
+             openByPointNo(pointNo) {
+                 const idx = this.gallery.findIndex(g => g.point_no === pointNo);
+                 if (idx !== -1) {
+                     this.openModal(idx);
+                 }
+             },
+             openByExtraId(extraId) {
+                 const idx = this.gallery.findIndex(g => g.id === 'extra-' + extraId);
+                 if (idx !== -1) {
+                     this.openModal(idx);
+                 }
+             },
+             next() {
+                 if (this.gallery.length <= 1) return;
+                 this.currentIndex = (this.currentIndex + 1) % this.gallery.length;
+             },
+             prev() {
+                 if (this.gallery.length <= 1) return;
+                 this.currentIndex = (this.currentIndex - 1 + this.gallery.length) % this.gallery.length;
+             },
+             get currentItem() {
+                 return this.gallery[this.currentIndex] || {};
+             }
+         }"
+         @keydown.window.arrow-right="modalOpen && next()"
+         @keydown.window.arrow-left="modalOpen && prev()"
+         @keydown.window.escape="modalOpen = false">
+
         <div class="flex items-center justify-between pb-4 border-b border-gray-100 mb-5">
             <div>
                 <h2 class="text-sm font-bold text-gray-800 flex items-center gap-2">
                     <i class="ph-fill ph-camera text-spv-blue text-base"></i>
-                    Galeri Bukti Foto SOP (27 Titik Inspeksi)
+                    Galeri Loading Evidence (27 Titik SOP Inspeksi)
                 </h2>
-                <p class="text-xs text-gray-400 mt-0.5">Setiap foto dilengkapi stempel timestamp waktu nyata saat foto diambil.</p>
+                <p class="text-xs text-gray-400 mt-0.5">Setiap foto dilengkapi stempel timestamp waktu nyata server (WIB) dan tersimpan secara permanen.</p>
             </div>
-            <span class="text-xs font-bold px-3 py-1 rounded-full bg-blue-50 text-spv-blue border border-blue-100">
-                {{ $shipment->evidenceItems->count() }} / {{ count($points) }} Titik Selesai
-            </span>
+            <div class="flex items-center gap-2">
+                @php
+                    $totalPhotosCount = count($galleryItems);
+                    $extraPhotosCount = $shipment->extraPhotos->count();
+                @endphp
+                <span class="text-xs font-bold px-3 py-1 rounded-full bg-blue-50 text-spv-blue border border-blue-100">
+                    {{ $totalPhotosCount }} Foto Tersimpan
+                </span>
+                @if($extraPhotosCount > 0)
+                    <span class="text-xs font-bold px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-100">
+                        +{{ $extraPhotosCount }} Ekstra
+                    </span>
+                @endif
+            </div>
         </div>
 
+        <!-- 27 Titik SOP Grid -->
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
             @foreach($points as $point)
                 @php
-                    $evidence = $shipment->evidenceItems->firstWhere('sop_photo_point_id', $point->id);
+                    $photo = $shipment->photos->firstWhere('point_no', $point->urutan);
+                    $evidence = $photo ?: $shipment->evidenceItems->firstWhere('sop_photo_point_id', $point->id);
+                    $imageUrl = $photo ? $photo->thumbnail_url : ($evidence ? asset('storage/' . $evidence->file_path) : null);
+                    $stampedTime = $photo ? $photo->stamped_at?->format('d/m/Y H:i:s \W\I\B') : ($evidence?->captured_at ? $evidence->captured_at->format('Y-m-d H:i:s \W\I\B') : null);
                 @endphp
 
                 <div class="rounded-xl border {{ $evidence ? 'border-gray-200 bg-white shadow-sm' : 'border-dashed border-gray-200 bg-gray-50/50' }} overflow-hidden flex flex-col transition-all hover:shadow-md">
@@ -206,24 +289,25 @@
 
                     <!-- Photo Container -->
                     <div class="relative aspect-video bg-gray-900 overflow-hidden flex items-center justify-center group">
-                        @if($evidence)
-                            <img src="{{ asset('storage/' . $evidence->file_path) }}"
+                        @if($evidence && $imageUrl)
+                            <img src="{{ $imageUrl }}"
                                  alt="{{ $point->nama_titik }}"
                                  class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
                             
                             <!-- Timestamp Badge (Prominent on Bottom of Image) -->
-                            <div class="absolute bottom-2 left-2 right-2 bg-black/75 backdrop-blur-sm text-green-400 px-2 py-1 rounded text-[10px] font-mono font-bold flex items-center justify-between border border-white/10">
+                            <div class="absolute bottom-2 left-2 right-2 bg-black/75 backdrop-blur-sm text-amber-300 px-2 py-1 rounded text-[10px] font-mono font-bold flex items-center justify-between border border-white/10 pointer-events-none">
                                 <span class="flex items-center gap-1 truncate">
                                     <i class="ph-bold ph-calendar-check text-xs"></i>
-                                    {{ $evidence->captured_at ? $evidence->captured_at->format('Y-m-d H:i:s') . ' WIB' : 'Waktu terekam' }}
+                                    {{ $stampedTime ?: 'Waktu terekam' }}
                                 </span>
                                 <i class="ph-bold ph-magnifying-glass-plus text-xs text-white/80"></i>
                             </div>
 
                             <!-- Click to Zoom Button -->
                             <button type="button"
-                                    @click="modalSrc = '{{ asset('storage/' . $evidence->file_path) }}'; modalTitle = '{{ $point->urutan }}. {{ addslashes($point->nama_titik) }}'; modalTs = '{{ $evidence->captured_at ? $evidence->captured_at->format('Y-m-d H:i:s \W\I\B') : '-' }}'; modalOpen = true"
-                                    class="absolute inset-0 bg-transparent cursor-pointer">
+                                    @click="openByPointNo({{ $point->urutan }})"
+                                    class="absolute inset-0 bg-transparent cursor-pointer"
+                                    title="Klik untuk membuka viewer foto">
                             </button>
                         @else
                             <div class="text-center p-4">
@@ -246,30 +330,151 @@
             @endforeach
         </div>
 
-        <!-- Lightbox Modal for Photo Zoom -->
-        <div x-cloak x-show="modalOpen" x-transition.opacity class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4" @click="modalOpen = false">
-            <div class="bg-gray-900 border border-gray-700 rounded-2xl max-w-4xl w-full overflow-hidden shadow-2xl" @click.stop>
-                <div class="p-4 border-b border-gray-800 flex items-center justify-between text-white">
-                    <div>
-                        <h3 class="text-sm font-bold" x-text="modalTitle"></h3>
-                        <p class="text-xs text-green-400 font-mono mt-0.5 flex items-center gap-1.5">
-                            <i class="ph-bold ph-clock"></i> Timestamp Pengambilan: <span x-text="modalTs"></span>
-                        </p>
-                    </div>
-                    <button @click="modalOpen = false" class="text-gray-400 hover:text-white p-2 rounded-lg bg-gray-800">
-                        <i class="ph-bold ph-x text-lg"></i>
-                    </button>
-                </div>
-                <div class="p-2 bg-black flex items-center justify-center max-h-[75vh]">
-                    <img :src="modalSrc" class="max-h-[70vh] w-auto max-w-full object-contain rounded-lg">
-                </div>
-                <div class="p-3 bg-gray-900 border-t border-gray-800 flex justify-end">
-                    <a :href="modalSrc" target="_blank" class="text-xs font-semibold text-spv-blue bg-white px-3 py-1.5 rounded-lg flex items-center gap-1.5">
-                        <i class="ph-bold ph-arrow-square-out"></i> Buka Gambar Penuh
-                    </a>
+        <!-- Section Foto Ekstra jika ada -->
+        @if($shipment->extraPhotos->count() > 0)
+            <div class="mt-8 pt-6 border-t border-gray-100">
+                <h3 class="text-xs font-bold text-gray-700 uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+                    Foto Bukti Ekstra / Tambahan ({{ $shipment->extraPhotos->count() }} Foto)
+                </h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+                    @foreach($shipment->extraPhotos as $extra)
+                        <div class="rounded-xl border border-purple-100 bg-white shadow-sm overflow-hidden flex flex-col transition-all hover:shadow-md">
+                            <div class="p-3 border-b border-gray-100 flex items-center justify-between bg-purple-50/30">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-5 h-5 rounded-full bg-purple-100 text-purple-700 font-bold text-[10px] flex items-center justify-center shrink-0">+</span>
+                                    <p class="text-xs font-bold text-gray-800 truncate">{{ $extra->point_label }}</p>
+                                </div>
+                                <span class="text-[9px] font-bold text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded">Ekstra</span>
+                            </div>
+
+                            <div class="relative aspect-video bg-gray-900 overflow-hidden flex items-center justify-center group">
+                                <img src="{{ $extra->thumbnail_url }}" alt="{{ $extra->point_label }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                                <div class="absolute bottom-2 left-2 right-2 bg-black/75 backdrop-blur-sm text-amber-300 px-2 py-1 rounded text-[10px] font-mono font-bold flex items-center justify-between border border-white/10 pointer-events-none">
+                                    <span class="truncate">{{ $extra->stamped_at?->format('d/m/Y H:i:s \W\I\B') }}</span>
+                                    <i class="ph-bold ph-magnifying-glass-plus text-xs text-white/80"></i>
+                                </div>
+                                <button type="button"
+                                        @click="openByExtraId({{ $extra->id }})"
+                                        class="absolute inset-0 bg-transparent cursor-pointer"
+                                        title="Klik untuk membuka viewer foto">
+                                </button>
+                            </div>
+
+                            <div class="p-2.5 bg-gray-50/70 border-t border-gray-100 mt-auto text-[10px] text-gray-500 flex items-center justify-between">
+                                <span>{{ number_format($extra->size / 1024, 1) }} KB</span>
+                                <span class="text-spv-green font-bold flex items-center gap-1">
+                                    <i class="ph-fill ph-check-circle"></i> Terverifikasi
+                                </span>
+                            </div>
+                        </div>
+                    @endforeach
                 </div>
             </div>
-        </div>
+        @endif
+
+        <!-- Lightbox Modal Gallery Viewer with Left/Right Buttons & Keyboard Navigation -->
+        <template x-teleport="body">
+            <div x-cloak x-show="modalOpen" x-transition.opacity class="fixed inset-0 bg-black/85 backdrop-blur-md z-[9999] flex items-center justify-center p-3 sm:p-6" @click="modalOpen = false">
+                <div class="bg-gray-950 border border-gray-800 rounded-2xl max-w-5xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[92vh]" @click.stop>
+                    
+                    <!-- Modal Header -->
+                    <div class="p-4 border-b border-gray-800/80 bg-gray-900/95 flex items-center justify-between text-white shrink-0">
+                        <div class="flex items-center gap-3 min-w-0 pr-3">
+                            <span class="px-2.5 py-1 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30 text-xs font-mono font-bold shrink-0"
+                                  x-text="gallery.length > 0 ? (currentIndex + 1) + ' / ' + gallery.length : '0/0'">
+                            </span>
+                            <div class="truncate">
+                                <h3 class="text-sm font-bold text-white truncate" x-text="currentItem.title"></h3>
+                                <p class="text-xs text-amber-400 font-mono mt-0.5 flex items-center gap-1.5 truncate">
+                                    <i class="ph-bold ph-clock"></i>
+                                    <span>Timestamp: </span>
+                                    <span x-text="currentItem.ts" class="font-semibold"></span>
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-2 shrink-0">
+                            <!-- Keyboard shortcut hint -->
+                            <span class="hidden md:inline-flex text-[11px] text-gray-500 font-mono items-center gap-1 bg-gray-800/70 px-2 py-1 rounded border border-gray-700/60">
+                                <kbd class="text-gray-400">←</kbd> <kbd class="text-gray-400">→</kbd> panah
+                            </span>
+                            <button @click="modalOpen = false" class="text-gray-400 hover:text-white p-2 rounded-xl bg-gray-800 hover:bg-gray-700 transition-colors" title="Tutup (Esc)">
+                                <i class="ph-bold ph-x text-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Image Area with Floating Left / Right Buttons -->
+                    <div class="relative bg-black flex-1 flex items-center justify-center min-h-[320px] overflow-hidden select-none">
+                        
+                        <!-- Floating Tombol Navigasi KIRI (Prev) -->
+                        <button type="button"
+                                x-show="gallery.length > 1"
+                                @click.stop="prev()"
+                                class="absolute left-3 sm:left-5 top-1/2 -translate-y-1/2 z-20 w-11 h-11 sm:w-13 sm:h-13 rounded-full bg-black/60 hover:bg-black/90 active:scale-90 text-white flex items-center justify-center border border-white/20 shadow-2xl backdrop-blur-md transition-all hover:scale-110 group/btn"
+                                title="Foto Sebelumnya (Panah Kiri)">
+                            <i class="ph-bold ph-caret-left text-2xl text-white group-hover/btn:-translate-x-0.5 transition-transform"></i>
+                        </button>
+
+                        <!-- Main Image Display -->
+                        <div class="p-2 sm:p-4 flex items-center justify-center w-full h-full max-h-[72vh]">
+                            <img :src="currentItem.src"
+                                 :alt="currentItem.title"
+                                 class="max-h-[68vh] w-auto max-w-full object-contain rounded-lg shadow-2xl transition-all duration-150">
+                        </div>
+
+                        <!-- Floating Tombol Navigasi KANAN (Next) -->
+                        <button type="button"
+                                x-show="gallery.length > 1"
+                                @click.stop="next()"
+                                class="absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 z-20 w-11 h-11 sm:w-13 sm:h-13 rounded-full bg-black/60 hover:bg-black/90 active:scale-90 text-white flex items-center justify-center border border-white/20 shadow-2xl backdrop-blur-md transition-all hover:scale-110 group/btn"
+                                title="Foto Selanjutnya (Panah Kanan)">
+                            <i class="ph-bold ph-caret-right text-2xl text-white group-hover/btn:translate-x-0.5 transition-transform"></i>
+                        </button>
+                    </div>
+
+                    <!-- Modal Footer -->
+                    <div class="p-3 bg-gray-900/95 border-t border-gray-800/80 flex flex-wrap items-center justify-between gap-3 shrink-0">
+                        <div>
+                            <template x-if="currentItem.orig">
+                                <a :href="currentItem.orig" target="_blank"
+                                   class="text-xs font-semibold text-gray-300 hover:text-white bg-gray-800 hover:bg-gray-700 px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 border border-gray-700 transition-colors">
+                                    <i class="ph-bold ph-file-arrow-down text-sm"></i>
+                                    <span>Unduh File Asli</span>
+                                </a>
+                            </template>
+                        </div>
+
+                        <!-- Center Navigation Controls -->
+                        <div class="flex items-center gap-2" x-show="gallery.length > 1">
+                            <button type="button"
+                                    @click="prev()"
+                                    class="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-white text-xs font-semibold flex items-center gap-1.5 border border-gray-700 active:scale-95 transition-all">
+                                <i class="ph-bold ph-caret-left text-sm"></i> Sebelumnya
+                            </button>
+
+                            <div class="px-3 py-1 rounded-md bg-black/50 border border-gray-800 text-xs font-mono text-gray-300">
+                                <span x-text="currentIndex + 1"></span> / <span x-text="gallery.length"></span>
+                            </div>
+
+                            <button type="button"
+                                    @click="next()"
+                                    class="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-white text-xs font-semibold flex items-center gap-1.5 border border-gray-700 active:scale-95 transition-all">
+                                Selanjutnya <i class="ph-bold ph-caret-right text-sm"></i>
+                            </button>
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                            <a :href="currentItem.src" target="_blank"
+                               class="text-xs font-semibold text-white bg-spv-blue hover:bg-blue-700 px-3.5 py-1.5 rounded-lg inline-flex items-center gap-1.5 shadow-sm transition-colors">
+                                <i class="ph-bold ph-arrow-square-out text-sm"></i> Buka Gambar Penuh
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </template>
     </div>
 
 </x-layout>

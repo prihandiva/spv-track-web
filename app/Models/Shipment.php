@@ -66,4 +66,19 @@ class Shipment extends Model
     {
         return $this->hasMany(EvidenceItem::class);
     }
+
+    public function photos(): HasMany
+    {
+        return $this->hasMany(ShipmentPhoto::class);
+    }
+
+    public function timelinePhotos(): HasMany
+    {
+        return $this->hasMany(ShipmentPhoto::class)->where('is_extra', false)->orderBy('point_no');
+    }
+
+    public function extraPhotos(): HasMany
+    {
+        return $this->hasMany(ShipmentPhoto::class)->where('is_extra', true)->latest();
+    }
 }

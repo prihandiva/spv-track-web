@@ -78,7 +78,7 @@
             border-radius: 16px;
             border: 1px solid #e8edf3;
             box-shadow: 0 1px 4px rgba(40,84,145,0.05);
-            overflow: hidden;
+            position: relative;
         }
         .section-card-header {
             padding: 12px 16px;
@@ -86,10 +86,21 @@
             align-items: center;
             gap: 10px;
             border-bottom: 1px solid #f0f4f9;
+            border-top-left-radius: 15px;
+            border-top-right-radius: 15px;
             cursor: pointer;
             user-select: none;
         }
         .section-card-body { padding: 14px 16px; }
+
+        @media (max-width: 640px) {
+            .field-app-main {
+                padding: 10px 8px 90px !important;
+            }
+            .section-card-body {
+                padding: 14px 12px !important;
+            }
+        }
 
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(6px); }
@@ -119,13 +130,16 @@
                 <p style="font-size: 9px; color: rgba(255,255,255,0.5); font-weight: 400;">SPV-Track Monitoring</p>
             </div>
         </div>
-        <div style="width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.15); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; cursor: pointer;">
-            OP
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <x-server-clock variant="dark" />
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.15); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; cursor: pointer;">
+                OP
+            </div>
         </div>
     </header>
 
     <!-- Main -->
-    <main style="flex: 1; width: 100%; max-width: 720px; margin: 0 auto; padding: 16px 16px 80px; display: flex; flex-direction: column; gap: 12px;" class="animate-in">
+    <main style="flex: 1; width: 100%; max-width: 860px; margin: 0 auto; padding: 14px 16px 80px; display: flex; flex-direction: column; gap: 14px;" class="field-app-main animate-in">
         {{ $slot }}
     </main>
 
