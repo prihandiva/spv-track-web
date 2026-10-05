@@ -37,11 +37,18 @@
                 <i class="ph-bold ph-file-zip text-base"></i>
                 <span>Download Foto (ZIP)</span>
             </a>
-            <button onclick="window.print()" type="button"
-                    class="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 hover:text-spv-blue hover:border-spv-blue text-xs font-bold px-3.5 py-2.5 rounded-xl shadow-sm transition-all">
+            <a href="{{ route('shipments.download-pdf', $shipment->id) }}"
+               class="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-3.5 py-2.5 rounded-xl shadow-sm hover:-translate-y-0.5 transition-all"
+               title="Download Laporan Dokumen Lengkap & 27 Foto Evidence (.PDF)">
+                <i class="ph-bold ph-file-pdf text-base"></i>
+                <span>Download PDF</span>
+            </a>
+            <a href="{{ route('shipments.report', $shipment->id) }}" target="_blank"
+               class="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 hover:text-spv-blue hover:border-spv-blue text-xs font-bold px-3.5 py-2.5 rounded-xl shadow-sm transition-all"
+               title="Buka Pratinjau & Cetak Dokumen Laporan">
                 <i class="ph-bold ph-printer text-base"></i>
                 <span class="hidden sm:inline">Cetak Dokumen</span>
-            </button>
+            </a>
             <a href="{{ route('field-app.timeline', $shipment->id) }}" target="_blank"
                class="flex items-center gap-2 bg-spv-blue hover:bg-blue-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-[0_4px_12px_rgba(40,84,145,0.25)] hover:-translate-y-0.5 transition-all">
                 <i class="ph-bold ph-camera text-base"></i>
@@ -366,6 +373,12 @@
                        title="Download seluruh bukti foto dalam format ZIP">
                         <i class="ph-bold ph-file-zip text-sm"></i>
                         <span>Download ZIP</span>
+                    </a>
+                    <a href="{{ route('shipments.download-pdf', $shipment->id) }}"
+                       class="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-colors shadow-xs"
+                       title="Download dokumen laporan lengkap 27 foto (.PDF)">
+                        <i class="ph-bold ph-file-pdf text-sm"></i>
+                        <span>Download PDF</span>
                     </a>
                 @endif
                 <span class="text-xs font-bold px-3 py-1 rounded-full bg-blue-50 text-spv-blue border border-blue-100">

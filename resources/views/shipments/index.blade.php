@@ -98,6 +98,11 @@
                                        class="p-1.5 rounded-lg transition-all text-gray-400 hover:text-emerald-600 hover:bg-emerald-50">
                                         <i class="ph-bold ph-file-zip text-base"></i>
                                     </a>
+                                    <a href="{{ route('shipments.download-pdf', $shipment->id) }}"
+                                       title="Download Laporan PDF Lengkap ({{ $shipment->packing_list_no ?: $shipment->nomor_container_atau_plat }}_Report.pdf)"
+                                       class="p-1.5 rounded-lg transition-all text-gray-400 hover:text-red-600 hover:bg-red-50">
+                                        <i class="ph-bold ph-file-pdf text-base"></i>
+                                    </a>
                                     <a href="{{ route('field-app.timeline', $shipment->id) }}"
                                        title="Buka Loading Evidence"
                                        target="_blank"
