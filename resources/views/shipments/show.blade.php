@@ -25,12 +25,18 @@
                     @endif
                 </div>
                 <p class="text-xs text-gray-500 mt-0.5">
-                    No. Container: <strong class="text-gray-700">{{ $shipment->nomor_container_atau_plat ?? '-' }}</strong> &bull; Plat: <strong class="text-gray-700">{{ $shipment->plat_nomor ?? '-' }}</strong> &bull; Dibuat pada {{ $shipment->created_at->format('d M Y, H:i') }} WIB &bull; Petugas: <strong class="text-gray-700">{{ $shipment->karyawan?->nama ?? '-' }}</strong>
+                    No. Container: <strong class="text-gray-700">{{ $shipment->nomor_container_atau_plat ?? '-' }}</strong> &bull; Plat: <strong class="text-gray-700">{{ $shipment->plat_nomor ?? '-' }}</strong> &bull; Dibuat pada {{ $shipment->created_at->format('d M Y, H:i') }} WIB &bull; Petugas: <strong class="text-gray-700">{{ $shipment->allKaryawans()->pluck('nama')->join(', ') ?: ($shipment->karyawan?->nama ?? '-') }}</strong>
                 </p>
             </div>
         </div>
 
         <div class="flex items-center gap-2">
+            <a href="{{ route('shipments.download-evidence', $shipment->id) }}"
+               class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2.5 rounded-xl shadow-sm hover:-translate-y-0.5 transition-all"
+               title="Download seluruh bukti foto dalam file ZIP ({{ $shipment->packing_list_no ?: $shipment->nomor_container_atau_plat }}.zip)">
+                <i class="ph-bold ph-file-zip text-base"></i>
+                <span>Download Foto (ZIP)</span>
+            </a>
             <button onclick="window.print()" type="button"
                     class="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 hover:text-spv-blue hover:border-spv-blue text-xs font-bold px-3.5 py-2.5 rounded-xl shadow-sm transition-all">
                 <i class="ph-bold ph-printer text-base"></i>
@@ -84,14 +90,29 @@
                     <span class="font-bold text-gray-800 text-sm">{{ $shipment->nomor_container_atau_plat ?? '-' }}</span>
                 </div>
                 <div>
-                    <span class="text-gray-400 block text-[11px] mb-0.5">Petugas Pelaksana:</span>
-                    <span class="font-bold text-gray-800">{{ $shipment->karyawan?->nama ?? '-' }} ({{ $shipment->karyawan?->nomor_induk ?? '-' }})</span>
-                </div>
-                <div>
                     <span class="text-gray-400 block text-[11px] mb-0.5">Jenis Produk:</span>
                     <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold capitalize {{ $shipment->jenis_produk === 'fiber' ? 'bg-blue-50 text-spv-blue' : 'bg-emerald-50 text-emerald-700' }}">
                         {{ $shipment->jenis_produk }}
                     </span>
+                </div>
+                <div class="col-span-2">
+                    <span class="text-gray-400 block text-[11px] mb-1">Petugas Pelaksana:</span>
+                    @php
+                        $assignedKaryawans = $shipment->allKaryawans();
+                    @endphp
+                    @if($assignedKaryawans->isNotEmpty())
+                        <div class="flex flex-wrap gap-1.5 mt-0.5">
+                            @foreach($assignedKaryawans as $petugas)
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50/80 border border-blue-200/60 text-spv-blue text-xs font-semibold shadow-xs">
+                                    <i class="ph-bold ph-user text-[11px]"></i>
+                                    <span>{{ $petugas->nama }}</span>
+                                    <span class="text-[10px] text-blue-500/80 font-mono font-normal">({{ $petugas->nomor_induk }})</span>
+                                </span>
+                            @endforeach
+                        </div>
+                    @else
+                        <span class="font-bold text-gray-800">-</span>
+                    @endif
                 </div>
                 <div>
                     <span class="text-gray-400 block text-[11px] mb-0.5">Jenis Pengiriman:</span>
@@ -205,8 +226,89 @@
              modalOpen: false,
              currentIndex: 0,
              gallery: {{ Js::from($galleryItems) }},
+             
+             // Zoom & Pan Inspection State
+             zoom: 1,
+             minZoom: 1,
+             maxZoom: 4,
+             panX: 0,
+             panY: 0,
+             isDragging: false,
+             dragStartX: 0,
+             dragStartY: 0,
+
+             resetZoom() {
+                 this.zoom = 1;
+                 this.panX = 0;
+                 this.panY = 0;
+                 this.isDragging = false;
+             },
+
+             zoomIn() {
+                 this.zoom = Math.min(this.maxZoom, Math.round((this.zoom + 0.35) * 100) / 100);
+             },
+
+             zoomOut() {
+                 this.zoom = Math.max(this.minZoom, Math.round((this.zoom - 0.35) * 100) / 100);
+                 if (this.zoom <= 1) {
+                     this.resetZoom();
+                 }
+             },
+
+             toggleZoom() {
+                 if (this.zoom > 1) {
+                     this.resetZoom();
+                 } else {
+                     this.zoom = 2;
+                 }
+             },
+
+             handleWheel(e) {
+                 const delta = e.deltaY < 0 ? 0.25 : -0.25;
+                 const newZoom = Math.min(this.maxZoom, Math.max(this.minZoom, Math.round((this.zoom + delta) * 100) / 100));
+                 this.zoom = newZoom;
+                 if (this.zoom <= 1) {
+                     this.resetZoom();
+                 }
+             },
+
+             startDrag(e) {
+                 if (this.zoom <= 1) return;
+                 this.isDragging = true;
+                 this.dragStartX = e.clientX - this.panX;
+                 this.dragStartY = e.clientY - this.panY;
+             },
+
+             onDrag(e) {
+                 if (!this.isDragging) return;
+                 this.panX = e.clientX - this.dragStartX;
+                 this.panY = e.clientY - this.dragStartY;
+             },
+
+             stopDrag() {
+                 this.isDragging = false;
+             },
+
+             startTouch(e) {
+                 if (this.zoom <= 1 || e.touches.length !== 1) return;
+                 this.isDragging = true;
+                 this.dragStartX = e.touches[0].clientX - this.panX;
+                 this.dragStartY = e.touches[0].clientY - this.panY;
+             },
+
+             onTouch(e) {
+                 if (!this.isDragging || e.touches.length !== 1) return;
+                 this.panX = e.touches[0].clientX - this.dragStartX;
+                 this.panY = e.touches[0].clientY - this.dragStartY;
+             },
+
+             stopTouch() {
+                 this.isDragging = false;
+             },
+
              openModal(idx) {
                  if (idx >= 0 && idx < this.gallery.length) {
+                     this.resetZoom();
                      this.currentIndex = idx;
                      this.modalOpen = true;
                  }
@@ -225,10 +327,12 @@
              },
              next() {
                  if (this.gallery.length <= 1) return;
+                 this.resetZoom();
                  this.currentIndex = (this.currentIndex + 1) % this.gallery.length;
              },
              prev() {
                  if (this.gallery.length <= 1) return;
+                 this.resetZoom();
                  this.currentIndex = (this.currentIndex - 1 + this.gallery.length) % this.gallery.length;
              },
              get currentItem() {
@@ -237,7 +341,11 @@
          }"
          @keydown.window.arrow-right="modalOpen && next()"
          @keydown.window.arrow-left="modalOpen && prev()"
-         @keydown.window.escape="modalOpen = false">
+         @keydown.window.escape="modalOpen = false"
+         @keydown.window.plus="modalOpen && zoomIn()"
+         @keydown.window.equal="modalOpen && zoomIn()"
+         @keydown.window.minus="modalOpen && zoomOut()"
+         @keydown.window.digit0="modalOpen && resetZoom()">
 
         <div class="flex items-center justify-between pb-4 border-b border-gray-100 mb-5">
             <div>
@@ -252,6 +360,14 @@
                     $totalPhotosCount = count($galleryItems);
                     $extraPhotosCount = $shipment->extraPhotos->count();
                 @endphp
+                @if($totalPhotosCount > 0)
+                    <a href="{{ route('shipments.download-evidence', $shipment->id) }}"
+                       class="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors shadow-xs"
+                       title="Download seluruh bukti foto dalam format ZIP">
+                        <i class="ph-bold ph-file-zip text-sm"></i>
+                        <span>Download ZIP</span>
+                    </a>
+                @endif
                 <span class="text-xs font-bold px-3 py-1 rounded-full bg-blue-50 text-spv-blue border border-blue-100">
                     {{ $totalPhotosCount }} Foto Tersimpan
                 </span>
@@ -373,13 +489,13 @@
             </div>
         @endif
 
-        <!-- Lightbox Modal Gallery Viewer with Left/Right Buttons & Keyboard Navigation -->
+        <!-- Lightbox Modal Gallery Viewer with Left/Right Buttons & Interactive Zoom / Pan -->
         <template x-teleport="body">
-            <div x-cloak x-show="modalOpen" x-transition.opacity class="fixed inset-0 bg-black/85 backdrop-blur-md z-[9999] flex items-center justify-center p-3 sm:p-6" @click="modalOpen = false">
-                <div class="bg-gray-950 border border-gray-800 rounded-2xl max-w-5xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[92vh]" @click.stop>
+            <div x-cloak x-show="modalOpen" x-transition.opacity class="fixed inset-0 bg-black/90 backdrop-blur-md z-[9999] flex items-center justify-center p-2 sm:p-4 md:p-6" @click="modalOpen = false">
+                <div class="bg-gray-950 border border-gray-800 rounded-2xl max-w-6xl w-full h-[92vh] max-h-[92vh] overflow-hidden shadow-2xl flex flex-col" @click.stop>
                     
                     <!-- Modal Header -->
-                    <div class="p-4 border-b border-gray-800/80 bg-gray-900/95 flex items-center justify-between text-white shrink-0">
+                    <div class="px-4 py-3 border-b border-gray-800/80 bg-gray-900/95 flex items-center justify-between text-white shrink-0">
                         <div class="flex items-center gap-3 min-w-0 pr-3">
                             <span class="px-2.5 py-1 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30 text-xs font-mono font-bold shrink-0"
                                   x-text="gallery.length > 0 ? (currentIndex + 1) + ' / ' + gallery.length : '0/0'">
@@ -394,49 +510,104 @@
                             </div>
                         </div>
 
+                        <!-- Header Controls: Zoom Tools & Close Button -->
                         <div class="flex items-center gap-2 shrink-0">
+                            <!-- Quick Zoom Controls in Header -->
+                            <div class="flex items-center bg-gray-800/90 border border-gray-700/80 rounded-xl p-1 shadow-inner">
+                                <button type="button"
+                                        @click="zoomOut()"
+                                        :disabled="zoom <= minZoom"
+                                        class="w-7 h-7 rounded-lg flex items-center justify-center text-gray-300 hover:text-white hover:bg-gray-700 active:scale-95 disabled:opacity-40 disabled:hover:bg-transparent transition-all"
+                                        title="Perkecil Zoom (-)">
+                                    <i class="ph-bold ph-minus text-xs"></i>
+                                </button>
+                                
+                                <button type="button"
+                                        @click="resetZoom()"
+                                        class="px-2 py-0.5 rounded text-xs font-mono font-bold text-amber-300 hover:bg-gray-700/80 transition-colors"
+                                        title="Klik untuk reset zoom (100% Fit)">
+                                    <span x-text="Math.round(zoom * 100) + '%'"></span>
+                                </button>
+
+                                <button type="button"
+                                        @click="zoomIn()"
+                                        :disabled="zoom >= maxZoom"
+                                        class="w-7 h-7 rounded-lg flex items-center justify-center text-gray-300 hover:text-white hover:bg-gray-700 active:scale-95 disabled:opacity-40 disabled:hover:bg-transparent transition-all"
+                                        title="Perbesar Zoom (+)">
+                                    <i class="ph-bold ph-plus text-xs"></i>
+                                </button>
+
+                                <div class="w-px h-4 bg-gray-700 mx-1"></div>
+
+                                <button type="button"
+                                        @click="resetZoom()"
+                                        class="px-2 py-1 rounded-lg text-[11px] font-semibold text-gray-300 hover:text-white hover:bg-gray-700 active:scale-95 transition-all flex items-center gap-1"
+                                        title="Reset Tampilan (Fit)">
+                                    <i class="ph-bold ph-arrows-in text-xs"></i>
+                                    <span class="hidden sm:inline">Fit</span>
+                                </button>
+                            </div>
+
                             <!-- Keyboard shortcut hint -->
-                            <span class="hidden md:inline-flex text-[11px] text-gray-500 font-mono items-center gap-1 bg-gray-800/70 px-2 py-1 rounded border border-gray-700/60">
-                                <kbd class="text-gray-400">←</kbd> <kbd class="text-gray-400">→</kbd> panah
+                            <span class="hidden lg:inline-flex text-[11px] text-gray-400 font-mono items-center gap-1 bg-gray-800/70 px-2 py-1.5 rounded-lg border border-gray-700/60">
+                                <kbd class="text-gray-300">←</kbd> <kbd class="text-gray-300">→</kbd> panah
                             </span>
-                            <button @click="modalOpen = false" class="text-gray-400 hover:text-white p-2 rounded-xl bg-gray-800 hover:bg-gray-700 transition-colors" title="Tutup (Esc)">
+
+                            <button @click="modalOpen = false" class="text-gray-400 hover:text-white p-2 rounded-xl bg-gray-800 hover:bg-gray-700 border border-gray-700 transition-colors" title="Tutup (Esc)">
                                 <i class="ph-bold ph-x text-lg"></i>
                             </button>
                         </div>
                     </div>
 
-                    <!-- Image Area with Floating Left / Right Buttons -->
-                    <div class="relative bg-black flex-1 flex items-center justify-center min-h-[320px] overflow-hidden select-none">
+                    <!-- Image Area with Floating Left / Right Buttons & Drag / Zoom Viewport -->
+                    <div class="relative bg-black flex-1 min-h-0 min-w-0 overflow-hidden select-none">
                         
                         <!-- Floating Tombol Navigasi KIRI (Prev) -->
                         <button type="button"
                                 x-show="gallery.length > 1"
                                 @click.stop="prev()"
-                                class="absolute left-3 sm:left-5 top-1/2 -translate-y-1/2 z-20 w-11 h-11 sm:w-13 sm:h-13 rounded-full bg-black/60 hover:bg-black/90 active:scale-90 text-white flex items-center justify-center border border-white/20 shadow-2xl backdrop-blur-md transition-all hover:scale-110 group/btn"
+                                class="absolute left-3 sm:left-5 top-1/2 -translate-y-1/2 z-30 w-11 h-11 sm:w-13 sm:h-13 rounded-full bg-black/60 hover:bg-black/90 active:scale-90 text-white flex items-center justify-center border border-white/20 shadow-2xl backdrop-blur-md transition-all hover:scale-110 group/btn"
                                 title="Foto Sebelumnya (Panah Kiri)">
                             <i class="ph-bold ph-caret-left text-2xl text-white group-hover/btn:-translate-x-0.5 transition-transform"></i>
                         </button>
 
-                        <!-- Main Image Display -->
-                        <div class="p-2 sm:p-4 flex items-center justify-center w-full h-full max-h-[72vh]">
+                        <!-- Pan & Zoom Canvas Container (Guaranteed 100% Fit without Crop) -->
+                        <div class="absolute inset-0 p-3 sm:p-5 flex items-center justify-center overflow-hidden"
+                             @wheel.prevent="handleWheel($event)"
+                             @mousedown="startDrag($event)"
+                             @mousemove="onDrag($event)"
+                             @mouseup="stopDrag()"
+                             @mouseleave="stopDrag()"
+                             @touchstart="startTouch($event)"
+                             @touchmove="onTouch($event)"
+                             @touchend="stopTouch()"
+                             :class="{
+                                 'cursor-grab': zoom > 1 && !isDragging,
+                                 'cursor-grabbing': isDragging,
+                                 'cursor-zoom-in': zoom === 1
+                             }">
+                            
                             <img :src="currentItem.src"
                                  :alt="currentItem.title"
-                                 class="max-h-[68vh] w-auto max-w-full object-contain rounded-lg shadow-2xl transition-all duration-150">
+                                 @dblclick="toggleZoom()"
+                                 draggable="false"
+                                 :style="`transform: translate3d(${panX}px, ${panY}px, 0) scale(${zoom}); transition: ${isDragging ? 'none' : 'transform 0.15s cubic-bezier(0.2, 0, 0, 1)'};`"
+                                 class="max-w-full max-h-full w-auto h-auto object-contain rounded-lg shadow-2xl select-none pointer-events-auto origin-center">
                         </div>
 
                         <!-- Floating Tombol Navigasi KANAN (Next) -->
                         <button type="button"
                                 x-show="gallery.length > 1"
                                 @click.stop="next()"
-                                class="absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 z-20 w-11 h-11 sm:w-13 sm:h-13 rounded-full bg-black/60 hover:bg-black/90 active:scale-90 text-white flex items-center justify-center border border-white/20 shadow-2xl backdrop-blur-md transition-all hover:scale-110 group/btn"
+                                class="absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 z-30 w-11 h-11 sm:w-13 sm:h-13 rounded-full bg-black/60 hover:bg-black/90 active:scale-90 text-white flex items-center justify-center border border-white/20 shadow-2xl backdrop-blur-md transition-all hover:scale-110 group/btn"
                                 title="Foto Selanjutnya (Panah Kanan)">
                             <i class="ph-bold ph-caret-right text-2xl text-white group-hover/btn:translate-x-0.5 transition-transform"></i>
                         </button>
                     </div>
 
                     <!-- Modal Footer -->
-                    <div class="p-3 bg-gray-900/95 border-t border-gray-800/80 flex flex-wrap items-center justify-between gap-3 shrink-0">
-                        <div>
+                    <div class="px-4 py-2.5 bg-gray-900/95 border-t border-gray-800/80 flex flex-wrap items-center justify-between gap-3 shrink-0">
+                        <div class="flex items-center gap-2">
                             <template x-if="currentItem.orig">
                                 <a :href="currentItem.orig" target="_blank"
                                    class="text-xs font-semibold text-gray-300 hover:text-white bg-gray-800 hover:bg-gray-700 px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 border border-gray-700 transition-colors">
@@ -444,6 +615,18 @@
                                     <span>Unduh File Asli</span>
                                 </a>
                             </template>
+
+                            <a href="{{ route('shipments.download-evidence', $shipment->id) }}"
+                               class="text-xs font-semibold text-emerald-300 hover:text-white bg-emerald-950/60 hover:bg-emerald-900 px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 border border-emerald-700/60 transition-colors"
+                               title="Download seluruh bukti foto dalam format ZIP ({{ $shipment->packing_list_no ?: $shipment->nomor_container_atau_plat }}.zip)">
+                                <i class="ph-bold ph-file-zip text-sm"></i>
+                                <span>Unduh Semua (.ZIP)</span>
+                            </a>
+
+                            <span class="hidden md:inline-flex items-center gap-1.5 text-[11px] text-gray-400 bg-gray-800/50 px-2.5 py-1 rounded-md border border-gray-800">
+                                <i class="ph-bold ph-hand-pointing text-xs text-amber-400"></i>
+                                <span>Tip: Dobel-klik atau scroll mouse untuk Zoom, geser kursor untuk inspeksi detail</span>
+                            </span>
                         </div>
 
                         <!-- Center Navigation Controls -->

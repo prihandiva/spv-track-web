@@ -21,6 +21,7 @@ Route::get('/', function () {
 
 Route::get('/shipments', [ShipmentController::class, 'index'])->name('shipments.index');
 Route::get('/shipments/{shipment}', [ShipmentController::class, 'show'])->name('shipments.show');
+Route::get('/shipments/{shipment}/download-evidence', [ShipmentController::class, 'downloadZip'])->name('shipments.download-evidence');
 
 // Karyawan (Petugas) CRUD Routes
 Route::patch('/karyawan/{karyawan}/toggle-status', [KaryawanController::class, 'toggleStatus'])->name('karyawan.toggle-status');

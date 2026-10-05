@@ -10,7 +10,7 @@
             <a href="{{ route('field-app.create') }}" target="_blank"
                class="flex items-center gap-2 bg-spv-blue hover:bg-blue-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-[0_4px_12px_rgba(40,84,145,0.25)] hover:-translate-y-0.5 transition-all">
                 <i class="ph-bold ph-plus text-sm"></i>
-                Buat Shipment (Field App)
+                Buat Shipment
             </a>
         </div>
     </div>
@@ -71,7 +71,7 @@
                                     {{ $shipment->jenis_pengiriman }}
                                 </span>
                             </td>
-                            <td class="px-5 py-3.5"><p class="text-xs text-gray-600">{{ $shipment->karyawan?->nama ?? '-' }}</p></td>
+                            <td class="px-5 py-3.5"><p class="text-xs text-gray-600">{{ $shipment->allKaryawans()->pluck('nama')->join(', ') ?: ($shipment->karyawan?->nama ?? '-') }}</p></td>
                             <td class="px-5 py-3.5"><p class="text-[10px] text-gray-500 font-medium">{{ $shipment->created_at->format('d M Y, H:i') }} WIB</p></td>
                             <td class="px-5 py-3.5">
                                 @if($shipment->status === 'submitted')
@@ -92,6 +92,11 @@
                                        title="Lihat Detail Seluruh Data"
                                        class="p-1.5 rounded-lg transition-all text-gray-400 hover:text-spv-blue hover:bg-blue-50">
                                         <i class="ph-bold ph-eye text-base"></i>
+                                    </a>
+                                    <a href="{{ route('shipments.download-evidence', $shipment->id) }}"
+                                       title="Download Semua Foto (ZIP: {{ $shipment->packing_list_no ?: $shipment->nomor_container_atau_plat }}.zip)"
+                                       class="p-1.5 rounded-lg transition-all text-gray-400 hover:text-emerald-600 hover:bg-emerald-50">
+                                        <i class="ph-bold ph-file-zip text-base"></i>
                                     </a>
                                     <a href="{{ route('field-app.timeline', $shipment->id) }}"
                                        title="Buka Loading Evidence"

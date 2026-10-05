@@ -26,6 +26,7 @@ class FieldAppController extends Controller
         $history = [
             'packing_list_no' => Shipment::whereNotNull('packing_list_no')->where('packing_list_no', '!=', '')->distinct()->pluck('packing_list_no')->filter()->values(),
             'shipment_group' => Shipment::whereNotNull('shipment_group')->where('shipment_group', '!=', '')->distinct()->pluck('shipment_group')->filter()->values(),
+            'shipment_no' => Shipment::whereNotNull('shipment_no')->where('shipment_no', '!=', '')->distinct()->pluck('shipment_no')->filter()->values(),
             'nama_sopir' => Shipment::whereNotNull('nama_sopir')->where('nama_sopir', '!=', '')->distinct()->pluck('nama_sopir')->filter()->values(),
             'plat_nomor' => Shipment::whereNotNull('plat_nomor')->where('plat_nomor', '!=', '')->distinct()->pluck('plat_nomor')->filter()->values(),
             'nomor_container' => Shipment::whereNotNull('nomor_container_atau_plat')->where('nomor_container_atau_plat', '!=', '')->distinct()->pluck('nomor_container_atau_plat')->filter()->values(),
@@ -36,28 +37,55 @@ class FieldAppController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        if (! $request->has('karyawan_ids') && $request->filled('karyawan_id')) {
+            $request->merge(['karyawan_ids' => [(int) $request->input('karyawan_id')]]);
+        }
+
         $validated = $request->validate([
             'jenis_produk' => 'required|in:fiber,sodium',
             'jenis_pengiriman' => 'required|in:export,lokal',
-            'packing_list_no' => 'required|string|max:255',
-            'shipment_group' => 'required|string|max:255',
-            'shipment_no' => 'required|string|max:255',
+            'packing_list_no' => 'required|numeric|digits:9',
+            'shipment_group' => 'required|numeric|digits:9',
+            'shipment_no' => 'required|numeric|digits:9',
             'plat_nomor' => 'required|string|max:255',
-            'nama_sopir' => 'required|string|max:255',
+            'nama_sopir' => 'nullable|string|max:255',
             'nomor_container_atau_plat' => 'required|string|max:255',
             'cuaca' => 'required|in:kering,mendung,hujan,gerimis',
             'waktu' => 'required|in:siang,sore,malam',
             'tanggal_staging' => 'required|date',
             'warehouse_lokasi' => 'required|in:atas,tengah,bawah',
-            'karyawan_id' => 'required|exists:karyawans,id',
+            'karyawan_ids' => 'required|array|min:1',
+            'karyawan_ids.*' => 'exists:karyawans,id',
+            'karyawan_id' => 'nullable|exists:karyawans,id',
             'shipment_order_photo' => 'nullable|image|max:20480',
+        ], [
+            'packing_list_no.required' => 'Nomor Surat Jalan/Delivery/Packing List wajib diisi.',
+            'packing_list_no.numeric' => 'Nomor Surat Jalan/Delivery/Packing List harus berupa angka.',
+            'packing_list_no.digits' => 'Nomor Surat Jalan/Delivery/Packing List harus tepat 9 digit angka.',
+            'shipment_group.required' => 'Nomor Shipment Group wajib diisi.',
+            'shipment_group.numeric' => 'Nomor Shipment Group harus berupa angka.',
+            'shipment_group.digits' => 'Nomor Shipment Group harus tepat 9 digit angka.',
+            'shipment_no.required' => 'Nomor Shipment wajib diisi.',
+            'shipment_no.numeric' => 'Nomor Shipment harus berupa angka.',
+            'shipment_no.digits' => 'Nomor Shipment harus tepat 9 digit angka.',
+            'plat_nomor.required' => 'Plat Nomor kendaraan wajib diisi.',
+            'nomor_container_atau_plat.required' => 'Nomor Container wajib diisi.',
+            'karyawan_ids.required' => 'Pilih minimal 1 orang petugas / karyawan.',
+            'karyawan_ids.min' => 'Pilih minimal 1 orang petugas / karyawan.',
         ]);
+
+        $karyawanIds = array_values(array_unique(array_filter((array) $validated['karyawan_ids'])));
+        $validated['karyawan_id'] = $karyawanIds[0] ?? null;
 
         // Add dummy user_id
         $validated['user_id'] = 1;
         $validated['status'] = 'draft';
+        if (empty($validated['nama_sopir'])) {
+            $validated['nama_sopir'] = '-';
+        }
 
-        $shipment = Shipment::create(collect($validated)->except('shipment_order_photo')->toArray());
+        $shipment = Shipment::create(collect($validated)->except(['shipment_order_photo', 'karyawan_ids'])->toArray());
+        $shipment->karyawans()->sync($karyawanIds);
 
         if ($request->hasFile('shipment_order_photo')) {
             $request->file('shipment_order_photo')->store('shipment_orders', 'public');
@@ -160,11 +188,14 @@ class FieldAppController extends Controller
     public function submit(Request $request, Shipment $shipment)
     {
         $validated = $request->validate([
-            'packing_list_no' => 'nullable|string|max:255',
-            'tujuan_pengiriman' => 'required|string',
-            'agen_forwarding' => 'required|string',
             'waktu_kedatangan_container' => 'required|date',
             'waktu_keberangkatan_container' => 'required|date',
+            'packing_list_no' => 'nullable|string|max:255',
+            'tujuan_pengiriman' => 'nullable|string',
+            'agen_forwarding' => 'nullable|string',
+        ], [
+            'waktu_kedatangan_container.required' => 'Waktu mulai (kedatangan container) wajib diisi.',
+            'waktu_keberangkatan_container.required' => 'Waktu akhir (keberangkatan container) wajib diisi.',
         ]);
 
         // Verifikasi seluruh titik SOP wajib (Titik 1-26) telah terisi
@@ -178,15 +209,24 @@ class FieldAppController extends Controller
             ])->withInput();
         }
 
-        $shipment->update([
-            'packing_list_no' => $validated['packing_list_no'] ?: $shipment->packing_list_no,
-            'tujuan_pengiriman' => $validated['tujuan_pengiriman'],
-            'agen_forwarding' => $validated['agen_forwarding'],
+        $updates = [
             'waktu_kedatangan_container' => $validated['waktu_kedatangan_container'],
             'waktu_keberangkatan_container' => $validated['waktu_keberangkatan_container'],
             'status' => 'submitted',
             'submitted_at' => now(),
-        ]);
+        ];
+
+        if (! empty($validated['packing_list_no'])) {
+            $updates['packing_list_no'] = $validated['packing_list_no'];
+        }
+        if (! empty($validated['tujuan_pengiriman'])) {
+            $updates['tujuan_pengiriman'] = $validated['tujuan_pengiriman'];
+        }
+        if (! empty($validated['agen_forwarding'])) {
+            $updates['agen_forwarding'] = $validated['agen_forwarding'];
+        }
+
+        $shipment->update($updates);
 
         return redirect('/')->with('success', 'Shipment berhasil di-submit!');
     }
@@ -264,41 +304,44 @@ class FieldAppController extends Controller
         ];
 
         if (! empty($text)) {
-            // Shipment Group: e.g. "Shipment Group: 869026487 1/2" -> "869026487"
-            if (preg_match('/Shipment\s*Group[^\d\n\r]*([0-9]{6,12})/i', $text, $matches)) {
+            // 1. Shipment Group: Prioritas tepat 9 digit angka (misal: 869026487)
+            if (preg_match('/Shipment\s*Group[^\d\n\r]*([0-9]{9})\b/i', $text, $matches)) {
                 $data['shipment_group'] = trim($matches[1]);
-            } elseif (preg_match('/(?:Group\s*No|Group)[^\d\n\r]*([0-9]{6,12})/i', $text, $matches)) {
+            } elseif (preg_match('/(?:Group\s*No|Group)[^\d\n\r]*([0-9]{9})\b/i', $text, $matches)) {
                 $data['shipment_group'] = trim($matches[1]);
+            } elseif (preg_match('/Shipment\s*Group[^\d\n\r]*([0-9]{6,12})/i', $text, $matches)) {
+                $data['shipment_group'] = substr(trim($matches[1]), 0, 9);
             }
 
-            // Shipment No: e.g. "Shipment No.: 860110918" -> "860110918"
-            if (preg_match('/(?:Shipment\s*No|No\.?\s*Shipment|Shipment\s*Number|Shpt\s*No)[^\d\n\r]*([0-9]{6,12})/i', $text, $matches)) {
+            // 2. Shipment No: Prioritas tepat 9 digit angka (misal: 860110918)
+            if (preg_match('/(?:Shipment\s*No|No\.?\s*Shipment|Shipment\s*Number|Shpt\s*No)[^\d\n\r]*([0-9]{9})\b/i', $text, $matches)) {
                 $data['shipment_no'] = trim($matches[1]);
+            } elseif (preg_match('/(?:Shipment\s*No|No\.?\s*Shipment|Shipment\s*Number|Shpt\s*No)[^\d\n\r]*([0-9]{6,12})/i', $text, $matches)) {
+                $data['shipment_no'] = substr(trim($matches[1]), 0, 9);
             }
 
-            // Delivery / Packing List No from "Delivery" column or label
+            // 3. Nomor Surat Jalan / Delivery / Packing List: Prioritas tepat 9 digit angka (misal: 800123456)
             $deliveryNo = '';
-            if (preg_match('/(?:Delivery\s*No|Delivery\s*#|Delivery\s*Number)[\s\.:\t]*([0-9]{6,14})/i', $text, $matches)) {
+            if (preg_match('/(?:Delivery\s*No|Delivery\s*#|Delivery\s*Number)[\s\.:\t]*([0-9]{9})\b/i', $text, $matches)) {
                 $deliveryNo = trim($matches[1]);
-            } elseif (preg_match('/Delivery[\s\.:\t=]+([0-9]{6,14})/i', $text, $matches)) {
+            } elseif (preg_match('/Delivery[\s\.:\t=]+([0-9]{9})\b/i', $text, $matches)) {
                 $deliveryNo = trim($matches[1]);
-            } elseif (preg_match('/Delivery[^\r\n0-9]*[\r\n]+[^\d\r\n]*([0-9]{6,14})/i', $text, $matches)) {
-                // Header "Delivery" followed on the next line by the number
+            } elseif (preg_match('/Delivery[^\r\n0-9]*[\r\n]+[^\d\r\n]*([0-9]{9})\b/i', $text, $matches)) {
                 $deliveryNo = trim($matches[1]);
-            } elseif (preg_match('/(?:DN|Deliv\.?)\s*[:#\s]*([0-9]{6,14})/i', $text, $matches)) {
+            } elseif (preg_match('/(?:DN|Deliv\.?)\s*[:#\s]*([0-9]{9})\b/i', $text, $matches)) {
                 $deliveryNo = trim($matches[1]);
-            } elseif (preg_match('/(?:Packing\s*List|P[\/-]?L|Surat\s*Jalan|No\.?\s*SJ)[\s\.:#]*([A-Za-z0-9\-\/]{4,20})/i', $text, $matches)) {
+            } elseif (preg_match('/(?:Packing\s*List|P[\/-]?L|Surat\s*Jalan|No\.?\s*SJ)[\s\.:#]*([0-9]{9})\b/i', $text, $matches)) {
                 $deliveryNo = trim($matches[1]);
             }
 
-            // If table had "Delivery" in header, search lines below header for an 8-10 digit number
+            // Pencarian di kolom Delivery jika tabel memiliki header
             if (empty($deliveryNo) && stripos($text, 'Delivery') !== false) {
                 $lines = preg_split('/[\r\n]+/', $text);
                 $foundDeliveryHeader = false;
                 foreach ($lines as $line) {
                     if (stripos($line, 'Delivery') !== false) {
                         $foundDeliveryHeader = true;
-                        if (preg_match('/Delivery[^\d]*([0-9]{6,14})/i', $line, $m)) {
+                        if (preg_match('/Delivery[^\d]*([0-9]{9})\b/i', $line, $m)) {
                             $deliveryNo = trim($m[1]);
                             break;
                         }
@@ -306,7 +349,7 @@ class FieldAppController extends Controller
                         continue;
                     }
                     if ($foundDeliveryHeader) {
-                        if (preg_match('/\b([0-9]{7,12})\b/', $line, $m)) {
+                        if (preg_match('/\b([0-9]{9})\b/', $line, $m)) {
                             $candidate = trim($m[1]);
                             if ($candidate !== $data['shipment_group'] && $candidate !== $data['shipment_no']) {
                                 $deliveryNo = $candidate;
@@ -317,25 +360,44 @@ class FieldAppController extends Controller
                 }
             }
 
+            // Fallback: cari angka 9 digit yang belum digunakan oleh group atau shipment no
+            if (empty($deliveryNo)) {
+                if (preg_match_all('/\b([0-9]{9})\b/', $text, $allNines)) {
+                    foreach ($allNines[1] as $candidate) {
+                        if ($candidate !== $data['shipment_group'] && $candidate !== $data['shipment_no']) {
+                            $deliveryNo = $candidate;
+                            break;
+                        }
+                    }
+                }
+            }
+
             $data['packing_list_no'] = $deliveryNo;
             $data['delivery_no'] = $deliveryNo;
 
-            // Plat Nomor (if printed)
-            if (preg_match('/(?:Plat|No\.?\s*Pol|Polisi|Nopol)[\s\.:]*([A-Z]{1,2}\s*[0-9]{1,5}\s*[A-Z]{1,3})/i', $text, $matches)) {
-                $data['plat_nomor'] = strtoupper(trim(preg_replace('/\s+/', '', $matches[1])));
+            // 4. Plat Nomor
+            if (preg_match('/(?:Plat|No\.?\s*Pol|Polisi|Nopol)[\s\.:]*([A-Z]{1,2}\s*[0-9]{1,4}\s*[A-Z]{1,3})/i', $text, $matches)) {
+                $data['plat_nomor'] = strtoupper(trim(preg_replace('/\s+/', ' ', $matches[1])));
+            } elseif (preg_match('/\b([A-Z]{1,2}\s+[0-9]{1,4}\s+[A-Z]{1,3})\b/', $text, $matches)) {
+                $data['plat_nomor'] = strtoupper(trim(preg_replace('/\s+/', ' ', $matches[1])));
             }
 
-            // Sopir (if printed)
+            // 5. Nomor Container (ISO format 4 huruf + 7 digit, atau berlabel Container)
+            if (preg_match('/\b([A-Z]{4}\s*[0-9]{7})\b/', $text, $matches)) {
+                $data['container_no'] = strtoupper(preg_replace('/\s+/', '', $matches[1]));
+            } elseif (preg_match('/(?:Container|Kontainer)\s*(?:No|Number)?[\s\.:]*([A-Z0-9\s-]{8,15})/i', $text, $matches)) {
+                $cleanC = strtoupper(trim(preg_replace('/[^A-Z0-9]/', '', $matches[1])));
+                if (strlen($cleanC) >= 7) {
+                    $data['container_no'] = $cleanC;
+                }
+            }
+
+            // 6. Nama Sopir (jika tertera)
             if (preg_match('/(?:Driver|Sopir|Nama\s*Sopir)[\s\.:]*([A-Za-z\s]{3,30})/i', $text, $matches)) {
                 $cleanSopir = trim($matches[1]);
                 if (! preg_match('/(?:Shipment|Vessel|Port|Date|Order)/i', $cleanSopir)) {
                     $data['nama_sopir'] = ucwords(strtolower($cleanSopir));
                 }
-            }
-
-            // Container No (if standard ISO container code present)
-            if (preg_match('/\b([A-Z]{4}\s*[0-9]{7})\b/', $text, $matches)) {
-                $data['container_no'] = strtoupper(preg_replace('/\s+/', '', $matches[1]));
             }
         }
 
@@ -344,6 +406,7 @@ class FieldAppController extends Controller
             $data['shipment_group'],
             $data['shipment_no'],
             $data['plat_nomor'],
+            $data['container_no'],
             $data['nama_sopir'],
         ]));
 

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
@@ -50,6 +51,28 @@ class Shipment extends Model
     public function karyawan(): BelongsTo
     {
         return $this->belongsTo(Karyawan::class);
+    }
+
+    public function karyawans(): BelongsToMany
+    {
+        return $this->belongsToMany(Karyawan::class, 'karyawan_shipment')->withTimestamps();
+    }
+
+    /**
+     * Get all assigned karyawans, fallback to single karyawan_id relation
+     */
+    public function allKaryawans()
+    {
+        if ($this->relationLoaded('karyawans') && $this->karyawans->isNotEmpty()) {
+            return $this->karyawans;
+        }
+
+        $list = $this->karyawans()->get();
+        if ($list->isNotEmpty()) {
+            return $list;
+        }
+
+        return $this->karyawan ? collect([$this->karyawan]) : collect();
     }
 
     public function shipmentOrder(): HasOne

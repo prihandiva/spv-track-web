@@ -7,147 +7,8 @@
 <div x-data="{
     mandatoryPointIds: {{ Js::from($mandatoryPointIds) }},
     uploadedPointIds: {{ Js::from($initialUploadedPointIds) }},
-    packingListNo: '{{ old('packing_list_no', $shipment->packing_list_no ?? '') }}',
-    tujuanPengiriman: `{{ old('tujuan_pengiriman', $shipment->tujuan_pengiriman ?? '') }}`,
-    agenForwarding: '{{ old('agen_forwarding', $shipment->agen_forwarding ?? '') }}',
     waktuKedatangan: '{{ old('waktu_kedatangan_container', $shipment->waktu_kedatangan_container ? $shipment->waktu_kedatangan_container->format('Y-m-d\TH:i') : '') }}',
     waktuKeberangkatan: '{{ old('waktu_keberangkatan_container', $shipment->waktu_keberangkatan_container ? $shipment->waktu_keberangkatan_container->format('Y-m-d\TH:i') : '') }}',
-
-    agenList: {{ Js::from($history['agen_forwarding'] ?? []) }},
-    tujuanList: {{ Js::from($history['tujuan_pengiriman'] ?? []) }},
-    packingListHistory: {{ Js::from($history['packing_list_no'] ?? []) }},
-
-    agenDropdownOpen: false,
-    agenSearch: '',
-    get filteredAgenList() {
-        if (!this.agenSearch.trim()) return this.agenList;
-        return this.agenList.filter(item => item.toLowerCase().includes(this.agenSearch.toLowerCase()));
-    },
-
-    tujuanDropdownOpen: false,
-    tujuanSearch: '',
-    get filteredTujuanList() {
-        if (!this.tujuanSearch.trim()) return this.tujuanList;
-        return this.tujuanList.filter(item => item.toLowerCase().includes(this.tujuanSearch.toLowerCase()));
-    },
-
-    sjPhotoPreviewUrl: '',
-    isSjOcrLoading: false,
-    sjOcrStatus: 'idle',
-    sjOcrMessage: '',
-    sjOcrExtractedSummary: '',
-    sjOcrRawText: '',
-    showSjRawText: false,
-    sjZoomModalOpen: false,
-
-    handleSjPhotoChange(event) {
-        const input = event.target;
-        if (!input.files || !input.files[0]) return;
-        const file = input.files[0];
-
-        if (this.sjPhotoPreviewUrl && this.sjPhotoPreviewUrl.startsWith('blob:')) {
-            URL.revokeObjectURL(this.sjPhotoPreviewUrl);
-        }
-        this.sjPhotoPreviewUrl = URL.createObjectURL(file);
-        this.isSjOcrLoading = true;
-        this.sjOcrStatus = 'loading';
-        this.sjOcrMessage = 'Membaca dokumen Surat Bersih / Packing List dengan OCR...';
-
-        this.scaleImageForUpload(file, 1600, 0.85).then(optimizedBlob => {
-            const formData = new FormData();
-            formData.append('image', optimizedBlob, 'surat_jalan.jpg');
-            formData.append('_token', '{{ csrf_token() }}');
-
-            fetch('{{ route('field-app.ocr.surat-jalan', [], false) }}', {
-                method: 'POST',
-                headers: {
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'ngrok-skip-browser-warning': 'true'
-                },
-                body: formData
-            })
-            .then(res => {
-                if (!res.ok) throw new Error('HTTP ' + res.status);
-                return res.json();
-            })
-            .then(data => {
-                this.isSjOcrLoading = false;
-                this.sjOcrRawText = data.raw_text || '';
-
-                let extractedItems = [];
-                if (data.packing_list_no) {
-                    this.packingListNo = data.packing_list_no;
-                    extractedItems.push('No Packing List: ' + data.packing_list_no);
-                }
-                if (data.tujuan_pengiriman) {
-                    this.tujuanPengiriman = data.tujuan_pengiriman;
-                    extractedItems.push('Tujuan: ' + data.tujuan_pengiriman);
-                }
-                if (data.agen_forwarding) {
-                    this.agenForwarding = data.agen_forwarding;
-                    extractedItems.push('Forwarding: ' + data.agen_forwarding);
-                }
-
-                if (extractedItems.length > 0) {
-                    this.sjOcrStatus = 'success';
-                    this.sjOcrMessage = 'OCR Berhasil! ' + extractedItems.length + ' data berhasil diekstrak otomatis.';
-                    this.sjOcrExtractedSummary = extractedItems.join(' • ');
-                } else {
-                    this.sjOcrStatus = 'warning';
-                    this.sjOcrMessage = 'Dokumen terunggah. Teks surat bersih tidak terdeteksi otomatis, silakan lengkapi manual.';
-                }
-            })
-            .catch(err => {
-                this.isSjOcrLoading = false;
-                this.sjOcrStatus = 'warning';
-                this.sjOcrMessage = 'Foto tersimpan. Sistem tidak dapat membaca teks otomatis, silakan lengkapi manual.';
-                console.warn('OCR error:', err);
-            });
-        });
-    },
-
-    scaleImageForUpload(file, maxDimension, quality) {
-        return new Promise((resolve) => {
-            const img = new Image();
-            img.onload = () => {
-                let width = img.width;
-                let height = img.height;
-                if (width > maxDimension || height > maxDimension) {
-                    if (width > height) {
-                        height = Math.round((height * maxDimension) / width);
-                        width = maxDimension;
-                    } else {
-                        width = Math.round((width * maxDimension) / height);
-                        height = maxDimension;
-                    }
-                }
-                const canvas = document.createElement('canvas');
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, width, height);
-                canvas.toBlob((blob) => {
-                    resolve(blob || file);
-                }, 'image/jpeg', quality);
-            };
-            img.onerror = () => resolve(file);
-            img.src = URL.createObjectURL(file);
-        });
-    },
-
-    removeSjPhoto() {
-        if (this.sjPhotoPreviewUrl && this.sjPhotoPreviewUrl.startsWith('blob:')) {
-            URL.revokeObjectURL(this.sjPhotoPreviewUrl);
-        }
-        this.sjPhotoPreviewUrl = '';
-        this.sjOcrStatus = 'idle';
-        this.sjOcrMessage = '';
-        this.sjOcrExtractedSummary = '';
-        this.sjOcrRawText = '';
-        if (this.$refs.sjCameraInput) this.$refs.sjCameraInput.value = '';
-        if (this.$refs.sjGalleryInput) this.$refs.sjGalleryInput.value = '';
-    },
 
     setNow(field) {
         const now = new Date();
@@ -160,7 +21,6 @@
         if (field === 'kedatangan') this.waktuKedatangan = val;
         if (field === 'keberangkatan') this.waktuKeberangkatan = val;
     },
-
 
     addUploadedPoint(id) {
         id = Number(id);
@@ -178,9 +38,7 @@
         return this.mandatoryUploadedCount >= this.totalMandatoryCount;
     },
     get isFormComplete() {
-        return this.tujuanPengiriman.trim().length > 0 &&
-               this.agenForwarding.trim().length > 0 &&
-               this.waktuKedatangan.trim().length > 0 &&
+        return this.waktuKedatangan.trim().length > 0 &&
                this.waktuKeberangkatan.trim().length > 0;
     },
     get canSubmit() {
@@ -192,14 +50,8 @@
             const diff = this.totalMandatoryCount - this.mandatoryUploadedCount;
             missing.push(diff + ' foto wajib belum diunggah');
         }
-        const missingForm = [];
-        if (!this.tujuanPengiriman.trim()) missingForm.push('Tujuan Pengiriman');
-        if (!this.agenForwarding.trim()) missingForm.push('Agen Forwarding');
-        if (!this.waktuKedatangan.trim()) missingForm.push('Waktu Kedatangan');
-        if (!this.waktuKeberangkatan.trim()) missingForm.push('Waktu Keberangkatan');
-        if (missingForm.length > 0) {
-            missing.push(missingForm.length + ' data formulir (' + missingForm.join(', ') + ')');
-        }
+        if (!this.waktuKedatangan.trim()) missing.push('Waktu Mulai Staging (Kedatangan)');
+        if (!this.waktuKeberangkatan.trim()) missing.push('Waktu Akhir Staging (Keberangkatan)');
         return missing;
     }
 }"
@@ -208,9 +60,14 @@
     <!-- Shipment Header Card (Packing List as Primary Identifier) -->
     <div style="background: linear-gradient(135deg, #1a3c6e 0%, #285491 60%, #0d5950 100%); border-radius: 16px; padding: 16px; color: white; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 16px rgba(40,84,145,0.3);">
         <div>
-            <p style="font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px;">Nomor Packing List</p>
-            <h1 style="font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; line-height: 1.1;">{{ $shipment->packing_list_no ?: ($shipment->nomor_container_atau_plat ?? 'PL-' . $shipment->id) }}</h1>
-            <p style="font-size: 11px; color: rgba(255,255,255,0.7); margin-top: 4px;">Cont/Plat: <span style="font-weight:600; color:white;">{{ $shipment->nomor_container_atau_plat ?: '-' }}</span> &bull; {{ $shipment->jenis_produk }} &bull; {{ $shipment->jenis_pengiriman }}</p>
+            <p style="font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px;">No. Surat Jalan / Delivery / Packing List</p>
+            <h1 style="font-size: 18px; font-weight: 800; font-family: monospace; letter-spacing: 0.04em; line-height: 1.1;">{{ $shipment->packing_list_no ?: ($shipment->nomor_container_atau_plat ?? 'PL-' . $shipment->id) }}</h1>
+            <p style="font-size: 11px; color: rgba(255,255,255,0.85); margin-top: 4px;">
+                Group: <span style="font-weight:700; color:white;">{{ $shipment->shipment_group ?: '-' }}</span> &bull;
+                Shpt: <span style="font-weight:700; color:white;">{{ $shipment->shipment_no ?: '-' }}</span> &bull;
+                Plat: <span style="font-weight:700; color:white;">{{ $shipment->plat_nomor ?: '-' }}</span> &bull;
+                Cont: <span style="font-weight:700; color:white;">{{ $shipment->nomor_container_atau_plat ?: '-' }}</span>
+            </p>
         </div>
         <div style="text-align:right;">
             <span style="display: inline-flex; align-items: center; gap: 5px; background: rgba(217,119,6,0.2); border: 1px solid rgba(217,119,6,0.4); color: #fbbf24; font-size: 10px; font-weight: 700; padding: 4px 10px; border-radius: 20px;">
@@ -438,348 +295,93 @@
             </div>
         @endif
 
-        <!-- OCR Scan Area (Collapsible) -->
-        <div class="section-card" x-data="{ open: true }">
-            <div class="section-card-header" @click="open = !open"
-                 style="background: linear-gradient(90deg, rgba(5,158,61,0.04), transparent);">
-                <div style="width: 28px; height: 28px; border-radius: 8px; background: #e1f8eb; display: flex; align-items: center; justify-content: center; flex-shrink:0;">
-                    <i class="ph-bold ph-scan" style="font-size: 14px; color: #059e3d;"></i>
-                </div>
-                <div style="flex: 1;">
-                    <p style="font-size: 12px; font-weight: 700; color: #1f2937;">Scan Surat Bersih (OCR)</p>
-                    <p style="font-size: 10px; color: #9ca3af;">Foto sebelum ditumpuk alat scanner</p>
-                </div>
-                <i class="ph-bold" :class="open ? 'ph-caret-up' : 'ph-caret-down'" style="font-size: 14px; color: #9ca3af;"></i>
+        <!-- Data Utama Shipment (Terverifikasi dari Dokumen Shipment Order) -->
+        <div style="background: white; border: 1.5px solid #d0e0f5; border-radius: 14px; padding: 14px; box-shadow: 0 2px 8px rgba(40,84,145,0.04);">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; border-bottom:1px solid #f1f5f9; padding-bottom:8px;">
+                <span style="font-size:11px; font-weight:700; color:#1e3a8a; display:flex; align-items:center; gap:6px;">
+                    <i class="ph-bold ph-identification-badge" style="font-size:15px; color:#285491;"></i>
+                    Identitas Pengiriman (Shipment Order)
+                </span>
+                <span style="font-size:10px; font-weight:700; background:#dcfce7; color:#166534; padding:2px 8px; border-radius:8px; display:inline-flex; align-items:center; gap:4px; border:1px solid #bbf7d0;">
+                    <i class="ph-bold ph-check"></i> Terverifikasi di Awal
+                </span>
             </div>
-            <div class="section-card-body" x-show="open" x-collapse style="display:flex; flex-direction:column; gap:10px;">
-                <!-- Hidden file inputs: 1 for Direct Camera, 1 for Gallery/File Manager -->
-                <input type="file" x-ref="sjCameraInput" accept="image/*" capture="environment" style="display: none;" @change="handleSjPhotoChange($event)">
-                <input type="file" x-ref="sjGalleryInput" accept="image/*" style="display: none;" @change="handleSjPhotoChange($event)">
 
-                <!-- MODE A: Saat Belum Ada Foto (Pilihan Kamera vs Galeri) -->
-                <div x-show="!sjPhotoPreviewUrl"
-                     style="border: 2px dashed #93c5fd; border-radius: 14px; background: #f8fafc; padding: 20px 14px; text-align: center;">
-                    <div style="width: 44px; height: 44px; border-radius: 12px; background: #eff4fc; color: #285491; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; box-shadow: 0 2px 8px rgba(40,84,145,0.08);">
-                        <i class="ph-bold ph-file-text" style="font-size: 24px;"></i>
-                    </div>
-                    <p style="font-size: 13px; font-weight: 700; color: #1e293b;">Foto Surat Bersih / Packing List</p>
-                    <p style="font-size: 11px; color: #64748b; margin-top: 2px;">
-                        Pilih foto langsung lewat kamera HP atau ambil dari galeri berkas
-                    </p>
-
-                    <!-- Pilihan Tombol Kamera vs Galeri -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; max-width: 420px; margin-left: auto; margin-right: auto;">
-                        <!-- Tombol Buka Kamera Langsung -->
-                        <button type="button" @click="$refs.sjCameraInput.click()"
-                                style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 14px 10px; background: linear-gradient(135deg, #059e3d, #0d5950); color: white; border-radius: 12px; border: none; cursor: pointer; box-shadow: 0 4px 12px rgba(5,158,61,0.25); transition: transform 0.15s;"
-                                onmouseover="this.style.transform='scale(1.02)'"
-                                onmouseout="this.style.transform='scale(1)'">
-                            <i class="ph-bold ph-camera" style="font-size: 24px;"></i>
-                            <span style="font-size: 12px; font-weight: 700;">Buka Kamera</span>
-                            <span style="font-size: 9px; opacity: 0.9;">Ambil foto langsung</span>
-                        </button>
-
-                        <!-- Tombol Galeri / File -->
-                        <button type="button" @click="$refs.sjGalleryInput.click()"
-                                style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 14px 10px; background: #eff4fc; color: #285491; border: 1.5px solid #bfcfe8; border-radius: 12px; cursor: pointer; transition: all 0.15s;"
-                                onmouseover="this.style.borderColor='#285491'; this.style.background='#e0edff'"
-                                onmouseout="this.style.borderColor='#bfcfe8'; this.style.background='#eff4fc'">
-                            <i class="ph-bold ph-folder-open" style="font-size: 24px;"></i>
-                            <span style="font-size: 12px; font-weight: 700;">Pilih Galeri</span>
-                            <span style="font-size: 9px; color: #64748b;">Ambil dari berkas</span>
-                        </button>
-                    </div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; font-size:11px;">
+                <div style="background:#f8fafc; padding:8px 10px; border-radius:8px; border:1px solid #e2e8f0;">
+                    <span style="color:#64748b; font-size:10px; display:block;">No. Surat Jalan / Delivery / PL:</span>
+                    <strong style="color:#1e3a8a; font-size:13px; font-family:monospace; letter-spacing:0.04em;">{{ $shipment->packing_list_no ?: '-' }}</strong>
                 </div>
-
-                <!-- MODE B: Preview Foto Jelas & Kontras -->
-                <div x-show="sjPhotoPreviewUrl" style="display: flex; flex-direction: column; gap: 10px;">
-                    <div style="background: #0f172a; border-radius: 14px; border: 1px solid #1e293b; padding: 8px; position: relative; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.15);">
-                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; padding: 2px 4px; flex-wrap: wrap; gap: 6px;">
-                            <span style="display: inline-flex; align-items: center; gap: 5px; background: rgba(5,158,61,0.9); color: white; padding: 4px 10px; border-radius: 20px; font-size: 10px; font-weight: 700;">
-                                <i class="ph-bold ph-check"></i> Surat Bersih Terunggah
-                            </span>
-                            <div style="display: flex; align-items: center; gap: 5px; flex-wrap: wrap;">
-                                <button type="button" @click="sjZoomModalOpen = true"
-                                        style="background: rgba(255,255,255,0.2); color: white; border: none; border-radius: 8px; padding: 5px 8px; font-size: 10px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 3px;"
-                                        title="Perbesar">
-                                    <i class="ph-bold ph-magnifying-glass-plus"></i> Zoom
-                                </button>
-                                <button type="button" @click="$refs.sjCameraInput.click()"
-                                        style="background: rgba(5,158,61,0.85); color: white; border: none; border-radius: 8px; padding: 5px 8px; font-size: 10px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 3px;"
-                                        title="Foto Ulang Kamera">
-                                    <i class="ph-bold ph-camera"></i> Kamera
-                                </button>
-                                <button type="button" @click="$refs.sjGalleryInput.click()"
-                                        style="background: rgba(255,255,255,0.2); color: white; border: none; border-radius: 8px; padding: 5px 8px; font-size: 10px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 3px;"
-                                        title="Ganti Galeri">
-                                    <i class="ph-bold ph-folder-open"></i> Galeri
-                                </button>
-                                <button type="button" @click="removeSjPhoto()"
-                                        style="background: rgba(239,68,68,0.35); color: #fca5a5; border: none; border-radius: 8px; padding: 5px 7px; font-size: 10px; font-weight: 600; cursor: pointer;"
-                                        title="Hapus Foto">
-                                    <i class="ph-bold ph-trash"></i>
-                                </button>
-                            </div>
-                        </div>
-
-                        <div style="width: 100%; height: 220px; display: flex; align-items: center; justify-content: center; background: #020617; border-radius: 8px; overflow: hidden; cursor: pointer;"
-                             @click="sjZoomModalOpen = true">
-                            <img :src="sjPhotoPreviewUrl" alt="Surat Bersih"
-                                 style="max-height: 100%; max-width: 100%; object-fit: contain; display: block; border-radius: 4px;">
-                        </div>
-                    </div>
-
-                    <!-- OCR Progress / Feedback Bar -->
-                    <div x-show="isSjOcrLoading"
-                         style="background: #eff4fc; border: 1px solid #bfcfe8; border-radius: 12px; padding: 12px 14px; display: flex; align-items: center; gap: 10px;">
-                        <i class="ph-bold ph-spinner" style="font-size: 20px; color: #285491; animation: spin 1s linear infinite; flex-shrink: 0;"></i>
-                        <div>
-                            <p style="font-size: 11px; font-weight: 700; color: #285491;">Sedang Menganalisis Dokumen dengan OCR...</p>
-                            <p style="font-size: 10px; color: #64748b; margin-top: 1px;">Membaca nomor Packing List, tujuan pengiriman, & forwarding agent.</p>
-                        </div>
-                    </div>
-
-                    <!-- OCR Success Alert -->
-                    <div x-show="sjOcrStatus === 'success' && !isSjOcrLoading"
-                         style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 12px; padding: 12px 14px;">
-                        <div style="display: flex; align-items: flex-start; gap: 8px;">
-                            <i class="ph-fill ph-check-circle" style="color: #059e3d; font-size: 18px; margin-top: 1px; flex-shrink: 0;"></i>
-                            <div style="flex: 1;">
-                                <p style="font-size: 11px; font-weight: 700; color: #065f46;" x-text="sjOcrMessage"></p>
-                                <p style="font-size: 10px; color: #047857; margin-top: 2px; font-weight: 600;" x-text="sjOcrExtractedSummary"></p>
-                                <div style="margin-top: 6px;">
-                                    <button type="button" @click="showSjRawText = !showSjRawText" style="font-size: 10px; color: #047857; text-decoration: underline; background: none; border: none; padding: 0; cursor: pointer; font-weight: 600;">
-                                        <span x-text="showSjRawText ? 'Sembunyikan Teks Mentah OCR' : 'Lihat Hasil Bacaan Teks Dokumen (OCR)'"></span>
-                                    </button>
-                                    <div x-show="showSjRawText" x-collapse style="margin-top: 6px; padding: 8px; background: white; border: 1px solid #d1fae5; border-radius: 8px; max-height: 120px; overflow-y: auto; font-family: monospace; font-size: 10px; color: #374151; white-space: pre-wrap;" x-text="sjOcrRawText"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- OCR Warning Alert -->
-                    <div x-show="sjOcrStatus === 'warning' && !isSjOcrLoading"
-                         style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 12px 14px;">
-                        <div style="display: flex; align-items: flex-start; gap: 8px;">
-                            <i class="ph-fill ph-info" style="color: #d97706; font-size: 18px; margin-top: 1px; flex-shrink: 0;"></i>
-                            <div style="flex: 1;">
-                                <p style="font-size: 11px; font-weight: 700; color: #92400e;" x-text="sjOcrMessage"></p>
-                                <template x-if="sjOcrRawText">
-                                    <div style="margin-top: 6px;">
-                                        <button type="button" @click="showSjRawText = !showSjRawText" style="font-size: 10px; color: #b45309; text-decoration: underline; background: none; border: none; padding: 0; cursor: pointer;">
-                                            <span x-text="showSjRawText ? 'Tutup Teks' : 'Lihat Teks yang Terbaca'"></span>
-                                        </button>
-                                        <div x-show="showSjRawText" x-collapse style="margin-top: 6px; padding: 8px; background: white; border: 1px solid #fef3c7; border-radius: 8px; max-height: 120px; overflow-y: auto; font-family: monospace; font-size: 10px; color: #374151; white-space: pre-wrap;" x-text="sjOcrRawText"></div>
-                                    </div>
-                                </template>
-                            </div>
-                        </div>
-                    </div>
+                <div style="background:#f8fafc; padding:8px 10px; border-radius:8px; border:1px solid #e2e8f0;">
+                    <span style="color:#64748b; font-size:10px; display:block;">No. Container:</span>
+                    <strong style="color:#1e293b; font-size:13px; font-family:monospace;">{{ $shipment->nomor_container_atau_plat ?: '-' }}</strong>
                 </div>
-
-
-                <!-- Extracted Fields with History Recommendations & Combobox Search -->
-                <!-- Nomor Packing List / Delivery (Terdata dari Dokumen Shipment Order) -->
-                <div style="background:#eff4fc; border:1.5px solid #bfcfe8; border-radius:12px; padding:12px 14px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
-                    <div>
-                        <p style="font-size:10px; font-weight:700; color:#285491; text-transform:uppercase; letter-spacing:0.04em;">Nomor Packing List / No. Surat Jalan (Delivery)</p>
-                        <p style="font-size:15px; font-weight:800; color:#1e3a8a; font-family:monospace; margin-top:2px;" x-text="packingListNo || '{{ $shipment->packing_list_no ?: '-' }}'"></p>
-                    </div>
-                    <div style="display:flex; align-items:center; gap:6px;">
-                        <span style="font-size:10px; font-weight:700; background:#dcfce7; color:#166534; padding:3px 9px; border-radius:10px; display:inline-flex; align-items:center; gap:4px; border:1px solid #bbf7d0;">
-                            <i class="ph-bold ph-check"></i> Terdata dari Shipment Order
-                        </span>
-                    </div>
-                    <input type="hidden" name="packing_list_no" :value="packingListNo">
+                <div style="background:#f8fafc; padding:8px 10px; border-radius:8px; border:1px solid #e2e8f0;">
+                    <span style="color:#64748b; font-size:10px; display:block;">Shipment Group:</span>
+                    <strong style="color:#1e293b; font-size:12px; font-family:monospace;">{{ $shipment->shipment_group ?: '-' }}</strong>
                 </div>
-
-                <!-- Tujuan Pengiriman with Searchable Combobox & Recommendations -->
-                <div style="position: relative;" @click.outside="tujuanDropdownOpen = false">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px;">
-                        <label class="field-label" style="margin-bottom:0; display:flex; align-items:center; gap:4px;">
-                            <i class="ph-bold ph-map-pin" style="color:#285491; font-size:12px;"></i>Tujuan Pengiriman <span style="color:#ef4444;">*</span>
-                        </label>
-                        <button type="button"
-                                @click="tujuanDropdownOpen = !tujuanDropdownOpen; if(tujuanDropdownOpen) $nextTick(() => $refs.tujuanSearchInput?.focus())"
-                                style="font-size:10px; font-weight:600; color:#285491; background:#eff4fc; border:1px solid #d0e0f5; border-radius:6px; padding:2px 7px; cursor:pointer; display:flex; align-items:center; gap:3px;">
-                            <i class="ph-bold ph-magnifying-glass"></i> Cari dari Riwayat
-                        </button>
-                    </div>
-
-                    <div style="position:relative;">
-                        <input type="text" id="tujuan_pengiriman" name="tujuan_pengiriman" x-model="tujuanPengiriman"
-                               list="history-tujuan" required placeholder="Nama PT / Pelabuhan / Alamat tujuan" class="field-input"
-                               style="padding-right:32px;">
-                        <button type="button"
-                                @click="tujuanDropdownOpen = !tujuanDropdownOpen; if(tujuanDropdownOpen) $nextTick(() => $refs.tujuanSearchInput?.focus())"
-                                style="position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; color:#6b7280; cursor:pointer; padding:4px;"
-                                title="Buka Riwayat Tujuan Pengiriman">
-                            <i class="ph-bold ph-caret-down" style="font-size:13px;"></i>
-                        </button>
-                    </div>
-
-                    <datalist id="history-tujuan">
-                        <template x-for="item in tujuanList" :key="item">
-                            <option :value="item"></option>
-                        </template>
-                    </datalist>
-
-                    <!-- Searchable Combobox Dropdown -->
-                    <div x-show="tujuanDropdownOpen"
-                         x-transition.opacity
-                         style="position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); z-index: 50; overflow: hidden; margin-top: 4px;">
-                        <div style="padding: 8px; background: #f8fafc; border-bottom: 1px solid #f1f5f9;">
-                            <div style="position: relative;">
-                                <i class="ph-bold ph-magnifying-glass" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 12px; color: #9ca3af;"></i>
-                                <input type="text"
-                                       x-ref="tujuanSearchInput"
-                                       x-model="tujuanSearch"
-                                       placeholder="Cari riwayat tujuan pengiriman..."
-                                       style="width: 100%; box-sizing: border-box; padding: 7px 10px 7px 30px; font-size: 11px; border: 1px solid #e2e8f0; border-radius: 8px; outline: none;"
-                                       @keydown.escape="tujuanDropdownOpen = false">
-                            </div>
-                        </div>
-                        <div style="max-height: 180px; overflow-y: auto;">
-                            <template x-for="item in filteredTujuanList" :key="item">
-                                <div @click="tujuanPengiriman = item; tujuanDropdownOpen = false; tujuanSearch = ''"
-                                     style="padding: 9px 12px; font-size: 11px; color: #374151; cursor: pointer; border-bottom: 1px solid #f9fafb; display: flex; align-items: center; justify-content: space-between;"
-                                     onmouseover="this.style.background='#eff4fc'; this.style.color='#285491'"
-                                     onmouseout="this.style.background='transparent'; this.style.color='#374151'">
-                                    <span x-text="item" style="font-weight: 600;"></span>
-                                    <i class="ph-bold ph-check" x-show="tujuanPengiriman === item" style="color: #059e3d; font-size: 12px;"></i>
-                                </div>
-                            </template>
-                            <div x-show="filteredTujuanList.length === 0" style="padding: 12px; text-align: center; color: #9ca3af; font-size: 11px;">
-                                Tidak ada riwayat cocok. Ketik langsung pada input di atas.
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Quick Recommendation Chips -->
-                    @if(count($history['tujuan_pengiriman'] ?? []) > 0)
-                        <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;">
-                            <span style="font-size:9px; color:#9ca3af; align-self:center;">Rekomendasi:</span>
-                            @foreach(($history['tujuan_pengiriman'] ?? collect())->take(4) as $rec)
-                                <button type="button" @click="tujuanPengiriman = '{{ addslashes($rec) }}'"
-                                        style="font-size:10px; padding:2px 8px; border-radius:10px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer; font-weight:500;">
-                                    {{ $rec }}
-                                </button>
-                            @endforeach
-                        </div>
-                    @endif
+                <div style="background:#f8fafc; padding:8px 10px; border-radius:8px; border:1px solid #e2e8f0;">
+                    <span style="color:#64748b; font-size:10px; display:block;">Shipment No:</span>
+                    <strong style="color:#1e293b; font-size:12px; font-family:monospace;">{{ $shipment->shipment_no ?: '-' }}</strong>
                 </div>
-
-                <!-- Agen Forwarding with Searchable Combobox & Recommendations -->
-                <div style="position: relative;" @click.outside="agenDropdownOpen = false">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px;">
-                        <label class="field-label" style="margin-bottom:0; display:flex; align-items:center; gap:4px;">
-                            <i class="ph-bold ph-airplane-takeoff" style="color:#285491; font-size:12px;"></i>Agen Forwarding <span style="color:#ef4444;">*</span>
-                        </label>
-                        <button type="button"
-                                @click="agenDropdownOpen = !agenDropdownOpen; if(agenDropdownOpen) $nextTick(() => $refs.agenSearchInput?.focus())"
-                                style="font-size:10px; font-weight:600; color:#285491; background:#eff4fc; border:1px solid #d0e0f5; border-radius:6px; padding:2px 7px; cursor:pointer; display:flex; align-items:center; gap:3px;">
-                            <i class="ph-bold ph-magnifying-glass"></i> Cari dari Riwayat
-                        </button>
-                    </div>
-
-                    <div style="position:relative;">
-                        <input type="text" id="agen_forwarding" name="agen_forwarding" x-model="agenForwarding"
-                               list="history-agen" required placeholder="Ketik nama agen atau pilih dari riwayat" class="field-input"
-                               style="padding-right:32px;">
-                        <button type="button"
-                                @click="agenDropdownOpen = !agenDropdownOpen; if(agenDropdownOpen) $nextTick(() => $refs.agenSearchInput?.focus())"
-                                style="position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; color:#6b7280; cursor:pointer; padding:4px;"
-                                title="Buka Riwayat Agen Forwarding">
-                            <i class="ph-bold ph-caret-down" style="font-size:13px;"></i>
-                        </button>
-                    </div>
-
-                    <datalist id="history-agen">
-                        <template x-for="item in agenList" :key="item">
-                            <option :value="item"></option>
-                        </template>
-                    </datalist>
-
-                    <!-- Searchable Combobox Dropdown -->
-                    <div x-show="agenDropdownOpen"
-                         x-transition.opacity
-                         style="position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); z-index: 50; overflow: hidden; margin-top: 4px;">
-                        <div style="padding: 8px; background: #f8fafc; border-bottom: 1px solid #f1f5f9;">
-                            <div style="position: relative;">
-                                <i class="ph-bold ph-magnifying-glass" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 12px; color: #9ca3af;"></i>
-                                <input type="text"
-                                       x-ref="agenSearchInput"
-                                       x-model="agenSearch"
-                                       placeholder="Cari riwayat agen forwarding..."
-                                       style="width: 100%; box-sizing: border-box; padding: 7px 10px 7px 30px; font-size: 11px; border: 1px solid #e2e8f0; border-radius: 8px; outline: none;"
-                                       @keydown.escape="agenDropdownOpen = false">
-                            </div>
-                        </div>
-                        <div style="max-height: 180px; overflow-y: auto;">
-                            <template x-for="item in filteredAgenList" :key="item">
-                                <div @click="agenForwarding = item; agenDropdownOpen = false; agenSearch = ''"
-                                     style="padding: 9px 12px; font-size: 11px; color: #374151; cursor: pointer; border-bottom: 1px solid #f9fafb; display: flex; align-items: center; justify-content: space-between;"
-                                     onmouseover="this.style.background='#eff4fc'; this.style.color='#285491'"
-                                     onmouseout="this.style.background='transparent'; this.style.color='#374151'">
-                                    <span x-text="item" style="font-weight: 600;"></span>
-                                    <i class="ph-bold ph-check" x-show="agenForwarding === item" style="color: #059e3d; font-size: 12px;"></i>
-                                </div>
-                            </template>
-                            <div x-show="filteredAgenList.length === 0" style="padding: 12px; text-align: center; color: #9ca3af; font-size: 11px;">
-                                Tidak ada riwayat cocok. Ketik langsung pada input di atas.
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Quick Recommendation Chips -->
-                    @if(count($history['agen_forwarding'] ?? []) > 0)
-                        <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;">
-                            <span style="font-size:9px; color:#9ca3af; align-self:center;">Rekomendasi:</span>
-                            @foreach(($history['agen_forwarding'] ?? collect())->take(4) as $rec)
-                                <button type="button" @click="agenForwarding = '{{ addslashes($rec) }}'"
-                                        style="font-size:10px; padding:2px 8px; border-radius:10px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer; font-weight:500;">
-                                    {{ $rec }}
-                                </button>
-                            @endforeach
-                        </div>
-                    @endif
+                <div style="background:#f8fafc; padding:8px 10px; border-radius:8px; border:1px solid #e2e8f0;">
+                    <span style="color:#64748b; font-size:10px; display:block;">Plat Nomor Kendaraan:</span>
+                    <strong style="color:#1e293b; font-size:12px;">{{ $shipment->plat_nomor ?: '-' }}</strong>
+                </div>
+                <div style="background:#f8fafc; padding:8px 10px; border-radius:8px; border:1px solid #e2e8f0;">
+                    <span style="color:#64748b; font-size:10px; display:block;">Nama Sopir:</span>
+                    <strong style="color:#1e293b; font-size:12px;">{{ $shipment->nama_sopir ?: '-' }}</strong>
                 </div>
             </div>
         </div>
 
-        <!-- Section 3: Waktu Staging Container -->
+        <!-- Section Waktu Pelaksanaan Staging Container (Mulai & Akhir Saja) -->
         <div class="section-card" x-data="{ open: true }" style="margin-top: 10px;">
-            <div class="section-card-header" @click="open = !open">
-                <div style="width: 28px; height: 28px; border-radius: 8px; background: #eff4fc; display: flex; align-items: center; justify-content: center; flex-shrink:0;">
-                    <i class="ph-fill ph-clock" style="font-size: 14px; color: #285491;"></i>
+            <div class="section-card-header" @click="open = !open"
+                 style="background: linear-gradient(90deg, rgba(40,84,145,0.06), transparent);">
+                <div style="width: 32px; height: 32px; border-radius: 10px; background: #eff4fc; display: flex; align-items: center; justify-content: center; flex-shrink:0;">
+                    <i class="ph-fill ph-clock" style="font-size: 16px; color: #285491;"></i>
                 </div>
                 <div style="flex: 1;">
-                    <p style="font-size: 12px; font-weight: 700; color: #1f2937;">Waktu Staging Container</p>
-                    <p style="font-size: 10px; color: #9ca3af;">Kedatangan & Keberangkatan</p>
+                    <p style="font-size: 13px; font-weight: 700; color: #1f2937;">Waktu Pelaksanaan Staging Container</p>
+                    <p style="font-size: 10px; color: #64748b;">Hanya perlu mengisi waktu mulai (kedatangan) dan waktu akhir (keberangkatan)</p>
                 </div>
                 <i class="ph-bold" :class="open ? 'ph-caret-up' : 'ph-caret-down'" style="font-size: 14px; color: #9ca3af;"></i>
             </div>
-            <div class="section-card-body" x-show="open" x-collapse style="display:flex; flex-direction:column; gap:10px;">
-                <div style="display:flex; flex-direction:column; gap:10px;">
-                    <div style="width:100%;">
-                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:5px;">
-                            <label class="field-label" style="margin-bottom:0;">Waktu Kedatangan <span style="color:#ef4444;">*</span></label>
+            <div class="section-card-body" x-show="open" x-collapse style="display:flex; flex-direction:column; gap:14px; padding: 16px;">
+                <div style="display:flex; flex-direction:column; gap:14px;">
+                    <!-- Waktu Mulai (Kedatangan Container) -->
+                    <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px;"
+                         :style="waktuKedatangan ? 'border-color: #86efac; background: #f0fdf4;' : ''">
+                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+                            <label class="field-label" style="margin-bottom:0; display:flex; align-items:center; gap:5px; font-weight:700; color:#1e293b;">
+                                <i class="ph-bold ph-play-circle" style="color:#059e3d; font-size:16px;"></i>
+                                Waktu Mulai (Kedatangan Container) <span style="color:#ef4444;">*</span>
+                            </label>
                             <button type="button" @click="setNow('kedatangan')"
-                                    style="font-size:10px; font-weight:600; color:#285491; background:#eff4fc; border:1px solid #d0e0f5; border-radius:6px; padding:2px 7px; cursor:pointer;">
+                                    style="font-size:10px; font-weight:700; color:#285491; background:#eff4fc; border:1px solid #bfcfe8; border-radius:6px; padding:3px 8px; cursor:pointer; display:flex; align-items:center; gap:3px;">
                                 <i class="ph-bold ph-clock"></i> Set Sekarang
                             </button>
                         </div>
-                        <input type="datetime-local" id="waktu_kedatangan_container" name="waktu_kedatangan_container" x-model="waktuKedatangan" required class="field-input" style="width:100%; box-sizing:border-box;">
+                        <input type="datetime-local" id="waktu_kedatangan_container" name="waktu_kedatangan_container" x-model="waktuKedatangan" required class="field-input" style="width:100%; box-sizing:border-box; background:white; font-size:13px; font-weight:600;">
+                        <p style="font-size:10px; color:#64748b; margin-top:4px;">Waktu saat container pertama kali tiba di warehouse untuk proses staging.</p>
                     </div>
-                    <div style="width:100%;">
-                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:5px;">
-                            <label class="field-label" style="margin-bottom:0;">Waktu Keberangkatan <span style="color:#ef4444;">*</span></label>
+
+                    <!-- Waktu Akhir (Keberangkatan Container) -->
+                    <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px;"
+                         :style="waktuKeberangkatan ? 'border-color: #86efac; background: #f0fdf4;' : ''">
+                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+                            <label class="field-label" style="margin-bottom:0; display:flex; align-items:center; gap:5px; font-weight:700; color:#1e293b;">
+                                <i class="ph-bold ph-check-circle" style="color:#285491; font-size:16px;"></i>
+                                Waktu Akhir (Keberangkatan Container) <span style="color:#ef4444;">*</span>
+                            </label>
                             <button type="button" @click="setNow('keberangkatan')"
-                                    style="font-size:10px; font-weight:600; color:#285491; background:#eff4fc; border:1px solid #d0e0f5; border-radius:6px; padding:2px 7px; cursor:pointer;">
+                                    style="font-size:10px; font-weight:700; color:#285491; background:#eff4fc; border:1px solid #bfcfe8; border-radius:6px; padding:3px 8px; cursor:pointer; display:flex; align-items:center; gap:3px;">
                                 <i class="ph-bold ph-clock"></i> Set Sekarang
                             </button>
                         </div>
-                        <input type="datetime-local" id="waktu_keberangkatan_container" name="waktu_keberangkatan_container" x-model="waktuKeberangkatan" required class="field-input" style="width:100%; box-sizing:border-box;">
+                        <input type="datetime-local" id="waktu_keberangkatan_container" name="waktu_keberangkatan_container" x-model="waktuKeberangkatan" required class="field-input" style="width:100%; box-sizing:border-box; background:white; font-size:13px; font-weight:600;">
+                        <p style="font-size:10px; color:#64748b; margin-top:4px;">Waktu saat proses pemuatan selesai dan container siap diberangkatkan.</p>
                     </div>
                 </div>
             </div>
@@ -811,7 +413,7 @@
                 <!-- Ready banner -->
                 <div x-cloak x-show="canSubmit" style="font-size:11px; color:#065f46; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:8px; padding:6px 10px; display:flex; align-items:center; gap:6px; font-weight:600;">
                     <i class="ph-fill ph-check-circle" style="font-size:14px; flex-shrink:0; color:#059e3d;"></i>
-                    Seluruh 26 bukti foto wajib & formulir surat jalan terisi lengkap.
+                    Seluruh 26 bukti foto wajib & jam waktu pelaksanaan staging terisi lengkap.
                 </div>
 
                 <button type="submit"
@@ -824,22 +426,6 @@
                     <i class="ph-bold ph-check-circle" style="font-size:18px;"></i>
                     Submit Final Data
                 </button>
-            </div>
-        </div>
-
-        <!-- LIGHTBOX MODAL: Zoom Full Foto Surat Bersih -->
-        <div x-cloak x-show="sjZoomModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
-             @click="sjZoomModalOpen = false">
-            <div class="relative max-w-2xl w-full bg-slate-900 rounded-2xl overflow-hidden shadow-2xl p-3" @click.stop>
-                <div class="flex items-center justify-between mb-2 px-2 text-white">
-                    <p class="text-xs font-bold">Preview Surat Bersih / Packing List</p>
-                    <button type="button" @click="sjZoomModalOpen = false" class="text-gray-300 hover:text-white p-1">
-                        <i class="ph-bold ph-x text-lg"></i>
-                    </button>
-                </div>
-                <div class="max-h-[80vh] overflow-auto flex items-center justify-center bg-black/50 rounded-xl p-1">
-                    <img :src="sjPhotoPreviewUrl" class="max-h-full max-w-full object-contain" alt="Surat Bersih Penuh">
-                </div>
             </div>
         </div>
 

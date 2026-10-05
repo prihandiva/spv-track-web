@@ -338,14 +338,19 @@ class PhotoProcessingService
         $w = imagesx($img);
         $h = imagesy($img);
         $minDim = min($w, $h);
+        $isPortrait = $h > $w;
 
         // 2. Skala proporsional terhadap resolusi foto kamera:
-        // Pada foto kamera 3000-4000px, font mencapai 96-120pt sehingga tetap besar dan terbaca jelas!
-        $fontSizeTime = max(20, (int) ($minDim * 0.034));
-        $fontSizeTitle = max(14, (int) ($fontSizeTime * 0.70));
-        $barHeight = (int) max(88, $minDim * 0.125);
+        // Pada orientasi potrait, berikan ruang vertikal banner lebih leluasa agar teks tidak mepet bawah
+        $barHeight = $isPortrait ? (int) max(100, $minDim * 0.14) : (int) max(88, $minDim * 0.125);
         $barY = $h - $barHeight;
         $accentHeight = (int) max(4, $minDim * 0.005);
+        $paddingX = (int) max(20, $w * 0.03);
+        $maxWidth = $w - (2 * $paddingX);
+
+        // Ukuran font dasar
+        $fontSizeTime = max(18, (int) ($minDim * 0.034));
+        $fontSizeTitle = max(13, (int) ($fontSizeTime * 0.70));
 
         // 3. Banner hitam transparan di bagian bawah foto
         $darkBar = imagecolorallocatealpha($img, 10, 15, 26, 30);
@@ -365,7 +370,7 @@ class PhotoProcessingService
         if ($subText) {
             $line1 .= '  |  '.$subText;
         }
-        $line2 = 'DIAMBIL PADA: '.$stampText;
+        $line2 = str_starts_with($stampText, 'JAM') || str_starts_with($stampText, 'DIAMBIL') ? $stampText : 'JAM SERVER : '.$stampText;
 
         $fontFile = null;
         $candidateFonts = [
@@ -385,9 +390,12 @@ class PhotoProcessingService
         }
 
         if ($fontFile && function_exists('imagettftext')) {
-            $paddingX = (int) max(20, $minDim * 0.03);
-            $yLine1 = $barY + $accentHeight + (int) ($barHeight * 0.35);
-            $yLine2 = $barY + $accentHeight + (int) ($barHeight * 0.74);
+            // Auto-scale font agar tidak terpotong di orientasi potrait maupun nama titik yang panjang
+            $fontSizeTitle = $this->fitFontSize($line1, $fontSizeTitle, $maxWidth, $fontFile, 12);
+            $fontSizeTime = $this->fitFontSize($line2, $fontSizeTime, $maxWidth, $fontFile, 14);
+
+            $yLine1 = $barY + $accentHeight + (int) ($barHeight * ($isPortrait ? 0.36 : 0.35));
+            $yLine2 = $barY + $accentHeight + (int) ($barHeight * ($isPortrait ? 0.76 : 0.74));
             $shadowOffset = max(2, (int) ($fontSizeTime * 0.05));
 
             // Shadow teks agar kontras tinggi
@@ -422,17 +430,21 @@ class PhotoProcessingService
         $w = imagesx($sourceImage);
         $h = imagesy($sourceImage);
         $minDim = min($w, $h);
+        $isPortrait = $h > $w;
 
         // Buat kanvas duplikat
         $canvas = imagecreatetruecolor($w, $h);
         imagecopy($canvas, $sourceImage, 0, 0, 0, 0, $w, $h);
 
-        // Hitung skala font & banner berdasarkan resolusi kamera (proporsional 3.4% dari sisi terkecil)
-        $fontSizeTime = max(20, (int) ($minDim * 0.034));
-        $fontSizeTitle = max(14, (int) ($fontSizeTime * 0.70));
-        $barHeight = (int) max(88, $minDim * 0.125);
+        // Skala proporsional terhadap resolusi foto kamera
+        $barHeight = $isPortrait ? (int) max(100, $minDim * 0.14) : (int) max(88, $minDim * 0.125);
         $barY = $h - $barHeight;
         $accentHeight = (int) max(4, $minDim * 0.005);
+        $paddingX = (int) max(20, $w * 0.03);
+        $maxWidth = $w - (2 * $paddingX);
+
+        $fontSizeTime = max(18, (int) ($minDim * 0.034));
+        $fontSizeTitle = max(13, (int) ($fontSizeTime * 0.70));
 
         // Gambar banner hitam transparan di bagian bawah foto
         // Alpha GD: 0 = solid, 127 = transparan penuh. 30 = ~75% solid
@@ -476,9 +488,12 @@ class PhotoProcessingService
         }
 
         if ($fontFile && function_exists('imagettftext')) {
-            $paddingX = (int) max(20, $minDim * 0.03);
-            $yLine1 = $barY + $accentHeight + (int) ($barHeight * 0.35);
-            $yLine2 = $barY + $accentHeight + (int) ($barHeight * 0.74);
+            // Auto-scale font agar tidak terpotong di orientasi potrait maupun nama titik yang panjang
+            $fontSizeTitle = $this->fitFontSize($line1, $fontSizeTitle, $maxWidth, $fontFile, 12);
+            $fontSizeTime = $this->fitFontSize($line2, $fontSizeTime, $maxWidth, $fontFile, 14);
+
+            $yLine1 = $barY + $accentHeight + (int) ($barHeight * ($isPortrait ? 0.36 : 0.35));
+            $yLine2 = $barY + $accentHeight + (int) ($barHeight * ($isPortrait ? 0.76 : 0.74));
             $shadowOffset = max(2, (int) ($fontSizeTime * 0.05));
 
             // Render Line 1 (Tag & Title) dengan shadow
@@ -499,6 +514,31 @@ class PhotoProcessingService
         }
 
         return $canvas;
+    }
+
+    /**
+     * Menyesuaikan ukuran font secara proporsional agar teks tidak terpotong di tepi kanan gambar.
+     */
+    protected function fitFontSize(string $text, int $initialSize, int $maxWidth, ?string $fontFile, int $minSize = 12): int
+    {
+        if (! $fontFile || ! function_exists('imagettfbbox') || empty($text)) {
+            return $initialSize;
+        }
+
+        $size = $initialSize;
+        $bbox = @imagettfbbox($size, 0, $fontFile, $text);
+        if (! $bbox) {
+            return $initialSize;
+        }
+
+        $textWidth = abs($bbox[4] - $bbox[0]);
+        $safeMax = (int) floor($maxWidth * 0.98);
+
+        if ($textWidth > $safeMax && $textWidth > 0) {
+            $size = max($minSize, (int) floor($size * ($safeMax / $textWidth)));
+        }
+
+        return $size;
     }
 
     /**
