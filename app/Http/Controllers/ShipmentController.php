@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Shipment;
 use App\Models\SopPhotoPoint;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use ZipArchive;
@@ -52,19 +53,37 @@ class ShipmentController extends Controller
     }
 
     /**
-     * Download seluruh bukti foto evidence shipment dalam satu file ZIP.
-     * Nama ZIP = nomor packing list (fallback ke nomor shipment).
-     * Nama gambar = nomor container, atau nomor plat jika container tidak ada / 0.
-     * Secara default foto dikompresi proporsional (max 1600px, Q80) agar ukuran ZIP hemat (~5-6 MB vs 40+ MB).
+     * Download seluruh bukti foto evidence shipment tunggal dalam satu file ZIP.
      */
     public function downloadZip(Request $request, Shipment $shipment)
     {
         @ini_set('memory_limit', '512M');
         @set_time_limit(180);
 
-        $shipment->load(['evidenceItems.sopPhotoPoint', 'photos', 'extraPhotos']);
-
         $quality = $request->input('quality', 'compressed');
+        $zipPath = $this->generateShipmentZip($shipment, $quality);
+
+        if (! $zipPath || ! file_exists($zipPath)) {
+            return back()->with('error', 'Belum ada bukti foto evidence yang tersimpan untuk diunduh.');
+        }
+
+        $packingList = trim((string) ($shipment->packing_list_no ?? ''));
+        $zipBase = $packingList !== '' ? $packingList : ($shipment->shipment_no ?: ('shipment-'.$shipment->id));
+        $safeZipName = preg_replace('/[^A-Za-z0-9_\-]/', '_', $zipBase).'.zip';
+
+        return response()->download($zipPath, $safeZipName, [
+            'Content-Type' => 'application/zip',
+        ]);
+    }
+
+    /**
+     * Menghasilkan file ZIP individual untuk sebuah shipment beserta bukti fotonya,
+     * lalu menyimpan dan mengembalikan path file dari cache server.
+     */
+    public function generateShipmentZip(Shipment $shipment, string $quality = 'compressed'): ?string
+    {
+        $shipment->loadMissing(['evidenceItems.sopPhotoPoint', 'photos', 'extraPhotos']);
+
         $optimize = $quality !== 'original';
 
         // 1. Tentukan nama file ZIP dari packing_list_no (fallback ke shipment_no atau ID)
@@ -111,7 +130,7 @@ class ShipmentController extends Controller
         }
 
         if ($evidenceList->isEmpty()) {
-            return back()->with('error', 'Belum ada bukti foto evidence yang tersimpan untuk diunduh.');
+            return null;
         }
 
         // 3. Cek apakah file ZIP sudah tersedia di cache server
@@ -124,9 +143,7 @@ class ShipmentController extends Controller
         $cachedZipPath = $cacheDir.DIRECTORY_SEPARATOR."{$shipment->id}_{$cacheToken}_{$safeZipName}";
 
         if (file_exists($cachedZipPath) && filesize($cachedZipPath) > 0) {
-            return response()->download($cachedZipPath, $safeZipName, [
-                'Content-Type' => 'application/zip',
-            ]);
+            return $cachedZipPath;
         }
 
         // Urutkan berdasarkan urutan titik
@@ -137,7 +154,7 @@ class ShipmentController extends Controller
         $zip = new ZipArchive;
 
         if ($zip->open($tempZipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
-            return back()->with('error', 'Gagal membuat file arsip ZIP di server.');
+            return null;
         }
 
         $extraIndex = 1;
@@ -172,11 +189,282 @@ class ShipmentController extends Controller
         // Simpan ke cache agar unduhan selanjutnya instan
         if (file_exists($tempZipPath) && filesize($tempZipPath) > 0) {
             @copy($tempZipPath, $cachedZipPath);
+            @unlink($tempZipPath);
+
+            return $cachedZipPath;
         }
 
-        return response()->download($tempZipPath, $safeZipName, [
+        return null;
+    }
+
+    /**
+     * Download sekumpulan shipment (Batch ZIP) terorganisir per folder:
+     * {TAHUN}/{BULAN}/{HARI}/{PACKING_LIST}.zip
+     */
+    public function downloadBatchZip(Request $request)
+    {
+        @ini_set('memory_limit', '1024M');
+        @set_time_limit(300);
+
+        $query = $this->buildBatchShipmentsQuery($request);
+        $shipments = $query->with(['evidenceItems.sopPhotoPoint', 'photos', 'extraPhotos'])->get();
+
+        if ($shipments->isEmpty()) {
+            return back()->with('error', 'Tidak ditemukan data shipment dengan bukti foto pada kriteria filter yang dipilih.');
+        }
+
+        $quality = $request->input('quality', 'compressed');
+
+        $indonesianMonths = [
+            1 => 'JANUARI',
+            2 => 'FEBRUARI',
+            3 => 'MARET',
+            4 => 'APRIL',
+            5 => 'MEI',
+            6 => 'JUNI',
+            7 => 'JULI',
+            8 => 'AGUSTUS',
+            9 => 'SEPTEMBER',
+            10 => 'OKTOBER',
+            11 => 'NOVEMBER',
+            12 => 'DESEMBER',
+        ];
+
+        $masterZipPath = tempnam(sys_get_temp_dir(), 'spv_batch_');
+        $masterZip = new ZipArchive;
+
+        if ($masterZip->open($masterZipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            return back()->with('error', 'Gagal membuat file arsip batch ZIP di server.');
+        }
+
+        $usedEntries = [];
+        $filesAdded = 0;
+
+        foreach ($shipments as $shipment) {
+            $singleZipPath = $this->generateShipmentZip($shipment, $quality);
+            if (! $singleZipPath || ! file_exists($singleZipPath)) {
+                continue;
+            }
+
+            $date = $shipment->tanggal_staging ? Carbon::parse($shipment->tanggal_staging) : ($shipment->created_at ?: now());
+            $year = $date->format('Y');
+            $monthNum = (int) $date->format('n');
+            $monthName = $indonesianMonths[$monthNum] ?? strtoupper($date->format('F'));
+            $day = (string) (int) $date->format('j');
+
+            $packingList = trim((string) ($shipment->packing_list_no ?? ''));
+            $zipBase = $packingList !== '' ? $packingList : ($shipment->shipment_no ?: ('shipment-'.$shipment->id));
+            $safeZipName = preg_replace('/[^A-Za-z0-9_\-]/', '_', $zipBase).'.zip';
+
+            $productFolder = strtoupper((string) ($shipment->jenis_produk ?: 'FIBER'));
+            $subFolder = "{$productFolder}/{$year}/{$monthName}/{$day}";
+            $baseName = pathinfo($safeZipName, PATHINFO_FILENAME);
+
+            $entryKey = "{$subFolder}/{$safeZipName}";
+            if (isset($usedEntries[$entryKey])) {
+                $usedEntries[$entryKey]++;
+                $entryName = "{$subFolder}/{$baseName}_{$usedEntries[$entryKey]}.zip";
+            } else {
+                $usedEntries[$entryKey] = 1;
+                $entryName = $entryKey;
+            }
+
+            $masterZip->addFile($singleZipPath, $entryName);
+            $filesAdded++;
+        }
+
+        $masterZip->close();
+
+        if ($filesAdded === 0) {
+            @unlink($masterZipPath);
+
+            return back()->with('error', 'Tidak ada file bukti foto yang dapat dimasukkan ke dalam arsip ZIP.');
+        }
+
+        $masterFileName = $this->getBatchZipFileName($request, $indonesianMonths);
+
+        return response()->download($masterZipPath, $masterFileName, [
             'Content-Type' => 'application/zip',
         ])->deleteFileAfterSend(true);
+    }
+
+    /**
+     * Endpoint API Preview: Mengecek jumlah data shipment dan contoh struktur folder sebelum diunduh.
+     */
+    public function previewBatchZip(Request $request)
+    {
+        $query = $this->buildBatchShipmentsQuery($request);
+        $count = $query->count();
+
+        $indonesianMonths = [
+            1 => 'JANUARI',
+            2 => 'FEBRUARI',
+            3 => 'MARET',
+            4 => 'APRIL',
+            5 => 'MEI',
+            6 => 'JUNI',
+            7 => 'JULI',
+            8 => 'AGUSTUS',
+            9 => 'SEPTEMBER',
+            10 => 'OKTOBER',
+            11 => 'NOVEMBER',
+            12 => 'DESEMBER',
+        ];
+
+        $masterFileName = $this->getBatchZipFileName($request, $indonesianMonths);
+
+        $samplePath = '-';
+        if ($count > 0) {
+            $sampleShipment = (clone $query)->first();
+            if ($sampleShipment) {
+                $date = $sampleShipment->tanggal_staging ? Carbon::parse($sampleShipment->tanggal_staging) : ($sampleShipment->created_at ?: now());
+                $year = $date->format('Y');
+                $monthNum = (int) $date->format('n');
+                $monthName = $indonesianMonths[$monthNum] ?? strtoupper($date->format('F'));
+                $day = (string) (int) $date->format('j');
+                $pl = $sampleShipment->packing_list_no ?: ($sampleShipment->nomor_container_atau_plat ?: ('SPV-'.$sampleShipment->id));
+                $productFolder = strtoupper((string) ($sampleShipment->jenis_produk ?: 'FIBER'));
+                $safePl = preg_replace('/[^A-Za-z0-9_\-]/', '_', $pl).'.zip';
+                $samplePath = "{$productFolder}/{$year}/{$monthName}/{$day}/{$safePl}";
+            }
+        }
+
+        $quality = $request->input('quality', 'compressed');
+        $avgMb = ($quality === 'original') ? 35 : 5.5;
+        $estMb = round($count * $avgMb, 1);
+        $estSize = $count === 0 ? '0 MB' : ($estMb >= 1000 ? round($estMb / 1024, 2).' GB' : "±{$estMb} MB");
+
+        return response()->json([
+            'count' => $count,
+            'sample_path' => $samplePath,
+            'estimated_size' => $estSize,
+            'filename' => $masterFileName,
+        ]);
+    }
+
+    /**
+     * Membangun query Eloquent untuk shipment sesuai filter periode dan produk.
+     */
+    protected function buildBatchShipmentsQuery(Request $request)
+    {
+        $query = Shipment::query();
+
+        // Hanya ambil shipment yang memiliki berkas foto atau bukti evidence
+        $query->where(function ($q) {
+            $q->has('evidenceItems')->orHas('photos');
+        });
+
+        $mode = $request->input('mode', 'harian');
+        $product = $request->input('jenis_produk', 'all');
+
+        if ($product && in_array($product, ['fiber', 'sodium'])) {
+            $query->where('jenis_produk', $product);
+        }
+
+        if ($mode === 'harian') {
+            $targetDate = $request->input('date');
+            if (! $targetDate && $request->filled('year') && $request->filled('month') && $request->filled('day')) {
+                $targetDate = sprintf('%04d-%02d-%02d', (int) $request->input('year'), (int) $request->input('month'), (int) $request->input('day'));
+            }
+            $targetDate = $targetDate ? Carbon::parse($targetDate)->toDateString() : now()->toDateString();
+
+            $query->where(function ($q) use ($targetDate) {
+                $q->whereDate('tanggal_staging', $targetDate)
+                    ->orWhere(fn ($sq) => $sq->whereNull('tanggal_staging')->whereDate('created_at', $targetDate));
+            });
+        } elseif ($mode === 'range' || $mode === 'mingguan') {
+            $startDate = $request->input('start_date') ? Carbon::parse($request->input('start_date'))->toDateString() : now()->startOfWeek()->toDateString();
+            $endDate = $request->input('end_date') ? Carbon::parse($request->input('end_date'))->toDateString() : now()->endOfWeek()->toDateString();
+
+            if ($startDate > $endDate) {
+                [$startDate, $endDate] = [$endDate, $startDate];
+            }
+
+            $query->where(function ($q) use ($startDate, $endDate) {
+                $q->where(function ($sq) use ($startDate, $endDate) {
+                    $sq->whereDate('tanggal_staging', '>=', $startDate)
+                        ->whereDate('tanggal_staging', '<=', $endDate);
+                })->orWhere(function ($sq) use ($startDate, $endDate) {
+                    $sq->whereNull('tanggal_staging')
+                        ->whereDate('created_at', '>=', $startDate)
+                        ->whereDate('created_at', '<=', $endDate);
+                });
+            });
+        } elseif ($mode === 'bulanan') {
+            $year = (int) ($request->input('year') ?: now()->year);
+            $month = (int) ($request->input('month') ?: now()->month);
+
+            $query->where(function ($q) use ($year, $month) {
+                $q->where(function ($sq) use ($year, $month) {
+                    $sq->whereYear('tanggal_staging', $year)
+                        ->whereMonth('tanggal_staging', $month);
+                })->orWhere(function ($sq) use ($year, $month) {
+                    $sq->whereNull('tanggal_staging')
+                        ->whereYear('created_at', $year)
+                        ->whereMonth('created_at', $month);
+                });
+            });
+        } elseif ($mode === 'tahunan') {
+            $year = (int) ($request->input('year') ?: now()->year);
+
+            $query->where(function ($q) use ($year) {
+                $q->whereYear('tanggal_staging', $year)
+                    ->orWhere(function ($sq) use ($year) {
+                        $sq->whereNull('tanggal_staging')
+                            ->whereYear('created_at', $year);
+                    });
+            });
+        }
+
+        return $query;
+    }
+
+    /**
+     * Menghasilkan nama file yang deskriptif untuk Master ZIP.
+     */
+    protected function getBatchZipFileName(Request $request, array $indonesianMonths): string
+    {
+        $mode = $request->input('mode', 'harian');
+        $product = $request->input('jenis_produk', 'all');
+        $productLabel = match ($product) {
+            'fiber' => '_Fiber',
+            'sodium' => '_Sodium',
+            default => '',
+        };
+
+        if ($mode === 'harian') {
+            $targetDate = $request->input('date');
+            if (! $targetDate && $request->filled('year') && $request->filled('month') && $request->filled('day')) {
+                $targetDate = sprintf('%04d-%02d-%02d', (int) $request->input('year'), (int) $request->input('month'), (int) $request->input('day'));
+            }
+            $cDate = Carbon::parse($targetDate ?: now());
+            $mName = $indonesianMonths[(int) $cDate->format('n')] ?? $cDate->format('M');
+
+            return "SPV_Evidence_Harian_{$cDate->format('Y')}_{$mName}_{$cDate->format('j')}{$productLabel}.zip";
+        }
+
+        if ($mode === 'range' || $mode === 'mingguan') {
+            $sDate = Carbon::parse($request->input('start_date') ?: now()->startOfWeek())->format('Ymd');
+            $eDate = Carbon::parse($request->input('end_date') ?: now()->endOfWeek())->format('Ymd');
+
+            return "SPV_Evidence_Range_{$sDate}_sd_{$eDate}{$productLabel}.zip";
+        }
+
+        if ($mode === 'bulanan') {
+            $year = (int) ($request->input('year') ?: now()->year);
+            $month = (int) ($request->input('month') ?: now()->month);
+            $mName = $indonesianMonths[$month] ?? "Bulan_{$month}";
+
+            return "SPV_Evidence_Bulanan_{$year}_{$mName}{$productLabel}.zip";
+        }
+
+        if ($mode === 'tahunan') {
+            $year = (int) ($request->input('year') ?: now()->year);
+
+            return "SPV_Evidence_Tahunan_{$year}{$productLabel}.zip";
+        }
+
+        return "SPV_Evidence_Batch{$productLabel}.zip";
     }
 
     /**

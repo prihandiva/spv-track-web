@@ -20,6 +20,8 @@ Route::get('/', function () {
 })->name('dashboard');
 
 Route::get('/shipments', [ShipmentController::class, 'index'])->name('shipments.index');
+Route::get('/shipments/download-batch-zip', [ShipmentController::class, 'downloadBatchZip'])->name('shipments.download-batch-zip');
+Route::get('/shipments/batch-zip-preview', [ShipmentController::class, 'previewBatchZip'])->name('shipments.batch-zip-preview');
 Route::get('/shipments/{shipment}', [ShipmentController::class, 'show'])->name('shipments.show');
 Route::get('/shipments/{shipment}/download-evidence', [ShipmentController::class, 'downloadZip'])->name('shipments.download-evidence');
 Route::get('/shipments/{shipment}/report', [ShipmentController::class, 'printReport'])->name('shipments.report');
