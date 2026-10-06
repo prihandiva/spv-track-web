@@ -7,91 +7,93 @@
         filterExpanded: {{ request()->hasAny(['jenis_produk', 'jenis_pengiriman', 'karyawan_id', 'status', 'compliance', 'search']) ? 'true' : 'false' }}
     }" class="space-y-6">
 
-        <!-- 1. HEADER SECTION & EXPORT ACTIONS -->
-        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div>
-                <div class="flex items-center gap-2.5">
-                    <h1 class="text-2xl font-black text-gray-900 tracking-tight">Laporan & Audit Staging</h1>
-                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-spv-blue border border-blue-200">
-                        <i class="ph-bold ph-calendar text-xs"></i>
-                        <span>{{ $periodLabel }}</span>
-                    </span>
-                </div>
-                <p class="text-xs text-gray-500 mt-1">
-                    Rekapitulasi logistik berkala, evaluasi kepatuhan 27 titik foto SOP, dan pusat ekspor dokumen resmi warehouse.
-                </p>
-            </div>
-
-            <!-- Action Buttons (Export Center) -->
-            <div class="flex items-center gap-2.5 flex-wrap">
-                <!-- Dropdown Ekspor Excel / CSV -->
-                <div class="relative" @click.away="exportDropdownOpen = false">
-                    <button type="button"
-                            @click="exportDropdownOpen = !exportDropdownOpen"
-                            class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-sm hover:shadow transition-all">
-                        <i class="ph-bold ph-file-xls text-base"></i>
-                        <span>Ekspor Excel / CSV</span>
-                        <i class="ph-bold ph-caret-down text-xs transition-transform" :class="exportDropdownOpen ? 'rotate-180' : ''"></i>
-                    </button>
-
-                    <div x-cloak
-                         x-show="exportDropdownOpen"
-                         x-transition:enter="transition ease-out duration-150"
-                         x-transition:enter-start="opacity-0 scale-95"
-                         x-transition:enter-end="opacity-100 scale-100"
-                         x-transition:leave="transition ease-in duration-100"
-                         x-transition:leave-start="opacity-100 scale-100"
-                         x-transition:leave-end="opacity-0 scale-95"
-                         class="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50">
-                        <div class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">Pilih Format Ekspor</div>
-                        <a href="{{ route('laporan.export-excel', array_merge(request()->query(), ['format' => 'csv'])) }}"
-                           class="flex items-center gap-2.5 px-3.5 py-2 text-xs text-gray-700 hover:bg-emerald-50 hover:text-emerald-800 transition-colors">
-                            <i class="ph-bold ph-file-csv text-base text-emerald-600"></i>
-                            <div>
-                                <p class="font-bold">Format CSV (UTF-8)</p>
-                                <p class="text-[10px] text-gray-400">Kompatibel Excel, Google Sheets, ERP</p>
-                            </div>
-                        </a>
-                        <a href="{{ route('laporan.export-excel', array_merge(request()->query(), ['format' => 'xls'])) }}"
-                           class="flex items-center gap-2.5 px-3.5 py-2 text-xs text-gray-700 hover:bg-emerald-50 hover:text-emerald-800 transition-colors">
-                            <i class="ph-bold ph-file-xls text-base text-emerald-600"></i>
-                            <div>
-                                <p class="font-bold">Format Excel Sheet (.xls)</p>
-                                <p class="text-[10px] text-gray-400">Tabel rapi siap cetak & analitik</p>
-                            </div>
-                        </a>
+        <!-- 1. HEADER SECTION & EXPORT ACTIONS CARD -->
+        <div class="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 lg:p-6 border border-gray-100 shadow-[0_1px_6px_rgba(40,84,145,0.05)]">
+            <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+                <div class="min-w-0">
+                    <div class="flex items-center gap-2.5 flex-wrap">
+                        <h1 class="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">Laporan & Audit Staging</h1>
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-spv-blue border border-blue-200 shrink-0">
+                            <i class="ph-bold ph-calendar text-xs"></i>
+                            <span>{{ $periodLabel }}</span>
+                        </span>
                     </div>
+                    <p class="text-xs text-gray-500 mt-1 max-w-xl">
+                        Rekapitulasi logistik berkala, evaluasi kepatuhan 27 titik foto SOP, dan pusat ekspor dokumen resmi warehouse.
+                    </p>
                 </div>
 
-                <!-- Cetak Berita Acara (Print / PDF) -->
-                <a href="{{ route('laporan.print-rekap', request()->query()) }}" target="_blank"
-                   class="flex items-center gap-2 bg-white hover:bg-blue-50 text-spv-blue border border-blue-200 text-xs font-bold px-4 py-2.5 rounded-xl shadow-sm hover:shadow transition-all">
-                    <i class="ph-bold ph-printer text-base"></i>
-                    <span>Cetak Berita Acara</span>
-                </a>
+                <!-- Action Buttons (Export Center) - Responsive Row / Grid on Mobile -->
+                <div class="flex items-center gap-2 shrink-0 flex-wrap xl:flex-nowrap w-full xl:w-auto pt-3 xl:pt-0 border-t xl:border-t-0 border-gray-100">
+                    <!-- Dropdown Ekspor Excel / CSV -->
+                    <div class="relative flex-1 sm:flex-none" @click.away="exportDropdownOpen = false">
+                        <button type="button"
+                                @click="exportDropdownOpen = !exportDropdownOpen"
+                                class="inline-flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2.5 rounded-xl shadow-sm hover:shadow transition-all whitespace-nowrap w-full sm:w-auto">
+                            <i class="ph-bold ph-file-xls text-base"></i>
+                            <span>Ekspor Excel / CSV</span>
+                            <i class="ph-bold ph-caret-down text-xs transition-transform" :class="exportDropdownOpen ? 'rotate-180' : ''"></i>
+                        </button>
 
-                <!-- Unduh Batch PDF -->
-                <a href="{{ route('laporan.download-rekap-pdf', request()->query()) }}"
-                   class="flex items-center gap-2 bg-spv-blue hover:bg-blue-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-sm hover:shadow transition-all">
-                    <i class="ph-bold ph-file-pdf text-base"></i>
-                    <span>Download PDF</span>
-                </a>
+                        <div x-cloak
+                             x-show="exportDropdownOpen"
+                             x-transition:enter="transition ease-out duration-150"
+                             x-transition:enter-start="opacity-0 scale-95"
+                             x-transition:enter-end="opacity-100 scale-100"
+                             x-transition:leave="transition ease-in duration-100"
+                             x-transition:leave-start="opacity-100 scale-100"
+                             x-transition:leave-end="opacity-0 scale-95"
+                             class="absolute left-0 sm:left-auto sm:right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50">
+                            <div class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">Pilih Format Ekspor</div>
+                            <a href="{{ route('laporan.export-excel', array_merge(request()->query(), ['format' => 'csv'])) }}"
+                               class="flex items-center gap-2.5 px-3.5 py-2 text-xs text-gray-700 hover:bg-emerald-50 hover:text-emerald-800 transition-colors">
+                                <i class="ph-bold ph-file-csv text-base text-emerald-600"></i>
+                                <div>
+                                    <p class="font-bold">Format CSV (UTF-8)</p>
+                                    <p class="text-[10px] text-gray-400">Kompatibel Excel, Google Sheets, ERP</p>
+                                </div>
+                            </a>
+                            <a href="{{ route('laporan.export-excel', array_merge(request()->query(), ['format' => 'xls'])) }}"
+                               class="flex items-center gap-2.5 px-3.5 py-2 text-xs text-gray-700 hover:bg-emerald-50 hover:text-emerald-800 transition-colors">
+                                <i class="ph-bold ph-file-xls text-base text-emerald-600"></i>
+                                <div>
+                                    <p class="font-bold">Format Excel Sheet (.xls)</p>
+                                    <p class="text-[10px] text-gray-400">Tabel rapi siap cetak & analitik</p>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
 
-                <!-- Shortcut Batch ZIP Evidence -->
-                <a href="{{ route('shipments.download-batch-zip', [
-                    'mode' => request('mode') === 'all' ? 'tahunan' : (request('mode', 'harian')),
-                    'date' => request('date'),
-                    'month' => request('month'),
-                    'year' => request('year'),
-                    'start_date' => request('start_date'),
-                    'end_date' => request('end_date'),
-                    'jenis_produk' => request('jenis_produk', 'all'),
-                ]) }}"
-                   class="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold px-3 py-2.5 rounded-xl transition-all"
-                   title="Unduh berkas arsip seluruh foto evidence periode ini">
-                    <i class="ph-bold ph-file-zip text-base text-amber-600"></i>
-                    <span>Batch ZIP</span>
-                </a>
+                    <!-- Cetak Berita Acara (Print / PDF) -->
+                    <a href="{{ route('laporan.print-rekap', request()->query()) }}" target="_blank"
+                       class="inline-flex items-center justify-center gap-1.5 bg-white hover:bg-blue-50 text-spv-blue border border-blue-200 text-xs font-bold px-3.5 py-2.5 rounded-xl shadow-sm hover:shadow transition-all whitespace-nowrap flex-1 sm:flex-none">
+                        <i class="ph-bold ph-printer text-base"></i>
+                        <span>Cetak</span>
+                    </a>
+
+                    <!-- Unduh Batch PDF -->
+                    <a href="{{ route('laporan.download-rekap-pdf', request()->query()) }}"
+                       class="inline-flex items-center justify-center gap-1.5 bg-spv-blue hover:bg-blue-800 text-white text-xs font-bold px-3.5 py-2.5 rounded-xl shadow-sm hover:shadow transition-all whitespace-nowrap flex-1 sm:flex-none">
+                        <i class="ph-bold ph-file-pdf text-base"></i>
+                        <span>PDF</span>
+                    </a>
+
+                    <!-- Shortcut Batch ZIP Evidence -->
+                    <a href="{{ route('shipments.download-batch-zip', [
+                        'mode' => request('mode') === 'all' ? 'tahunan' : (request('mode', 'harian')),
+                        'date' => request('date'),
+                        'month' => request('month'),
+                        'year' => request('year'),
+                        'start_date' => request('start_date'),
+                        'end_date' => request('end_date'),
+                        'jenis_produk' => request('jenis_produk', 'all'),
+                    ]) }}"
+                       class="inline-flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-3.5 py-2.5 rounded-xl shadow-[0_2px_8px_rgba(245,158,11,0.25)] hover:shadow transition-all whitespace-nowrap w-full sm:w-auto"
+                       title="Unduh berkas arsip seluruh foto evidence periode ini">
+                        <i class="ph-bold ph-file-zip text-base"></i>
+                        <span>Download Batch ZIP</span>
+                    </a>
+                </div>
             </div>
         </div>
 
@@ -382,10 +384,10 @@
         </div>
 
         <!-- 4. TAB NAVIGATION -->
-        <div class="flex items-center gap-2 border-b border-gray-200">
+        <div class="flex items-center gap-2 border-b border-gray-200 overflow-x-auto scrollbar-none whitespace-nowrap">
             <button type="button"
                     @click="activeTab = 'rekap'"
-                    class="flex items-center gap-2 pb-3 px-3 text-sm font-bold border-b-2 transition-all"
+                    class="flex items-center gap-2 pb-3 px-3 text-sm font-bold border-b-2 transition-all shrink-0"
                     :class="activeTab === 'rekap' ? 'border-spv-blue text-spv-blue' : 'border-transparent text-gray-400 hover:text-gray-700'">
                 <i class="ph-bold ph-table text-base"></i>
                 <span>I. Rekapitulasi Pengiriman (Log Sheet)</span>
@@ -397,7 +399,7 @@
 
             <button type="button"
                     @click="activeTab = 'audit'"
-                    class="flex items-center gap-2 pb-3 px-3 text-sm font-bold border-b-2 transition-all"
+                    class="flex items-center gap-2 pb-3 px-3 text-sm font-bold border-b-2 transition-all shrink-0"
                     :class="activeTab === 'audit' ? 'border-spv-blue text-spv-blue' : 'border-transparent text-gray-400 hover:text-gray-700'">
                 <i class="ph-bold ph-check-square-offset text-base"></i>
                 <span>II. Audit Kepatuhan 27 Titik SOP</span>
@@ -409,7 +411,7 @@
 
             <button type="button"
                     @click="activeTab = 'petugas'"
-                    class="flex items-center gap-2 pb-3 px-3 text-sm font-bold border-b-2 transition-all"
+                    class="flex items-center gap-2 pb-3 px-3 text-sm font-bold border-b-2 transition-all shrink-0"
                     :class="activeTab === 'petugas' ? 'border-spv-blue text-spv-blue' : 'border-transparent text-gray-400 hover:text-gray-700'">
                 <i class="ph-bold ph-identification-card text-base"></i>
                 <span>III. Produktivitas Petugas Lapangan</span>

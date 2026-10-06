@@ -1,8 +1,8 @@
 <x-layout :title="'Edit Petugas: ' . $karyawan->nama">
 
-    <!-- Breadcrumb & Header -->
-    <div class="mb-6">
-        <div class="flex items-center gap-2 text-xs text-gray-400 mb-2">
+    <!-- Breadcrumb & Header Card -->
+    <div class="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 lg:p-6 border border-gray-100 shadow-[0_1px_6px_rgba(40,84,145,0.05)] mb-6">
+        <div class="flex items-center gap-2 text-xs text-gray-400 mb-3">
             <a href="{{ route('dashboard') }}" class="hover:text-spv-blue transition-colors">Dashboard</a>
             <i class="ph-bold ph-caret-right text-[10px]"></i>
             <a href="{{ route('karyawan.index') }}" class="hover:text-spv-blue transition-colors">Petugas</a>
@@ -14,14 +14,14 @@
                 <h1 class="text-xl font-bold text-gray-800">Edit Data Petugas Lapangan</h1>
                 <p class="text-xs text-gray-500 mt-1">Perbarui nama, nomor induk/NIK, dan status keaktifan petugas.</p>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 flex-wrap w-full sm:w-auto">
                 <a href="{{ route('karyawan.show', $karyawan->id) }}"
-                   class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-100 transition-colors">
+                   class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-100 transition-colors flex-1 sm:flex-none">
                     <i class="ph-bold ph-eye text-sm"></i>
                     Lihat Profil
                 </a>
                 <a href="{{ route('karyawan.index') }}"
-                   class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-100 transition-colors">
+                   class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-100 transition-colors flex-1 sm:flex-none">
                     <i class="ph-bold ph-arrow-left text-sm"></i>
                     Kembali
                 </a>

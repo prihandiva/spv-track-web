@@ -1,59 +1,71 @@
 <x-layout :title="'Detail Shipment: ' . ($shipment->packing_list_no ?: ($shipment->nomor_container_atau_plat ?? 'SPV-' . $shipment->id))">
 
-    <!-- Top Navigation & Actions -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div class="flex items-center gap-3">
-            <a href="{{ route('shipments.index') }}"
-               class="flex items-center justify-center w-9 h-9 rounded-xl bg-white border border-gray-200 text-gray-600 hover:text-spv-blue hover:border-spv-blue transition-all shadow-sm">
-                <i class="ph-bold ph-arrow-left text-base"></i>
-            </a>
-            <div>
-                <div class="flex items-center gap-2">
-                    <h1 class="text-xl font-bold text-gray-800 leading-tight">
-                        {{ $shipment->packing_list_no ?: ($shipment->nomor_container_atau_plat ?? 'Shipment #' . $shipment->id) }}
-                    </h1>
-                    @if($shipment->status === 'submitted')
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-50 text-green-700 border border-green-200">
-                            <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
-                            Submitted
-                        </span>
-                    @else
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                            <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                            Draft
-                        </span>
-                    @endif
+    <!-- Top Navigation & Actions Card -->
+    <div class="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 lg:p-6 border border-gray-100 shadow-[0_1px_6px_rgba(40,84,145,0.05)] mb-6">
+        <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+            <div class="flex items-start sm:items-center gap-3 min-w-0">
+                <a href="{{ route('shipments.index') }}"
+                   class="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-spv-blue text-gray-600 hover:text-spv-blue transition-all shadow-2xs shrink-0 mt-0.5 sm:mt-0"
+                   title="Kembali ke Daftar Shipment">
+                    <i class="ph-bold ph-arrow-left text-base sm:text-lg"></i>
+                </a>
+                <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <h1 class="text-lg sm:text-xl font-extrabold text-gray-800 leading-tight">
+                            {{ $shipment->packing_list_no ?: ($shipment->nomor_container_atau_plat ?? 'Shipment #' . $shipment->id) }}
+                        </h1>
+                        @if($shipment->status === 'submitted')
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-50 text-green-700 border border-green-200">
+                                <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                                Submitted
+                            </span>
+                        @else
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                Draft
+                            </span>
+                        @endif
+                    </div>
+                    <div class="text-[11px] sm:text-xs text-gray-500 mt-1.5 leading-relaxed flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                        <span>No. Container: <strong class="text-gray-700 font-mono">{{ $shipment->nomor_container_atau_plat ?? '-' }}</strong></span>
+                        <span class="text-gray-300 hidden sm:inline">&bull;</span>
+                        <span>Plat: <strong class="text-gray-700 font-mono">{{ $shipment->plat_nomor ?? '-' }}</strong></span>
+                        <span class="text-gray-300 hidden sm:inline">&bull;</span>
+                        <span>Dibuat: <span class="text-gray-700 font-medium">{{ $shipment->created_at->format('d M Y, H:i') }} WIB</span></span>
+                        <span class="text-gray-300 hidden sm:inline">&bull;</span>
+                        <span>Petugas: <strong class="text-gray-700">{{ $shipment->allKaryawans()->pluck('nama')->join(', ') ?: ($shipment->karyawan?->nama ?? '-') }}</strong></span>
+                    </div>
                 </div>
-                <p class="text-xs text-gray-500 mt-0.5">
-                    No. Container: <strong class="text-gray-700">{{ $shipment->nomor_container_atau_plat ?? '-' }}</strong> &bull; Plat: <strong class="text-gray-700">{{ $shipment->plat_nomor ?? '-' }}</strong> &bull; Dibuat pada {{ $shipment->created_at->format('d M Y, H:i') }} WIB &bull; Petugas: <strong class="text-gray-700">{{ $shipment->allKaryawans()->pluck('nama')->join(', ') ?: ($shipment->karyawan?->nama ?? '-') }}</strong>
-                </p>
             </div>
-        </div>
 
-        <div class="flex items-center gap-2">
-            <a href="{{ route('shipments.download-evidence', $shipment->id) }}"
-               class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2.5 rounded-xl shadow-sm hover:-translate-y-0.5 transition-all"
-               title="Download seluruh bukti foto dalam file ZIP ({{ $shipment->packing_list_no ?: $shipment->nomor_container_atau_plat }}.zip)">
-                <i class="ph-bold ph-file-zip text-base"></i>
-                <span>Download Foto (ZIP)</span>
-            </a>
-            <a href="{{ route('shipments.download-pdf', $shipment->id) }}"
-               class="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-3.5 py-2.5 rounded-xl shadow-sm hover:-translate-y-0.5 transition-all"
-               title="Download Laporan Dokumen Lengkap & 27 Foto Evidence (.PDF)">
-                <i class="ph-bold ph-file-pdf text-base"></i>
-                <span>Download PDF</span>
-            </a>
-            <a href="{{ route('shipments.report', $shipment->id) }}" target="_blank"
-               class="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 hover:text-spv-blue hover:border-spv-blue text-xs font-bold px-3.5 py-2.5 rounded-xl shadow-sm transition-all"
-               title="Buka Pratinjau & Cetak Dokumen Laporan">
-                <i class="ph-bold ph-printer text-base"></i>
-                <span class="hidden sm:inline">Cetak Dokumen</span>
-            </a>
-            <a href="{{ route('field-app.timeline', $shipment->id) }}" target="_blank"
-               class="flex items-center gap-2 bg-spv-blue hover:bg-blue-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-[0_4px_12px_rgba(40,84,145,0.25)] hover:-translate-y-0.5 transition-all">
-                <i class="ph-bold ph-camera text-base"></i>
-                <span>Buka Loading Evidence</span>
-            </a>
+            <div class="grid grid-cols-1 sm:grid-cols-2 xl:flex xl:items-center gap-2.5 w-full xl:w-auto pt-3.5 xl:pt-0 border-t xl:border-t-0 border-gray-100">
+                <a href="{{ route('field-app.timeline', $shipment->id) }}" target="_blank"
+                   class="order-first xl:order-last flex items-center justify-center gap-2 bg-spv-blue hover:bg-blue-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-[0_4px_12px_rgba(40,84,145,0.25)] hover:shadow-lg transition-all col-span-1 sm:col-span-2 xl:col-auto whitespace-nowrap">
+                    <i class="ph-bold ph-camera text-base"></i>
+                    <span>Buka Loading Evidence</span>
+                </a>
+                
+                <div class="grid grid-cols-3 sm:flex sm:items-center gap-2 col-span-1 sm:col-span-2 xl:col-auto">
+                    <a href="{{ route('shipments.download-evidence', $shipment->id) }}"
+                       class="flex items-center justify-center gap-1.5 sm:gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-2.5 sm:px-3.5 py-2.5 rounded-xl shadow-sm hover:shadow transition-all text-center"
+                       title="Download seluruh bukti foto dalam file ZIP ({{ $shipment->packing_list_no ?: $shipment->nomor_container_atau_plat }}.zip)">
+                        <i class="ph-bold ph-file-zip text-base shrink-0"></i>
+                        <span class="truncate"><span class="hidden sm:inline">Download </span>ZIP</span>
+                    </a>
+                    <a href="{{ route('shipments.download-pdf', $shipment->id) }}"
+                       class="flex items-center justify-center gap-1.5 sm:gap-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-2.5 sm:px-3.5 py-2.5 rounded-xl shadow-sm hover:shadow transition-all text-center"
+                       title="Download Laporan Dokumen Lengkap & 27 Foto Evidence (.PDF)">
+                        <i class="ph-bold ph-file-pdf text-base shrink-0"></i>
+                        <span class="truncate"><span class="hidden sm:inline">Download </span>PDF</span>
+                    </a>
+                    <a href="{{ route('shipments.report', $shipment->id) }}" target="_blank"
+                       class="flex items-center justify-center gap-1.5 sm:gap-2 bg-white border border-gray-200 text-gray-700 hover:text-spv-blue hover:border-spv-blue text-xs font-bold px-2.5 sm:px-3.5 py-2.5 rounded-xl shadow-sm transition-all text-center"
+                       title="Buka Pratinjau & Cetak Dokumen Laporan">
+                        <i class="ph-bold ph-printer text-base shrink-0"></i>
+                        <span>Cetak</span>
+                    </a>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -354,7 +366,7 @@
          @keydown.window.minus="modalOpen && zoomOut()"
          @keydown.window.digit0="modalOpen && resetZoom()">
 
-        <div class="flex items-center justify-between pb-4 border-b border-gray-100 mb-5">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-gray-100 mb-5 gap-3">
             <div>
                 <h2 class="text-sm font-bold text-gray-800 flex items-center gap-2">
                     <i class="ph-fill ph-camera text-spv-blue text-base"></i>
@@ -362,7 +374,7 @@
                 </h2>
                 <p class="text-xs text-gray-400 mt-0.5">Setiap foto dilengkapi stempel timestamp waktu nyata server (WIB) dan tersimpan secara permanen.</p>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 flex-wrap">
                 @php
                     $totalPhotosCount = count($galleryItems);
                     $extraPhotosCount = $shipment->extraPhotos->count();

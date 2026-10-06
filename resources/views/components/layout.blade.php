@@ -153,13 +153,68 @@
                 <span class="text-sm font-medium">Laporan</span>
             </a>
 
-            <a href="{{ route('settings.index') }}"
-               @click="sidebarOpen = false"
-               class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-xl mb-0.5 {{ request()->routeIs('settings.*') ? 'active-glow' : 'inactive' }}"
-               style="{{ request()->routeIs('settings.*') ? 'background: rgba(5,158,61,0.85); color: white;' : 'color: rgba(255,255,255,0.65);' }}">
-                <i class="ph-fill ph-gear nav-icon text-xl shrink-0"></i>
-                <span class="text-sm font-medium">Pengaturan</span>
-            </a>
+            <!-- Pengaturan dengan Sub-Menu Dropdown / Accordion -->
+            <div class="mb-0.5" x-data="{ expanded: {{ request()->routeIs('settings.*') ? 'true' : 'false' }} }">
+                <button type="button"
+                        @click="expanded = !expanded"
+                        class="w-full nav-item flex items-center justify-between px-3 py-2.5 rounded-xl transition-all {{ request()->routeIs('settings.*') ? 'active-glow' : 'inactive' }}"
+                        style="{{ request()->routeIs('settings.*') ? 'background: rgba(5,158,61,0.85); color: white;' : 'color: rgba(255,255,255,0.65);' }}">
+                    <div class="flex items-center gap-3">
+                        <i class="ph-fill ph-gear nav-icon text-xl shrink-0"></i>
+                        <span class="text-sm font-medium">Pengaturan</span>
+                    </div>
+                    <i class="ph-bold ph-caret-down text-xs transition-transform duration-200"
+                       :class="expanded ? 'rotate-180 text-white' : 'text-white/50'"></i>
+                </button>
+
+                <!-- Sub Menu Items Dropdown -->
+                <div x-show="expanded"
+                     x-transition:enter="transition ease-out duration-150"
+                     x-transition:enter-start="opacity-0 -translate-y-1"
+                     x-transition:enter-end="opacity-100 translate-y-0"
+                     x-transition:leave="transition ease-in duration-100"
+                     x-transition:leave-start="opacity-100 translate-y-0"
+                     x-transition:leave-end="opacity-0 -translate-y-1"
+                     class="mt-1 ml-4 pl-3.5 space-y-0.5 relative py-1"
+                     style="border-left: 1.5px solid rgba(255,255,255,0.18);">
+
+                    <a href="{{ route('settings.index') }}"
+                       @click="sidebarOpen = false"
+                       class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-all {{ request()->routeIs('settings.index') ? 'text-white font-bold bg-white/20 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/10' }}">
+                        <i class="ph-bold ph-squares-four text-sm shrink-0"></i>
+                        <span>Ringkasan</span>
+                    </a>
+
+                    <a href="{{ route('settings.users.index') }}"
+                       @click="sidebarOpen = false"
+                       class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-all {{ request()->routeIs('settings.users.*') ? 'text-white font-bold bg-white/20 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/10' }}">
+                        <i class="ph-bold ph-users text-sm shrink-0"></i>
+                        <span>Pengguna</span>
+                    </a>
+
+                    <a href="{{ route('settings.roles.index') }}"
+                       @click="sidebarOpen = false"
+                       class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-all {{ request()->routeIs('settings.roles.*') ? 'text-white font-bold bg-white/20 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/10' }}">
+                        <i class="ph-bold ph-shield-check text-sm shrink-0"></i>
+                        <span>Role & Akses</span>
+                    </a>
+
+                    <a href="{{ route('settings.sop.index') }}"
+                       @click="sidebarOpen = false"
+                       class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-all {{ request()->routeIs('settings.sop.*') ? 'text-white font-bold bg-white/20 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/10' }}">
+                        <i class="ph-bold ph-list-checks text-sm shrink-0"></i>
+                        <span class="truncate">Master 27 SOP</span>
+                        <span class="ml-auto text-[9px] px-1.5 py-0.2 rounded-full font-bold bg-white/20 text-white/90">27</span>
+                    </a>
+
+                    <a href="{{ route('settings.system.index') }}"
+                       @click="sidebarOpen = false"
+                       class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-all {{ request()->routeIs('settings.system.*') ? 'text-white font-bold bg-white/20 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/10' }}">
+                        <i class="ph-bold ph-sliders text-sm shrink-0"></i>
+                        <span>Parameter Sistem</span>
+                    </a>
+                </div>
+            </div>
 
             <div class="pt-4 px-1">
                 <a href="{{ route('field-app.create') }}" target="_blank"
@@ -198,34 +253,34 @@
     <!-- MAIN -->
     <div class="flex-1 flex flex-col h-screen overflow-hidden">
 
-        <header class="h-[68px] bg-white flex items-center justify-between px-4 lg:px-7 shrink-0 gap-4"
+        <header class="h-[64px] sm:h-[68px] bg-white flex items-center justify-between px-3 sm:px-4 lg:px-7 shrink-0 gap-2 sm:gap-4"
                 style="border-bottom: 1px solid #e8edf3; box-shadow: 0 1px 6px rgba(40,84,145,0.06);">
-            <div class="flex items-center gap-3 shrink-0">
-                <button type="button" @click="sidebarOpen = true" class="lg:hidden p-2 rounded-xl text-gray-500 hover:text-spv-blue hover:bg-gray-100 transition-all" aria-label="Buka Menu">
-                    <i class="ph-bold ph-list text-2xl"></i>
+            <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+                <button type="button" @click="sidebarOpen = true" class="lg:hidden p-1.5 sm:p-2 rounded-xl text-gray-500 hover:text-spv-blue hover:bg-gray-100 transition-all shrink-0" aria-label="Buka Menu">
+                    <i class="ph-bold ph-list text-xl sm:text-2xl"></i>
                 </button>
-                <div>
-                    <h1 class="text-sm lg:text-base font-bold text-gray-800 leading-tight">
+                <div class="min-w-0">
+                    <h1 class="text-xs sm:text-sm lg:text-base font-bold text-gray-800 leading-tight truncate">
                         {{ $title ?? (trim($__env->yieldContent('title')) ? $__env->yieldContent('title') : 'Dashboard') }}
                     </h1>
-                    <p class="text-[10px] text-gray-400 hidden lg:block">PT. South Pacific Viscose &mdash; Monitoring Staging</p>
+                    <p class="text-[10px] text-gray-400 hidden lg:block truncate">PT. South Pacific Viscose &mdash; Monitoring Staging</p>
                 </div>
             </div>
 
             <!-- Server Time (WIB) -->
-            <div class="flex items-center justify-center">
+            <div class="flex items-center justify-center shrink-0">
                 <x-server-clock />
             </div>
 
-            <div class="flex items-center gap-2 shrink-0">
-                <button class="flex items-center gap-1.5 text-gray-400 text-xs font-medium px-3 py-2 rounded-xl hover:text-red-600 hover:bg-red-50 transition-all">
+            <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                <button class="flex items-center gap-1.5 text-gray-400 text-xs font-medium px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl hover:text-red-600 hover:bg-red-50 transition-all">
                     <span class="hidden lg:inline">Keluar</span>
                     <i class="ph-bold ph-sign-out text-base"></i>
                 </button>
             </div>
         </header>
 
-        <main class="flex-1 overflow-x-hidden overflow-y-auto p-4 lg:p-6 animate-fade-in">
+        <main class="flex-1 overflow-x-hidden overflow-y-auto p-3 sm:p-4 lg:p-6 animate-fade-in">
             <!-- Toast / Flash Notifications -->
             @if(session('success'))
                 <div x-data="{ show: true }" x-show="show" x-transition.duration.300ms class="mb-5 flex items-center justify-between p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 shadow-sm">

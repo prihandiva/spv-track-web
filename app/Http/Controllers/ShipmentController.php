@@ -334,12 +334,21 @@ class ShipmentController extends Controller
         $estMb = round($count * $avgMb, 1);
         $estSize = $count === 0 ? '0 MB' : ($estMb >= 1000 ? round($estMb / 1024, 2).' GB' : "±{$estMb} MB");
 
-        return response()->json([
-            'count' => $count,
-            'sample_path' => $samplePath,
-            'estimated_size' => $estSize,
-            'filename' => $masterFileName,
-        ]);
+        if ($request->wantsJson() || $request->ajax() || $request->input('format') === 'json' || $request->header('X-Requested-With') === 'XMLHttpRequest') {
+            return response()->json([
+                'count' => $count,
+                'sample_path' => $samplePath,
+                'estimated_size' => $estSize,
+                'filename' => $masterFileName,
+            ]);
+        }
+
+        return view('shipments.batch-zip-preview', compact(
+            'count',
+            'samplePath',
+            'estSize',
+            'masterFileName'
+        ));
     }
 
     /**

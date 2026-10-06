@@ -240,7 +240,7 @@ class ShipmentBatchZipTest extends TestCase
             'tipe_item' => 'foto',
         ]);
 
-        $response = $this->actingAs($user)->get(route('shipments.batch-zip-preview', [
+        $response = $this->actingAs($user)->getJson(route('shipments.batch-zip-preview', [
             'mode' => 'bulanan',
             'year' => 2026,
             'month' => 9,
@@ -254,6 +254,11 @@ class ShipmentBatchZipTest extends TestCase
         ]);
         $this->assertNotEmpty($response->json('estimated_size'));
         $this->assertNotEmpty($response->json('filename'));
+
+        // Test HTML view for regular web browser requests
+        $htmlResponse = $this->actingAs($user)->get(route('shipments.batch-zip-preview'));
+        $htmlResponse->assertStatus(200);
+        $htmlResponse->assertSee('Pusat Unduh Batch ZIP Foto Evidence');
     }
 
     public function test_batch_zip_download_redirects_with_error_when_no_shipments_found(): void

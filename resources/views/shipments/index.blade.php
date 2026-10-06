@@ -1,23 +1,25 @@
 <x-layout :title="'Daftar Shipments'">
 <div x-data="batchZipDownloadManager()">
-    <!-- Header Section -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div>
-            <h1 class="text-xl font-bold text-gray-800">Daftar Shipments</h1>
-            <p class="text-xs text-gray-500 mt-1">Kelola dan pantau semua shipment dari lapangan.</p>
-        </div>
-        <div class="flex items-center gap-2.5 flex-wrap">
-            <button type="button"
-                    @click="openModal()"
-                    class="flex items-center gap-2 bg-white hover:bg-emerald-50 text-emerald-700 hover:text-emerald-800 border border-emerald-200 hover:border-emerald-300 text-xs font-bold px-4 py-2.5 rounded-xl shadow-[0_2px_8px_rgba(5,158,61,0.08)] hover:-translate-y-0.5 transition-all group">
-                <i class="ph-bold ph-file-zip text-base text-emerald-600 group-hover:scale-110 transition-transform"></i>
-                <span>Download Batch ZIP</span>
-            </button>
-            <a href="{{ route('field-app.create') }}" target="_blank"
-               class="flex items-center gap-2 bg-spv-blue hover:bg-blue-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-[0_4px_12px_rgba(40,84,145,0.25)] hover:-translate-y-0.5 transition-all">
-                <i class="ph-bold ph-plus text-sm"></i>
-                Buat Shipment
-            </a>
+    <!-- Header Section Card -->
+    <div class="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 lg:p-6 border border-gray-100 shadow-[0_1px_6px_rgba(40,84,145,0.05)] mb-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+                <h1 class="text-xl font-bold text-gray-800">Daftar Shipments</h1>
+                <p class="text-xs text-gray-500 mt-1">Kelola dan pantau semua shipment dari lapangan.</p>
+            </div>
+            <div class="flex items-center gap-2.5 flex-wrap w-full sm:w-auto">
+                <button type="button"
+                        @click="openModal()"
+                        class="flex items-center justify-center gap-2 bg-white hover:bg-emerald-50 text-emerald-700 hover:text-emerald-800 border border-emerald-200 hover:border-emerald-300 text-xs font-bold px-4 py-2.5 rounded-xl shadow-[0_2px_8px_rgba(5,158,61,0.08)] hover:-translate-y-0.5 transition-all group flex-1 sm:flex-none">
+                    <i class="ph-bold ph-file-zip text-base text-emerald-600 group-hover:scale-110 transition-transform"></i>
+                    <span>Download Batch ZIP</span>
+                </button>
+                <a href="{{ route('field-app.create') }}" target="_blank"
+                   class="flex items-center justify-center gap-2 bg-spv-blue hover:bg-blue-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-[0_4px_12px_rgba(40,84,145,0.25)] hover:-translate-y-0.5 transition-all flex-1 sm:flex-none">
+                    <i class="ph-bold ph-plus text-sm"></i>
+                    Buat Shipment
+                </a>
+            </div>
         </div>
     </div>
 
@@ -205,7 +207,7 @@
                 <!-- 1. Pilihan Periode Mode Tabs -->
                 <div>
                     <label class="block text-xs font-bold text-gray-700 mb-1.5">Pilih Periode Download</label>
-                    <div class="grid grid-cols-4 gap-1.5 p-1 bg-gray-100/80 rounded-2xl border border-gray-200/60">
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-1 bg-gray-100/80 rounded-2xl border border-gray-200/60">
                         <button type="button"
                                 @click="setMode('harian')"
                                 :class="mode === 'harian' ? 'bg-spv-blue text-white shadow-sm font-bold' : 'text-gray-600 hover:text-gray-800 font-medium'"
@@ -584,6 +586,13 @@ function batchZipDownloadManager() {
 
         previewTimer: null,
 
+        init() {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('modal') === 'batch_zip' || urlParams.get('batch_zip') === '1') {
+                this.openModal();
+            }
+        },
+
         openModal() {
             this.isOpen = true;
             this.fetchPreview();
@@ -698,7 +707,13 @@ function batchZipDownloadManager() {
             this.previewTimer = setTimeout(() => {
                 this.isLoading = true;
                 const params = this.getQueryParams();
-                fetch(`{{ route('shipments.batch-zip-preview') }}?${params.toString()}`)
+                params.set('format', 'json');
+                fetch(`{{ route('shipments.batch-zip-preview') }}?${params.toString()}`, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
                     .then(res => res.json())
                     .then(data => {
                         this.stats = data;

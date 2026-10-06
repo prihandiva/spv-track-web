@@ -22,11 +22,11 @@
             </span>
             <i class="ph-fill ph-clock text-emerald-300 text-sm"></i>
         </div>
-        <div class="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2 leading-tight">
-            <span class="font-medium text-white/90 text-[10px] sm:text-xs whitespace-nowrap" x-text="dateStr">
+        <div class="flex items-center gap-1 sm:gap-2 leading-tight">
+            <span class="hidden md:inline font-medium text-white/90 text-[10px] sm:text-xs whitespace-nowrap" x-text="dateStr">
                 {{ $initialDateFormatted }}
             </span>
-            <span class="hidden sm:inline text-white/30">•</span>
+            <span class="hidden md:inline text-white/30">•</span>
             <div class="flex items-center gap-1.5 whitespace-nowrap">
                 <span class="font-mono font-bold text-white text-xs sm:text-[13px] tracking-tight tabular-nums" x-text="timeStr">
                     {{ $initialTimeFormatted }}
@@ -52,14 +52,14 @@
         </div>
 
         <!-- Date & Running Clock -->
-        <div class="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2 leading-tight">
-            <!-- Hari, Tanggal Bulan Tahun -->
-            <span class="text-[10px] sm:text-xs font-semibold text-gray-700 tracking-tight whitespace-nowrap"
+        <div class="flex items-center gap-1 sm:gap-2 leading-tight">
+            <!-- Hari, Tanggal Bulan Tahun: hidden on mobile (< md) to avoid header overflow -->
+            <span class="hidden md:inline text-[10px] sm:text-xs font-semibold text-gray-700 tracking-tight whitespace-nowrap"
                   x-text="dateStr">
                 {{ $initialDateFormatted }}
             </span>
 
-            <span class="hidden sm:inline-block text-gray-300 font-light text-xs">•</span>
+            <span class="hidden md:inline-block text-gray-300 font-light text-xs">•</span>
 
             <!-- Jam : Menit : Detik -->
             <div class="flex items-center gap-1.5 whitespace-nowrap">

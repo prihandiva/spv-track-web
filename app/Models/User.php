@@ -38,4 +38,25 @@ class User extends Authenticatable
     {
         return $this->hasMany(Shipment::class);
     }
+
+    /**
+     * Get the role model associated with this user.
+     */
+    public function roleModel()
+    {
+        return $this->belongsTo(Role::class, 'role', 'name');
+    }
+
+    /**
+     * Get human-readable role name.
+     */
+    public function getRoleDisplayNameAttribute(): string
+    {
+        return match ($this->role) {
+            'superadmin' => 'Super Administrator',
+            'admin' => 'Admin Warehouse',
+            'operator' => 'Operator Lapangan',
+            default => ucfirst((string) $this->role),
+        };
+    }
 }

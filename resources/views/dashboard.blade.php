@@ -44,22 +44,22 @@
                     </p>
 
                     <!-- Quick Action Buttons -->
-                    <div class="flex flex-wrap items-center gap-3 mt-5">
+                    <div class="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2.5 sm:gap-3 mt-5">
                         <a href="{{ route('field-app.create') }}" target="_blank"
-                           class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-900/30 transition-all transform hover:-translate-y-0.5">
+                           class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-900/30 transition-all transform hover:-translate-y-0.5 w-full sm:w-auto">
                             <i class="ph-bold ph-device-mobile-camera text-base"></i>
                             <span>Buka Field App Mobile</span>
                             <i class="ph-bold ph-arrow-up-right text-xs opacity-75"></i>
                         </a>
 
                         <a href="{{ route('shipments.index') }}"
-                           class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/20 text-white border border-white/20 backdrop-blur-sm transition-all transform hover:-translate-y-0.5">
+                           class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/20 text-white border border-white/20 backdrop-blur-sm transition-all transform hover:-translate-y-0.5 w-full sm:w-auto">
                             <i class="ph-bold ph-package text-base"></i>
                             <span>Kelola Semua Shipment</span>
                         </a>
 
                         <a href="{{ route('shipments.batch-zip-preview') }}"
-                           class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/20 text-white border border-white/20 backdrop-blur-sm transition-all transform hover:-translate-y-0.5">
+                           class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/20 text-white border border-white/20 backdrop-blur-sm transition-all transform hover:-translate-y-0.5 w-full sm:w-auto">
                             <i class="ph-bold ph-file-zip text-base"></i>
                             <span>Unduh Batch ZIP Foto</span>
                         </a>
@@ -67,7 +67,7 @@
                 </div>
 
                 <!-- Today Summary Pill / Widget on Banner -->
-                <div class="shrink-0 bg-white/10 backdrop-blur-md rounded-2xl p-4 lg:p-5 border border-white/15 min-w-[240px] shadow-lg">
+                <div class="w-full lg:w-auto shrink-0 bg-white/10 backdrop-blur-md rounded-2xl p-4 lg:p-5 border border-white/15 sm:min-w-[240px] shadow-lg">
                     <p class="text-[11px] font-semibold text-emerald-200/90 uppercase tracking-wider mb-2 flex items-center justify-between">
                         <span>Aktivitas Hari Ini</span>
                         <i class="ph-fill ph-calendar-check text-emerald-300 text-sm"></i>
@@ -350,55 +350,55 @@
                 </div>
 
                 <!-- Period Switcher Tabs & View Mode -->
-                <div class="flex flex-wrap items-center gap-2">
+                <div class="flex items-center justify-between sm:justify-start gap-2 w-full lg:w-auto">
                     
                     <!-- Period Tabs Buttons -->
-                    <div class="inline-flex p-1 rounded-xl bg-gray-100 text-xs font-semibold">
+                    <div class="flex items-center overflow-x-auto max-w-full p-1 rounded-xl bg-gray-100 text-xs font-semibold scrollbar-none shrink">
                         <button type="button"
                                 @click="switchPeriod('harian')"
                                 :class="activePeriod === 'harian' ? 'bg-white text-spv-blue shadow-sm' : 'text-gray-500 hover:text-gray-800'"
-                                class="px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 font-bold">
-                            <i class="ph-bold ph-calendar"></i>
+                                class="px-2.5 sm:px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 sm:gap-1.5 font-bold shrink-0 whitespace-nowrap">
+                            <i class="ph-bold ph-calendar text-xs sm:text-sm"></i>
                             <span>Harian</span>
                         </button>
                         <button type="button"
                                 @click="switchPeriod('bulanan')"
                                 :class="activePeriod === 'bulanan' ? 'bg-white text-spv-blue shadow-sm' : 'text-gray-500 hover:text-gray-800'"
-                                class="px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 font-bold">
-                            <i class="ph-bold ph-calendar-blank"></i>
+                                class="px-2.5 sm:px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 sm:gap-1.5 font-bold shrink-0 whitespace-nowrap">
+                            <i class="ph-bold ph-calendar-blank text-xs sm:text-sm"></i>
                             <span>Bulanan</span>
                         </button>
                         <button type="button"
                                 @click="switchPeriod('kuartalan')"
                                 :class="activePeriod === 'kuartalan' ? 'bg-white text-spv-blue shadow-sm' : 'text-gray-500 hover:text-gray-800'"
-                                class="px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 font-bold">
-                            <i class="ph-bold ph-chart-pie-slice"></i>
+                                class="px-2.5 sm:px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 sm:gap-1.5 font-bold shrink-0 whitespace-nowrap">
+                            <i class="ph-bold ph-chart-pie-slice text-xs sm:text-sm"></i>
                             <span>Kuartal</span>
                         </button>
                         <button type="button"
                                 @click="switchPeriod('tahunan')"
                                 :class="activePeriod === 'tahunan' ? 'bg-white text-spv-blue shadow-sm' : 'text-gray-500 hover:text-gray-800'"
-                                class="px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 font-bold">
-                            <i class="ph-bold ph-trend-up"></i>
+                                class="px-2.5 sm:px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 sm:gap-1.5 font-bold shrink-0 whitespace-nowrap">
+                            <i class="ph-bold ph-trend-up text-xs sm:text-sm"></i>
                             <span>Tahunan</span>
                         </button>
                     </div>
 
                     <!-- Chart Type Switcher: Bar vs Line -->
-                    <div class="inline-flex p-1 rounded-xl bg-gray-100 text-xs font-semibold">
+                    <div class="inline-flex p-1 rounded-xl bg-gray-100 text-xs font-semibold shrink-0">
                         <button type="button"
                                 @click="toggleChartType('bar')"
                                 :class="chartType === 'bar' ? 'bg-white text-spv-blue shadow-sm' : 'text-gray-400 hover:text-gray-800'"
                                 title="Tampilan Grafik Batang (Bar)"
                                 class="p-1.5 rounded-lg transition-all">
-                            <i class="ph-bold ph-chart-bar text-base"></i>
+                            <i class="ph-bold ph-chart-bar text-sm sm:text-base"></i>
                         </button>
                         <button type="button"
                                 @click="toggleChartType('line')"
                                 :class="chartType === 'line' ? 'bg-white text-spv-blue shadow-sm' : 'text-gray-400 hover:text-gray-800'"
                                 title="Tampilan Grafik Garis Tren (Line)"
                                 class="p-1.5 rounded-lg transition-all">
-                            <i class="ph-bold ph-chart-line text-base"></i>
+                            <i class="ph-bold ph-chart-line text-sm sm:text-base"></i>
                         </button>
                     </div>
 
@@ -406,7 +406,7 @@
             </div>
 
             <!-- Active Period KPI Metric Ribbon (Dynamic via Alpine.js) -->
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 my-4 p-3.5 rounded-2xl bg-slate-50/80 border border-slate-100">
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-y-3 gap-x-2 my-4 p-3.5 rounded-2xl bg-slate-50/80 border border-slate-100">
                 <div class="px-2">
                     <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Periode Aktif</p>
                     <p class="text-xs sm:text-sm font-bold text-gray-800 truncate mt-0.5" x-text="currentSummary.badge"></p>
@@ -415,11 +415,11 @@
                     <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Total Pengiriman</p>
                     <p class="text-sm sm:text-base font-extrabold text-gray-800 mt-0.5" x-text="currentSummary.total + ' Staging'"></p>
                 </div>
-                <div class="px-2 border-l border-gray-200/60">
+                <div class="px-2 border-t pt-2.5 sm:border-t-0 sm:pt-0 sm:border-l border-gray-200/60">
                     <p class="text-[10px] font-semibold text-emerald-600 uppercase tracking-wider">Berhasil (Submitted)</p>
                     <p class="text-sm sm:text-base font-extrabold text-emerald-600 mt-0.5" x-text="currentSummary.submitted + ' Selesai'"></p>
                 </div>
-                <div class="px-2 border-l border-gray-200/60">
+                <div class="px-2 border-t pt-2.5 sm:border-t-0 sm:pt-0 border-l border-gray-200/60">
                     <p class="text-[10px] font-semibold text-spv-blue uppercase tracking-wider">Capaian KPI</p>
                     <div class="flex items-center gap-1.5 mt-0.5">
                         <span class="text-sm sm:text-base font-extrabold text-spv-blue" x-text="currentSummary.rate + '%'"></span>

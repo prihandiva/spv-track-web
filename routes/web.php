@@ -4,8 +4,13 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FieldAppController;
 use App\Http\Controllers\KaryawanController;
 use App\Http\Controllers\LaporanController;
+use App\Http\Controllers\RoleController;
+use App\Http\Controllers\SettingController;
 use App\Http\Controllers\ShipmentController;
 use App\Http\Controllers\ShipmentPhotoController;
+use App\Http\Controllers\SopSettingController;
+use App\Http\Controllers\SystemSettingController;
+use App\Http\Controllers\UserController;
 use App\Models\Karyawan;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Route;
@@ -30,9 +35,35 @@ Route::get('/laporan/export-excel', [LaporanController::class, 'exportExcel'])->
 Route::get('/laporan/print-rekap', [LaporanController::class, 'printRekap'])->name('laporan.print-rekap');
 Route::get('/laporan/download-rekap-pdf', [LaporanController::class, 'downloadRekapPdf'])->name('laporan.download-rekap-pdf');
 
-Route::get('/pengaturan', function () {
-    return "<x-layout><div class='p-8'><h1 class='text-2xl font-bold'>Pengaturan</h1><p class='mt-4'>(Mock Page)</p></div></x-layout>";
-})->name('settings.index');
+// Pengaturan & Master Data Routes
+Route::prefix('pengaturan')->name('settings.')->group(function () {
+    Route::get('/', [SettingController::class, 'index'])->name('index');
+
+    // Pengguna (User Management)
+    Route::get('/pengguna', [UserController::class, 'index'])->name('users.index');
+    Route::post('/pengguna', [UserController::class, 'store'])->name('users.store');
+    Route::put('/pengguna/{user}', [UserController::class, 'update'])->name('users.update');
+    Route::delete('/pengguna/{user}', [UserController::class, 'destroy'])->name('users.destroy');
+
+    // Role & Hak Akses
+    Route::get('/role', [RoleController::class, 'index'])->name('roles.index');
+    Route::post('/role', [RoleController::class, 'store'])->name('roles.store');
+    Route::put('/role/{role}', [RoleController::class, 'update'])->name('roles.update');
+    Route::delete('/role/{role}', [RoleController::class, 'destroy'])->name('roles.destroy');
+
+    // Master SOP 27 Titik
+    Route::get('/sop', [SopSettingController::class, 'index'])->name('sop.index');
+    Route::post('/sop', [SopSettingController::class, 'store'])->name('sop.store');
+    Route::put('/sop/{sopPhotoPoint}', [SopSettingController::class, 'update'])->name('sop.update');
+    Route::patch('/sop/{sopPhotoPoint}/toggle', [SopSettingController::class, 'toggle'])->name('sop.toggle');
+    Route::patch('/sop/{sopPhotoPoint}/move', [SopSettingController::class, 'move'])->name('sop.move');
+    Route::delete('/sop/{sopPhotoPoint}', [SopSettingController::class, 'destroy'])->name('sop.destroy');
+    Route::post('/sop/reset-defaults', [SopSettingController::class, 'resetDefaults'])->name('sop.reset-defaults');
+
+    // Parameter Sistem & Warehouse
+    Route::get('/sistem', [SystemSettingController::class, 'index'])->name('system.index');
+    Route::put('/sistem', [SystemSettingController::class, 'update'])->name('system.update');
+});
 
 // Field App Routes
 Route::get('/field-app/create', [FieldAppController::class, 'create'])->name('field-app.create');

@@ -16,18 +16,20 @@
         }
     }">
 
-        <!-- Header Section -->
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-            <div>
-                <h1 class="text-xl font-bold text-gray-800">Daftar Petugas Lapangan</h1>
-                <p class="text-xs text-gray-500 mt-1">Kelola data petugas pemeriksa dan pelaksana staging di warehouse.</p>
-            </div>
-            <div class="flex items-center gap-2">
-                <button type="button" @click="createModalOpen = true"
-                        class="flex items-center gap-2 bg-spv-blue hover:bg-blue-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-[0_4px_12px_rgba(40,84,145,0.25)] hover:-translate-y-0.5 transition-all">
-                    <i class="ph-bold ph-user-plus text-base"></i>
-                    Tambah Petugas
-                </button>
+        <!-- Header Section Card -->
+        <div class="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 lg:p-6 border border-gray-100 shadow-[0_1px_6px_rgba(40,84,145,0.05)] mb-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h1 class="text-xl font-bold text-gray-800">Daftar Petugas Lapangan</h1>
+                    <p class="text-xs text-gray-500 mt-1">Kelola data petugas pemeriksa dan pelaksana staging di warehouse.</p>
+                </div>
+                <div class="flex items-center gap-2 w-full sm:w-auto">
+                    <button type="button" @click="createModalOpen = true"
+                            class="flex items-center justify-center gap-2 bg-spv-blue hover:bg-blue-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-[0_4px_12px_rgba(40,84,145,0.25)] hover:-translate-y-0.5 transition-all w-full sm:w-auto">
+                        <i class="ph-bold ph-user-plus text-base"></i>
+                        Tambah Petugas
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -269,7 +271,7 @@
 
         <!-- =================== MODAL TAMBAH PETUGAS =================== -->
         <div x-cloak x-show="createModalOpen" class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-            <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="flex items-center justify-center min-h-screen p-3 sm:p-0 text-center sm:block">
                 <div x-show="createModalOpen"
                      x-transition:enter="ease-out duration-300"
                      x-transition:enter-start="opacity-0"
@@ -289,7 +291,7 @@
                      x-transition:leave="ease-in duration-200"
                      x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
                      x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-                     class="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-gray-100">
+                     class="inline-block bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all w-full max-w-lg my-auto sm:my-8 sm:align-middle border border-gray-100">
 
                     <!-- Modal Header -->
                     <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between"
@@ -383,7 +385,7 @@
 
         <!-- =================== MODAL EDIT PETUGAS =================== -->
         <div x-cloak x-show="editModalOpen" class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-edit-title" role="dialog" aria-modal="true">
-            <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="flex items-center justify-center min-h-screen p-3 sm:p-0 text-center sm:block">
                 <div x-show="editModalOpen"
                      x-transition:enter="ease-out duration-300"
                      x-transition:enter-start="opacity-0"
@@ -403,7 +405,7 @@
                      x-transition:leave="ease-in duration-200"
                      x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
                      x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-                     class="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-gray-100">
+                     class="inline-block bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all w-full max-w-lg my-auto sm:my-8 sm:align-middle border border-gray-100">
 
                     <!-- Modal Header -->
                     <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between"
@@ -494,7 +496,7 @@
 
         <!-- =================== MODAL KONFIRMASI HAPUS =================== -->
         <div x-cloak x-show="deleteModalOpen" class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-delete-title" role="dialog" aria-modal="true">
-            <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="flex items-center justify-center min-h-screen p-3 sm:p-0 text-center sm:block">
                 <div x-show="deleteModalOpen"
                      x-transition:enter="ease-out duration-300"
                      x-transition:enter-start="opacity-0"
@@ -514,7 +516,7 @@
                      x-transition:leave="ease-in duration-200"
                      x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
                      x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-                     class="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-md sm:w-full border border-gray-100">
+                     class="inline-block bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all w-full max-w-md my-auto sm:my-8 sm:align-middle border border-gray-100">
 
                     <div class="p-6 text-center">
                         <div class="w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-4 border border-rose-100 shadow-sm">
