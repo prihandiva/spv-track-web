@@ -65,6 +65,14 @@
         }
     </style>
 
+    <!-- Chart.js (Offline Local Bundle + CDN Fallback) -->
+    <script src="{{ asset('vendor/chart.umd.min.js') }}"></script>
+    <script>
+        if (typeof Chart === 'undefined') {
+            document.write('<script src="https://cdn.jsdelivr.net/npm/chart.js"><\/script>');
+        }
+    </script>
+
     <!-- Phosphor Icons -->
     <script src="{{ asset('vendor/phosphor.min.js') }}"></script>
     <!-- Alpine.js -->
@@ -169,13 +177,19 @@
             </div>
         </nav>
 
+        @php
+            $sidebarUser = auth()->user() ?? \App\Models\User::first();
+            $sidebarName = $sidebarUser?->nama_warehouse ?? 'Admin Warehouse';
+            $sidebarEmail = $sidebarUser?->email ?? 'admin@spvtrack.com';
+            $sidebarInitials = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $sidebarName) ?: 'AD', 0, 2));
+        @endphp
         <div class="shrink-0 p-3" style="border-top: 1px solid rgba(255,255,255,0.07); background: rgba(0,0,0,0.1);">
             <div class="flex items-center gap-3 p-2 rounded-xl cursor-pointer hover:bg-white/10 transition-all">
                 <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                     style="background: linear-gradient(135deg, #e1f8eb, #63c384); color: #0d5950;">AD</div>
+                     style="background: linear-gradient(135deg, #e1f8eb, #63c384); color: #0d5950;">{{ $sidebarInitials }}</div>
                 <div class="overflow-hidden flex-1">
-                    <p class="text-xs font-semibold text-white truncate leading-none">Admin Warehouse</p>
-                    <p class="text-[10px] mt-0.5 truncate" style="color: rgba(255,255,255,0.4);">admin@spvtrack.com</p>
+                    <p class="text-xs font-semibold text-white truncate leading-none">{{ $sidebarName }}</p>
+                    <p class="text-[10px] mt-0.5 truncate" style="color: rgba(255,255,255,0.4);">{{ $sidebarEmail }}</p>
                 </div>
             </div>
         </div>

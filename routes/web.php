@@ -1,23 +1,16 @@
 <?php
 
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FieldAppController;
 use App\Http\Controllers\KaryawanController;
+use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\ShipmentController;
 use App\Http\Controllers\ShipmentPhotoController;
 use App\Models\Karyawan;
-use App\Models\Shipment;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    $shipments = Shipment::with('karyawan')->latest()->take(6)->get();
-    $totalShipments = Shipment::count();
-    $totalDraft = Shipment::where('status', 'draft')->count();
-    $totalSubmitted = Shipment::where('status', 'submitted')->count();
-    $totalPetugas = Karyawan::where('status', 'aktif')->count();
-
-    return view('dashboard', compact('shipments', 'totalShipments', 'totalDraft', 'totalSubmitted', 'totalPetugas'));
-})->name('dashboard');
+Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
 Route::get('/shipments', [ShipmentController::class, 'index'])->name('shipments.index');
 Route::get('/shipments/download-batch-zip', [ShipmentController::class, 'downloadBatchZip'])->name('shipments.download-batch-zip');
@@ -31,9 +24,12 @@ Route::get('/shipments/{shipment}/download-pdf', [ShipmentController::class, 'do
 Route::patch('/karyawan/{karyawan}/toggle-status', [KaryawanController::class, 'toggleStatus'])->name('karyawan.toggle-status');
 Route::resource('karyawan', KaryawanController::class);
 
-Route::get('/laporan', function () {
-    return "<x-layout><div class='p-8'><h1 class='text-2xl font-bold'>Laporan</h1><p class='mt-4'>(Mock Page)</p></div></x-layout>";
-})->name('laporan.index');
+// Laporan & Audit Staging Routes
+Route::get('/laporan', [LaporanController::class, 'index'])->name('laporan.index');
+Route::get('/laporan/export-excel', [LaporanController::class, 'exportExcel'])->name('laporan.export-excel');
+Route::get('/laporan/print-rekap', [LaporanController::class, 'printRekap'])->name('laporan.print-rekap');
+Route::get('/laporan/download-rekap-pdf', [LaporanController::class, 'downloadRekapPdf'])->name('laporan.download-rekap-pdf');
+
 Route::get('/pengaturan', function () {
     return "<x-layout><div class='p-8'><h1 class='text-2xl font-bold'>Pengaturan</h1><p class='mt-4'>(Mock Page)</p></div></x-layout>";
 })->name('settings.index');
