@@ -30,6 +30,21 @@ class EvidenceItem extends Model
         ];
     }
 
+    protected $appends = [
+        'file_url',
+        'api_file_url',
+    ];
+
+    public function getFileUrlAttribute(): string
+    {
+        return asset('storage/'.$this->file_path);
+    }
+
+    public function getApiFileUrlAttribute(): string
+    {
+        return url('api/evidence/'.$this->id.'/file');
+    }
+
     public function shipment(): BelongsTo
     {
         return $this->belongsTo(Shipment::class);

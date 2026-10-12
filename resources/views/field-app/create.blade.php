@@ -31,6 +31,8 @@
               nomorContainer: '{{ old('nomor_container_atau_plat', '') }}',
               shipmentGroup: '{{ old('shipment_group', '') }}',
               shipmentNo: '{{ old('shipment_no', '') }}',
+              agenForwarding: '{{ old('agen_forwarding', '') }}',
+              tujuanPengiriman: '{{ old('tujuan_pengiriman', '') }}',
               platNomor: '{{ old('plat_nomor', '') }}',
               namaSopir: '{{ old('nama_sopir', '') }}',
               selectedKaryawanIds: {{ Js::from(array_map('strval', (array) old('karyawan_ids', old('karyawan_id') ? [old('karyawan_id')] : []))) }},
@@ -194,6 +196,14 @@
                           if (data.nama_sopir) {
                               this.namaSopir = data.nama_sopir;
                               extractedItems.push('Sopir: ' + data.nama_sopir);
+                          }
+                          if (data.agen_forwarding) {
+                              this.agenForwarding = data.agen_forwarding;
+                              extractedItems.push('Forwarder: ' + data.agen_forwarding);
+                          }
+                          if (data.tujuan_pengiriman) {
+                              this.tujuanPengiriman = data.tujuan_pengiriman;
+                              extractedItems.push('Tujuan: ' + data.tujuan_pengiriman);
                           }
 
                           if (extractedItems.length > 0) {
@@ -434,7 +444,7 @@
                                 <i class="ph-bold ph-barcode" style="color:#285491; font-size:15px;"></i>
                                 No. Surat Jalan / Delivery / Packing List <span style="color:#ef4444;">*</span>
                             </label>
-                            <span style="font-size:10px; font-weight:700; padding:2px 7px; border-radius:6px; font-family: inherit;"
+                            <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center;"
                                   :style="packingListNo.length === 9 ? 'background:#dcfce7; color:#15803d; border:1px solid #86efac;' : (packingListNo.length > 0 ? 'background:#fef3c7; color:#b45309; border:1px solid #fde68a;' : 'background:#eff4fc; color:#285491; border:1px solid #bfcfe8;')">
                                 <span x-text="packingListNo.length"></span>/9 Digit
                             </span>
@@ -495,8 +505,8 @@
                                 <label class="field-label" style="display:flex; align-items:center; gap:4px; margin-bottom:0;">
                                     <i class="ph-bold ph-hash" style="color:#285491; font-size:12px;"></i>Shipment Group <span style="color:#ef4444;">*</span>
                                 </label>
-                                <span style="font-size:9px; font-weight:700; padding:1px 5px; border-radius:4px; font-family: inherit;"
-                                      :style="shipmentGroup.length === 9 ? 'background:#dcfce7; color:#15803d;' : (shipmentGroup.length > 0 ? 'background:#fef3c7; color:#b45309;' : 'background:#eff4fc; color:#285491;')">
+                                <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center;"
+                                      :style="shipmentGroup.length === 9 ? 'background:#dcfce7; color:#15803d; border:1px solid #86efac;' : (shipmentGroup.length > 0 ? 'background:#fef3c7; color:#b45309; border:1px solid #fde68a;' : 'background:#eff4fc; color:#285491; border:1px solid #bfcfe8;')">
                                     <span x-text="shipmentGroup.length"></span>/9 Digit
                                 </span>
                             </div>
@@ -549,8 +559,8 @@
                                 <label class="field-label" style="display:flex; align-items:center; gap:4px; margin-bottom:0;">
                                     <i class="ph-bold ph-hash" style="color:#285491; font-size:12px;"></i>Shipment No. <span style="color:#ef4444;">*</span>
                                 </label>
-                                <span style="font-size:9px; font-weight:700; padding:1px 5px; border-radius:4px; font-family: inherit;"
-                                      :style="shipmentNo.length === 9 ? 'background:#dcfce7; color:#15803d;' : (shipmentNo.length > 0 ? 'background:#fef3c7; color:#b45309;' : 'background:#eff4fc; color:#285491;')">
+                                <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center;"
+                                      :style="shipmentNo.length === 9 ? 'background:#dcfce7; color:#15803d;' : (shipmentNo.length > 0 ? 'background:#fef3c7; color:#b45309;' : 'background:#eff4fc; color:#285491; border:1px solid #bfcfe8;')">
                                     <span x-text="shipmentNo.length"></span>/9 Digit
                                 </span>
                             </div>
@@ -589,6 +599,59 @@
                                     @foreach(($history['shipment_no'] ?? collect())->take(2) as $rec)
                                         <button type="button" @click="shipmentNo = '{{ preg_replace('/\D/', '', $rec) }}'.slice(0, 9)"
                                                 style="font-size:9px; font-weight: 600; padding:2px 6px; border-radius:8px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer;">
+                                            {{ $rec }}
+                                        </button>
+                                    @endforeach
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+
+                    <!-- Field Textarea: Agen Forwarding & Tujuan Pengiriman (Setelah Mengisi Nomor-Nomor Shipment) -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+                        <!-- Agen Forwarding -->
+                        <div>
+                            <label class="field-label" style="display:flex; align-items:center; gap:4px; margin-bottom: 4px;">
+                                <i class="ph-bold ph-buildings" style="color:#285491; font-size:12px;"></i>Agen Forwarding (Opsional)
+                            </label>
+                            <textarea id="agen_forwarding"
+                                      name="agen_forwarding"
+                                      x-model="agenForwarding"
+                                      rows="2"
+                                      placeholder="Contoh: PT. SAMUDERA LOGISTICS / EMKL..."
+                                      class="field-input"
+                                      style="font-size:12px; font-weight: 600; resize: vertical; min-height: 52px; line-height: 1.4;"></textarea>
+                            @if(count($history['agen_forwarding'] ?? []) > 0)
+                                <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;">
+                                    <span style="font-size:9px; color:#9ca3af; align-self:center;">Riwayat:</span>
+                                    @foreach(($history['agen_forwarding'] ?? collect())->take(2) as $rec)
+                                        <button type="button" @click="agenForwarding = '{{ addslashes($rec) }}'"
+                                                style="font-size:10px; font-weight: 600; padding:2px 7px; border-radius:10px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer;">
+                                            {{ $rec }}
+                                        </button>
+                                    @endforeach
+                                </div>
+                            @endif
+                        </div>
+
+                        <!-- Tujuan Pengiriman -->
+                        <div>
+                            <label class="field-label" style="display:flex; align-items:center; gap:4px; margin-bottom: 4px;">
+                                <i class="ph-bold ph-map-pin" style="color:#285491; font-size:12px;"></i>Tujuan Pengiriman (Opsional)
+                            </label>
+                            <textarea id="tujuan_pengiriman"
+                                      name="tujuan_pengiriman"
+                                      x-model="tujuanPengiriman"
+                                      rows="2"
+                                      placeholder="Contoh: Pelabuhan Tanjung Priok / Gudang Surabaya..."
+                                      class="field-input"
+                                      style="font-size:12px; font-weight: 600; resize: vertical; min-height: 52px; line-height: 1.4;"></textarea>
+                            @if(count($history['tujuan_pengiriman'] ?? []) > 0)
+                                <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;">
+                                    <span style="font-size:9px; color:#9ca3af; align-self:center;">Riwayat:</span>
+                                    @foreach(($history['tujuan_pengiriman'] ?? collect())->take(2) as $rec)
+                                        <button type="button" @click="tujuanPengiriman = '{{ addslashes($rec) }}'"
+                                                style="font-size:10px; font-weight: 600; padding:2px 7px; border-radius:10px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer;">
                                             {{ $rec }}
                                         </button>
                                     @endforeach

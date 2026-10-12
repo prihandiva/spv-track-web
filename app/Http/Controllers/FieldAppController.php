@@ -27,6 +27,8 @@ class FieldAppController extends Controller
             'packing_list_no' => Shipment::whereNotNull('packing_list_no')->where('packing_list_no', '!=', '')->distinct()->pluck('packing_list_no')->filter()->values(),
             'shipment_group' => Shipment::whereNotNull('shipment_group')->where('shipment_group', '!=', '')->distinct()->pluck('shipment_group')->filter()->values(),
             'shipment_no' => Shipment::whereNotNull('shipment_no')->where('shipment_no', '!=', '')->distinct()->pluck('shipment_no')->filter()->values(),
+            'agen_forwarding' => Shipment::whereNotNull('agen_forwarding')->where('agen_forwarding', '!=', '')->distinct()->pluck('agen_forwarding')->filter()->values(),
+            'tujuan_pengiriman' => Shipment::whereNotNull('tujuan_pengiriman')->where('tujuan_pengiriman', '!=', '')->distinct()->pluck('tujuan_pengiriman')->filter()->values(),
             'nama_sopir' => Shipment::whereNotNull('nama_sopir')->where('nama_sopir', '!=', '')->distinct()->pluck('nama_sopir')->filter()->values(),
             'plat_nomor' => Shipment::whereNotNull('plat_nomor')->where('plat_nomor', '!=', '')->distinct()->pluck('plat_nomor')->filter()->values(),
             'nomor_container' => Shipment::whereNotNull('nomor_container_atau_plat')->where('nomor_container_atau_plat', '!=', '')->distinct()->pluck('nomor_container_atau_plat')->filter()->values(),
@@ -47,6 +49,8 @@ class FieldAppController extends Controller
             'packing_list_no' => 'required|numeric|digits:9',
             'shipment_group' => 'required|numeric|digits:9',
             'shipment_no' => 'required|numeric|digits:9',
+            'agen_forwarding' => 'nullable|string',
+            'tujuan_pengiriman' => 'nullable|string',
             'plat_nomor' => 'required|string|max:255',
             'nama_sopir' => 'nullable|string|max:255',
             'nomor_container_atau_plat' => 'required|string|max:255',
@@ -297,6 +301,8 @@ class FieldAppController extends Controller
             'delivery_no' => '',
             'shipment_group' => '',
             'shipment_no' => '',
+            'agen_forwarding' => '',
+            'tujuan_pengiriman' => '',
             'plat_nomor' => '',
             'nama_sopir' => '',
             'container_no' => '',
@@ -399,12 +405,30 @@ class FieldAppController extends Controller
                     $data['nama_sopir'] = ucwords(strtolower($cleanSopir));
                 }
             }
+
+            // 7. Agen Forwarding
+            if (preg_match('/(?:forwarding agent|forwarder|agen forwarding|agent\s*name)[\s\.:]*(.*?)(?:BANGKOK|via TANJUNG|Seal no|Container no|Port|Vessel|\r|\n|$)/im', $text, $matches)) {
+                $cleanAgent = trim($matches[1]);
+                if (strlen($cleanAgent) >= 3 && ! preg_match('/(?:Shipment|Delivery|Order|Date)/i', $cleanAgent)) {
+                    $data['agen_forwarding'] = $cleanAgent;
+                }
+            }
+
+            // 8. Tujuan Pengiriman
+            if (preg_match('/(?:tujuan|destination|destinasi|ship to|consignee)[\s\.:]*(.*?)(?:forwarding|seal|container|date|\r|\n|$)/im', $text, $matches)) {
+                $cleanTujuan = trim($matches[1]);
+                if (strlen($cleanTujuan) >= 3 && ! preg_match('/(?:Shipment|Delivery|Order|Date)/i', $cleanTujuan)) {
+                    $data['tujuan_pengiriman'] = $cleanTujuan;
+                }
+            }
         }
 
         $data['extracted_count'] = count(array_filter([
             $data['packing_list_no'],
             $data['shipment_group'],
             $data['shipment_no'],
+            $data['agen_forwarding'],
+            $data['tujuan_pengiriman'],
             $data['plat_nomor'],
             $data['container_no'],
             $data['nama_sopir'],

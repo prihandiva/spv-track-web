@@ -4,58 +4,134 @@
     $initialUploadedPointIds = $shipment->evidenceItems->pluck('sop_photo_point_id')->filter()->unique()->values()->all();
 @endphp
 
-<div x-data="{
-    mandatoryPointIds: {{ Js::from($mandatoryPointIds) }},
-    uploadedPointIds: {{ Js::from($initialUploadedPointIds) }},
-    waktuKedatangan: '{{ old('waktu_kedatangan_container', $shipment->waktu_kedatangan_container ? $shipment->waktu_kedatangan_container->format('Y-m-d\TH:i') : '') }}',
-    waktuKeberangkatan: '{{ old('waktu_keberangkatan_container', $shipment->waktu_keberangkatan_container ? $shipment->waktu_keberangkatan_container->format('Y-m-d\TH:i') : '') }}',
+<script>
+    function registerTimelineManager() {
+        if (!window.Alpine) return;
+        if (Alpine.data('timelineManager')) return;
 
-    setNow(field) {
-        const now = new Date();
-        const y = now.getFullYear();
-        const m = String(now.getMonth() + 1).padStart(2, '0');
-        const d = String(now.getDate()).padStart(2, '0');
-        const hh = String(now.getHours()).padStart(2, '0');
-        const mm = String(now.getMinutes()).padStart(2, '0');
-        const val = `${y}-${m}-${d}T${hh}:${mm}`;
-        if (field === 'kedatangan') this.waktuKedatangan = val;
-        if (field === 'keberangkatan') this.waktuKeberangkatan = val;
-    },
+        Alpine.data('timelineManager', () => ({
+            mandatoryPointIds: @json($mandatoryPointIds),
+            uploadedPointIds: @json($initialUploadedPointIds),
+            waktuKedatangan: @json(old('waktu_kedatangan_container', $shipment->waktu_kedatangan_container ? $shipment->waktu_kedatangan_container->format('Y-m-d H:i') : '')),
+            waktuKeberangkatan: @json(old('waktu_keberangkatan_container', $shipment->waktu_keberangkatan_container ? $shipment->waktu_keberangkatan_container->format('Y-m-d H:i') : '')),
+            openStagingSection: true,
+            fpKedatangan: null,
+            fpKeberangkatan: null,
 
-    addUploadedPoint(id) {
-        id = Number(id);
-        if (!this.uploadedPointIds.includes(id)) {
-            this.uploadedPointIds.push(id);
-        }
-    },
-    get mandatoryUploadedCount() {
-        return this.mandatoryPointIds.filter(id => this.uploadedPointIds.includes(Number(id))).length;
-    },
-    get totalMandatoryCount() {
-        return this.mandatoryPointIds.length;
-    },
-    get isPhotosComplete() {
-        return this.mandatoryUploadedCount >= this.totalMandatoryCount;
-    },
-    get isFormComplete() {
-        return this.waktuKedatangan.trim().length > 0 &&
-               this.waktuKeberangkatan.trim().length > 0;
-    },
-    get canSubmit() {
-        return this.isPhotosComplete && this.isFormComplete;
-    },
-    get missingSummary() {
-        const missing = [];
-        if (!this.isPhotosComplete) {
-            const diff = this.totalMandatoryCount - this.mandatoryUploadedCount;
-            missing.push(diff + ' foto wajib belum diunggah');
-        }
-        if (!this.waktuKedatangan.trim()) missing.push('Waktu Mulai Staging (Kedatangan)');
-        if (!this.waktuKeberangkatan.trim()) missing.push('Waktu Akhir Staging (Keberangkatan)');
-        return missing;
+            init() {
+                this.initPickers();
+            },
+
+            initPickers() {
+                const self = this;
+                const baseConfig = {
+                    enableTime: true,
+                    time_24hr: true,
+                    dateFormat: 'Y-m-d H:i',
+                    altInput: true,
+                    altFormat: 'd/m/Y H:i',
+                    altInputClass: 'field-input flatpickr-custom-input',
+                    locale: (typeof flatpickr !== 'undefined' && flatpickr.l10ns && flatpickr.l10ns.id) ? flatpickr.l10ns.id : 'default',
+                    disableMobile: true,
+                    allowInput: true,
+                    monthSelectorType: 'static'
+                };
+
+                const elKedatangan = document.getElementById('waktu_kedatangan_container');
+                if (elKedatangan && typeof flatpickr !== 'undefined') {
+                    this.fpKedatangan = flatpickr(elKedatangan, {
+                        ...baseConfig,
+                        defaultDate: this.waktuKedatangan || null,
+                        onChange(selectedDates, dateStr) {
+                            self.waktuKedatangan = dateStr || '';
+                        },
+                        onClose(selectedDates, dateStr) {
+                            self.waktuKedatangan = dateStr || '';
+                        }
+                    });
+                }
+
+                const elKeberangkatan = document.getElementById('waktu_keberangkatan_container');
+                if (elKeberangkatan && typeof flatpickr !== 'undefined') {
+                    this.fpKeberangkatan = flatpickr(elKeberangkatan, {
+                        ...baseConfig,
+                        defaultDate: this.waktuKeberangkatan || null,
+                        onChange(selectedDates, dateStr) {
+                            self.waktuKeberangkatan = dateStr || '';
+                        },
+                        onClose(selectedDates, dateStr) {
+                            self.waktuKeberangkatan = dateStr || '';
+                        }
+                    });
+                }
+            },
+
+            setNow(field) {
+                const now = new Date();
+                const y = now.getFullYear();
+                const m = String(now.getMonth() + 1).padStart(2, '0');
+                const d = String(now.getDate()).padStart(2, '0');
+                const hh = String(now.getHours()).padStart(2, '0');
+                const mm = String(now.getMinutes()).padStart(2, '0');
+                const val = `${y}-${m}-${d} ${hh}:${mm}`;
+                if (field === 'kedatangan') {
+                    this.waktuKedatangan = val;
+                    if (this.fpKedatangan) {
+                        this.fpKedatangan.setDate(val, true);
+                    }
+                }
+                if (field === 'keberangkatan') {
+                    this.waktuKeberangkatan = val;
+                    if (this.fpKeberangkatan) {
+                        this.fpKeberangkatan.setDate(val, true);
+                    }
+                }
+            },
+
+            addUploadedPoint(id) {
+                id = Number(id);
+                if (!this.uploadedPointIds.includes(id)) {
+                    this.uploadedPointIds.push(id);
+                }
+            },
+            get mandatoryUploadedCount() {
+                return this.mandatoryPointIds.filter(id => this.uploadedPointIds.includes(Number(id))).length;
+            },
+            get totalMandatoryCount() {
+                return this.mandatoryPointIds.length;
+            },
+            get isPhotosComplete() {
+                return this.mandatoryUploadedCount >= this.totalMandatoryCount;
+            },
+            get isFormComplete() {
+                return (this.waktuKedatangan || '').trim().length > 0 &&
+                       (this.waktuKeberangkatan || '').trim().length > 0;
+            },
+            get canSubmit() {
+                return this.isPhotosComplete && this.isFormComplete;
+            },
+            get missingSummary() {
+                const missing = [];
+                if (!this.isPhotosComplete) {
+                    const diff = this.totalMandatoryCount - this.mandatoryUploadedCount;
+                    missing.push(diff + ' foto wajib belum diunggah');
+                }
+                if (!(this.waktuKedatangan || '').trim()) missing.push('Waktu Mulai Staging (Kedatangan)');
+                if (!(this.waktuKeberangkatan || '').trim()) missing.push('Waktu Akhir Staging (Keberangkatan)');
+                return missing;
+            }
+        }));
     }
-}"
-@photo-uploaded.window="addUploadedPoint($event.detail.pointId)">
+
+    if (window.Alpine) {
+        registerTimelineManager();
+    } else {
+        document.addEventListener('alpine:init', registerTimelineManager);
+    }
+</script>
+
+<div x-data="timelineManager"
+     @photo-uploaded.window="addUploadedPoint($event.detail.pointId)">
 
     <!-- Shipment Header Card (Packing List as Primary Identifier) -->
     <div style="background: linear-gradient(135deg, #1a3c6e 0%, #285491 60%, #0d5950 100%); border-radius: 16px; padding: 16px; color: white; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 16px rgba(40,84,145,0.3);">
@@ -67,6 +143,12 @@
                 Shpt: <span style="font-weight:700; color:white;">{{ $shipment->shipment_no ?: '-' }}</span> &bull;
                 Plat: <span style="font-weight:700; color:white;">{{ $shipment->plat_nomor ?: '-' }}</span> &bull;
                 Cont: <span style="font-weight:700; color:white;">{{ $shipment->nomor_container_atau_plat ?: '-' }}</span>
+                @if($shipment->agen_forwarding)
+                    &bull; Fwd: <span style="font-weight:700; color:white;">{{ $shipment->agen_forwarding }}</span>
+                @endif
+                @if($shipment->tujuan_pengiriman)
+                    &bull; Tujuan: <span style="font-weight:700; color:white;">{{ $shipment->tujuan_pengiriman }}</span>
+                @endif
             </p>
         </div>
         <div style="text-align:right;">
@@ -336,8 +418,8 @@
         </div>
 
         <!-- Section Waktu Pelaksanaan Staging Container (Mulai & Akhir Saja) -->
-        <div class="section-card" x-data="{ open: true }" style="margin-top: 10px;">
-            <div class="section-card-header" @click="open = !open"
+        <div class="section-card" style="margin-top: 10px;">
+            <div class="section-card-header" @click="openStagingSection = !openStagingSection"
                  style="background: linear-gradient(90deg, rgba(40,84,145,0.06), transparent);">
                 <div style="width: 32px; height: 32px; border-radius: 10px; background: #eff4fc; display: flex; align-items: center; justify-content: center; flex-shrink:0;">
                     <i class="ph-fill ph-clock" style="font-size: 16px; color: #285491;"></i>
@@ -346,50 +428,76 @@
                     <p style="font-size: 13px; font-weight: 700; color: #1f2937;">Waktu Pelaksanaan Staging Container</p>
                     <p style="font-size: 10px; color: #64748b;">Hanya perlu mengisi waktu mulai (kedatangan) dan waktu akhir (keberangkatan)</p>
                 </div>
-                <i class="ph-bold" :class="open ? 'ph-caret-up' : 'ph-caret-down'" style="font-size: 14px; color: #9ca3af;"></i>
+                <i class="ph-bold" :class="openStagingSection ? 'ph-caret-up' : 'ph-caret-down'" style="font-size: 14px; color: #9ca3af;"></i>
             </div>
-            <div class="section-card-body" x-show="open" x-collapse style="display:flex; flex-direction:column; gap:14px; padding: 16px;">
+            <div class="section-card-body" x-show="openStagingSection" x-collapse style="display:flex; flex-direction:column; gap:14px; padding: 16px;">
                 <div style="display:flex; flex-direction:column; gap:14px;">
                     <!-- Waktu Mulai (Kedatangan Container) -->
-                    <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px;"
+                    <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px; transition: all 0.2s;"
                          :style="waktuKedatangan ? 'border-color: #86efac; background: #f0fdf4;' : ''">
                         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
                             <label class="field-label" style="margin-bottom:0; display:flex; align-items:center; gap:5px; font-weight:700; color:#1e293b;">
                                 <i class="ph-bold ph-play-circle" style="color:#059e3d; font-size:16px;"></i>
                                 Waktu Mulai (Kedatangan Container) <span style="color:#ef4444;">*</span>
+                                <span style="font-size:10px; font-weight:700; color:#285491; background:#e0ecfb; border:1px solid #bfcfe8; border-radius:6px; padding:1px 6px; margin-left:4px;">
+                                    Format 24 Jam
+                                </span>
                             </label>
                             <button type="button" @click="setNow('kedatangan')"
-                                    style="font-size:10px; font-weight:700; color:#285491; background:#eff4fc; border:1px solid #bfcfe8; border-radius:6px; padding:3px 8px; cursor:pointer; display:flex; align-items:center; gap:3px;">
+                                    style="font-size:10px; font-weight:700; color:#285491; background:#eff4fc; border:1px solid #bfcfe8; border-radius:6px; padding:3px 8px; cursor:pointer; display:flex; align-items:center; gap:3px; transition:background 0.15s;"
+                                    onmouseover="this.style.background='#dbe7f6'"
+                                    onmouseout="this.style.background='#eff4fc'">
                                 <i class="ph-bold ph-clock"></i> Set Sekarang
                             </button>
                         </div>
-                        <input type="datetime-local" id="waktu_kedatangan_container" name="waktu_kedatangan_container" x-model="waktuKedatangan" required class="field-input" style="width:100%; box-sizing:border-box; background:white; font-size:13px; font-weight:600;">
-                        <p style="font-size:10px; color:#64748b; margin-top:4px;">Waktu saat container pertama kali tiba di warehouse untuk proses staging.</p>
+                        <div style="position:relative;">
+                            <input type="text" id="waktu_kedatangan_container" name="waktu_kedatangan_container"
+                                   placeholder="Pilih tanggal & jam format 24 jam (contoh: 12/10/2026 14:30)..."
+                                   class="field-input flatpickr-custom-input"
+                                   style="width:100%; box-sizing:border-box; background:white; font-size:13px; font-weight:600; padding-right:38px; cursor:pointer;">
+                            <div style="position:absolute; right:12px; top:50%; transform:translateY(-50%); pointer-events:none; color:#285491; display:flex; align-items:center;">
+                                <i class="ph-bold ph-calendar-blank" style="font-size:17px;"></i>
+                            </div>
+                        </div>
+                        <p style="font-size:10px; color:#64748b; margin-top:4px;">Waktu saat container pertama kali tiba di warehouse (format 24 jam: 00:00 - 23:59 WIB).</p>
                     </div>
 
                     <!-- Waktu Akhir (Keberangkatan Container) -->
-                    <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px;"
+                    <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px; transition: all 0.2s;"
                          :style="waktuKeberangkatan ? 'border-color: #86efac; background: #f0fdf4;' : ''">
                         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
                             <label class="field-label" style="margin-bottom:0; display:flex; align-items:center; gap:5px; font-weight:700; color:#1e293b;">
                                 <i class="ph-bold ph-check-circle" style="color:#285491; font-size:16px;"></i>
                                 Waktu Akhir (Keberangkatan Container) <span style="color:#ef4444;">*</span>
+                                <span style="font-size:10px; font-weight:700; color:#285491; background:#e0ecfb; border:1px solid #bfcfe8; border-radius:6px; padding:1px 6px; margin-left:4px;">
+                                    Format 24 Jam
+                                </span>
                             </label>
                             <button type="button" @click="setNow('keberangkatan')"
-                                    style="font-size:10px; font-weight:700; color:#285491; background:#eff4fc; border:1px solid #bfcfe8; border-radius:6px; padding:3px 8px; cursor:pointer; display:flex; align-items:center; gap:3px;">
+                                    style="font-size:10px; font-weight:700; color:#285491; background:#eff4fc; border:1px solid #bfcfe8; border-radius:6px; padding:3px 8px; cursor:pointer; display:flex; align-items:center; gap:3px; transition:background 0.15s;"
+                                    onmouseover="this.style.background='#dbe7f6'"
+                                    onmouseout="this.style.background='#eff4fc'">
                                 <i class="ph-bold ph-clock"></i> Set Sekarang
                             </button>
                         </div>
-                        <input type="datetime-local" id="waktu_keberangkatan_container" name="waktu_keberangkatan_container" x-model="waktuKeberangkatan" required class="field-input" style="width:100%; box-sizing:border-box; background:white; font-size:13px; font-weight:600;">
-                        <p style="font-size:10px; color:#64748b; margin-top:4px;">Waktu saat proses pemuatan selesai dan container siap diberangkatkan.</p>
+                        <div style="position:relative;">
+                            <input type="text" id="waktu_keberangkatan_container" name="waktu_keberangkatan_container"
+                                   placeholder="Pilih tanggal & jam format 24 jam (contoh: 12/10/2026 17:15)..."
+                                   class="field-input flatpickr-custom-input"
+                                   style="width:100%; box-sizing:border-box; background:white; font-size:13px; font-weight:600; padding-right:38px; cursor:pointer;">
+                            <div style="position:absolute; right:12px; top:50%; transform:translateY(-50%); pointer-events:none; color:#285491; display:flex; align-items:center;">
+                                <i class="ph-bold ph-calendar-blank" style="font-size:17px;"></i>
+                            </div>
+                        </div>
+                        <p style="font-size:10px; color:#64748b; margin-top:4px;">Waktu saat proses pemuatan selesai dan container siap diberangkatkan (format 24 jam: 00:00 - 23:59 WIB).</p>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Sticky Footer Submit Button -->
-        <div style="position:fixed; bottom:0; left:0; right:0; background:white; border-top:1px solid #e8edf3; padding:10px 16px 14px; z-index:100; box-shadow: 0 -4px 20px rgba(40,84,145,0.08);">
-            <div style="max-width:720px; margin:0 auto; display:flex; flex-direction:column; gap:8px;">
+        <!-- Sticky Footer Submit Card (Seragam Rounded 16px dengan Card di Atasnya) -->
+        <div style="position:fixed; bottom:12px; left:0; right:0; z-index:100; pointer-events:none; padding: 0 16px;">
+            <div style="max-width:860px; margin:0 auto; background:white; border-radius:16px; border:1.5px solid #e8edf3; padding:12px 16px 14px; box-shadow: 0 8px 30px rgba(40,84,145,0.16), 0 2px 8px rgba(0,0,0,0.06); pointer-events:auto; display:flex; flex-direction:column; gap:8px;">
                 <!-- Status Info Row -->
                 <div style="display:flex; align-items:center; justify-content:space-between; font-size:11px;">
                     <span style="font-weight:700; color:#374151; display:flex; align-items:center; gap:6px;">

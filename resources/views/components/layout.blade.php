@@ -12,6 +12,18 @@
             document.write('<script src="https://cdn.tailwindcss.com"><\/script>');
         }
     </script>
+    
+    <!-- Flatpickr 24-Hour Datetime Picker (Offline Local Bundle + CDN Fallback) -->
+    <link rel="stylesheet" href="{{ asset('vendor/flatpickr.min.css') }}">
+    <script src="{{ asset('vendor/flatpickr.min.js') }}"></script>
+    <script src="{{ asset('vendor/flatpickr_id.js') }}"></script>
+    <script>
+        if (typeof flatpickr === 'undefined') {
+            document.write('<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">');
+            document.write('<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.js"><\/script>');
+            document.write('<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/id.js"><\/script>');
+        }
+    </script>
     <script>
         tailwind.config = {
             theme: {

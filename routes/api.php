@@ -34,3 +34,19 @@ Route::post('/shipments/{shipment}/photos/submit', [ShipmentPhotoController::cla
 // 4. Akses File Foto Permanen & Listing Foto
 Route::get('/photos/{photo}/file', [ShipmentPhotoController::class, 'servePermanentPhoto'])->name('api.photos.file');
 Route::get('/shipments/{shipment}/photos', [ShipmentPhotoController::class, 'index'])->name('api.shipments.photos.index');
+
+// 5. Endpoint Terintegrasi untuk Aplikasi Mobile SPV-Track (Flutter)
+use App\Http\Controllers\MobileApiController;
+
+Route::get('/dashboard', [MobileApiController::class, 'dashboard'])->name('api.mobile.dashboard');
+Route::get('/shipments', [MobileApiController::class, 'shipments'])->name('api.mobile.shipments');
+Route::get('/shipments/{shipment}', [MobileApiController::class, 'shipmentDetail'])->name('api.mobile.shipment-detail');
+Route::post('/shipments', [MobileApiController::class, 'storeShipment'])->name('api.mobile.shipments.store');
+Route::post('/shipments/{shipment}/evidence', [MobileApiController::class, 'uploadEvidence'])->name('api.mobile.shipments.evidence');
+Route::post('/shipments/{shipment}/finalize', [MobileApiController::class, 'finalizeShipment'])->name('api.mobile.shipments.finalize');
+Route::get('/karyawans', [MobileApiController::class, 'getKaryawans'])->name('api.mobile.karyawans');
+Route::get('/sop-points', [MobileApiController::class, 'getSopPoints'])->name('api.mobile.sop-points');
+Route::post('/ocr/shipment-order', [MobileApiController::class, 'ocrShipmentOrder'])->name('api.mobile.ocr.shipment-order');
+Route::get('/evidence/{evidence}/file', [MobileApiController::class, 'serveEvidenceFile'])->name('api.mobile.evidence.file');
+
+

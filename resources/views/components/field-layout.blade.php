@@ -12,6 +12,17 @@
             document.write('<script src="https://cdn.tailwindcss.com"><\/script>');
         }
     </script>
+    <!-- Flatpickr 24-Hour Datetime Picker (Offline Local Bundle + CDN Fallback) -->
+    <link rel="stylesheet" href="{{ asset('vendor/flatpickr.min.css') }}">
+    <script src="{{ asset('vendor/flatpickr.min.js') }}"></script>
+    <script src="{{ asset('vendor/flatpickr_id.js') }}"></script>
+    <script>
+        if (typeof flatpickr === 'undefined') {
+            document.write('<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">');
+            document.write('<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.js"><\/script>');
+            document.write('<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/id.js"><\/script>');
+        }
+    </script>
     <script>
         tailwind.config = {
             theme: {
@@ -40,6 +51,138 @@
         ::-webkit-scrollbar { width: 3px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #c8c5c0; border-radius: 3px; }
+
+        /* Flatpickr 24-Hour Custom Modern Theme */
+        .flatpickr-calendar {
+            background: #ffffff !important;
+            border-radius: 16px !important;
+            box-shadow: 0 16px 36px -4px rgba(40, 84, 145, 0.22), 0 0 0 1px rgba(40, 84, 145, 0.1) !important;
+            border: none !important;
+            font-family: inherit !important;
+            overflow: hidden;
+            width: 320px !important;
+        }
+        .flatpickr-months {
+            background: linear-gradient(135deg, #1a3c6e, #285491) !important;
+            color: #ffffff !important;
+            padding: 8px 6px !important;
+            border-top-left-radius: 16px;
+            border-top-right-radius: 16px;
+        }
+        .flatpickr-months .flatpickr-month {
+            color: #ffffff !important;
+            fill: #ffffff !important;
+            height: 36px !important;
+        }
+        .flatpickr-current-month {
+            font-size: 110% !important;
+            font-weight: 700 !important;
+            color: #ffffff !important;
+            padding-top: 4px !important;
+        }
+        .flatpickr-current-month .cur-month {
+            font-weight: 700 !important;
+            color: #ffffff !important;
+        }
+        .flatpickr-current-month input.cur-year {
+            font-weight: 700 !important;
+            color: #ffffff !important;
+        }
+        .flatpickr-months .flatpickr-prev-month, 
+        .flatpickr-months .flatpickr-next-month {
+            color: #ffffff !important;
+            fill: #ffffff !important;
+            padding: 6px 10px !important;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+        .flatpickr-months .flatpickr-prev-month:hover, 
+        .flatpickr-months .flatpickr-next-month:hover {
+            background: rgba(255, 255, 255, 0.2) !important;
+        }
+        .flatpickr-weekdays {
+            background: #f1f5f9 !important;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 4px 0 !important;
+        }
+        span.flatpickr-weekday {
+            color: #475569 !important;
+            font-weight: 700 !important;
+            font-size: 11px !important;
+        }
+        .flatpickr-day {
+            border-radius: 10px !important;
+            font-size: 13px !important;
+            font-weight: 500 !important;
+            color: #1e293b !important;
+            height: 36px !important;
+            line-height: 36px !important;
+            transition: all 0.15s;
+        }
+        .flatpickr-day:hover {
+            background: #eff4fc !important;
+            color: #285491 !important;
+        }
+        .flatpickr-day.today {
+            border-color: #285491 !important;
+            color: #285491 !important;
+            font-weight: 700 !important;
+        }
+        .flatpickr-day.selected, 
+        .flatpickr-day.selected:hover {
+            background: linear-gradient(135deg, #285491, #0d5950) !important;
+            border-color: transparent !important;
+            color: #ffffff !important;
+            font-weight: 700 !important;
+            box-shadow: 0 4px 10px rgba(40, 84, 145, 0.35);
+        }
+        /* Time picker 24-hr styling */
+        .flatpickr-calendar.hasTime .flatpickr-time {
+            background: #f8fafc !important;
+            border-top: 1.5px solid #e2e8f0 !important;
+            padding: 6px 12px !important;
+            height: 52px !important;
+            max-height: 52px !important;
+            line-height: 40px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+        .flatpickr-time .numInputWrapper {
+            flex: 0 0 68px !important;
+            max-width: 68px !important;
+            height: 38px !important;
+        }
+        .flatpickr-time input.flatpickr-hour,
+        .flatpickr-time input.flatpickr-minute {
+            font-size: 19px !important;
+            font-weight: 800 !important;
+            color: #1e293b !important;
+            background: #ffffff !important;
+            border: 1.5px solid #cbd5e1 !important;
+            border-radius: 8px !important;
+            height: 38px !important;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+        .flatpickr-time input.flatpickr-hour:focus,
+        .flatpickr-time input.flatpickr-minute:focus {
+            border-color: #285491 !important;
+            background: #ffffff !important;
+        }
+        .flatpickr-time-separator {
+            font-size: 22px !important;
+            font-weight: 800 !important;
+            color: #475569 !important;
+            margin: 0 8px !important;
+        }
+        .flatpickr-time .arrowUp, .flatpickr-time .arrowDown {
+            padding: 0 4px !important;
+        }
+        .flatpickr-custom-input {
+            cursor: pointer !important;
+            background-color: #ffffff !important;
+        }
 
         /* Input focus styles */
         input:focus, select:focus, textarea:focus {
@@ -100,6 +243,10 @@
             .section-card-body {
                 padding: 14px 12px !important;
             }
+        }
+
+        body, input, button, select, textarea, span, p, label {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
         }
 
         @keyframes fadeIn {
