@@ -1,4 +1,5 @@
 <x-layout :title="'Detail Shipment: ' . ($shipment->packing_list_no ?: ($shipment->nomor_container_atau_plat ?? 'SPV-' . $shipment->id))">
+<div x-data="{ deleteModalOpen: false }">
 
     <!-- Top Navigation & Actions Card -->
     <div class="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 lg:p-6 border border-gray-100 shadow-[0_1px_6px_rgba(40,84,145,0.05)] mb-6">
@@ -39,12 +40,40 @@
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 xl:flex xl:items-center gap-2.5 w-full xl:w-auto pt-3.5 xl:pt-0 border-t xl:border-t-0 border-gray-100">
-                <a href="{{ route('field-app.timeline', $shipment->id) }}" target="_blank"
-                   class="order-first xl:order-last flex items-center justify-center gap-2 bg-spv-blue hover:bg-blue-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-[0_4px_12px_rgba(40,84,145,0.25)] hover:shadow-lg transition-all col-span-1 sm:col-span-2 xl:col-auto whitespace-nowrap">
-                    <i class="ph-bold ph-camera text-base"></i>
-                    <span>Buka Loading Evidence</span>
-                </a>
+                @if($shipment->status === 'draft')
+                    <a href="{{ route('field-app.edit', $shipment->id) }}"
+                       class="order-first xl:order-last flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-[0_4px_12px_rgba(245,158,11,0.25)] hover:shadow-lg transition-all col-span-1 sm:col-span-2 xl:col-auto whitespace-nowrap"
+                       title="Periksa & edit data sebelum mengambil foto evidence">
+                        <i class="ph-bold ph-pencil-simple-line text-base"></i>
+                        <span>Lanjutkan Pengisian Draft</span>
+                    </a>
+                @else
+                    <a href="{{ route('field-app.timeline', $shipment->id) }}" target="_blank"
+                       class="order-first xl:order-last flex items-center justify-center gap-2 bg-spv-blue hover:bg-blue-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-[0_4px_12px_rgba(40,84,145,0.25)] hover:shadow-lg transition-all col-span-1 sm:col-span-2 xl:col-auto whitespace-nowrap">
+                        <i class="ph-bold ph-camera text-base"></i>
+                        <span>Buka Loading Evidence</span>
+                    </a>
+
+                    @if(auth()->user()?->canEditShipment($shipment))
+                    <a href="{{ route('field-app.edit', $shipment->id) }}"
+                       class="flex items-center justify-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-spv-blue border border-blue-200 text-xs font-bold px-3 py-2.5 rounded-xl transition-all shadow-xs"
+                       title="Edit Formulir & Dokumen Shipment">
+                        <i class="ph-bold ph-pencil-simple text-base"></i>
+                        <span>Edit Data</span>
+                    </a>
+                    @endif
+                @endif
+
+                @if(auth()->user()?->isSuperadmin())
+                    <button type="button" @click="deleteModalOpen = true"
+                            class="flex items-center justify-center gap-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-bold px-3 py-2.5 rounded-xl transition-all shadow-xs"
+                            title="Hapus shipment & bukti foto permanen (Hanya Superadmin)">
+                        <i class="ph-bold ph-trash text-base"></i>
+                        <span>Hapus</span>
+                    </button>
+                @endif
                 
+                @if(auth()->user()?->canDownloadReports())
                 <div class="grid grid-cols-3 sm:flex sm:items-center gap-2 col-span-1 sm:col-span-2 xl:col-auto">
                     <a href="{{ route('shipments.download-evidence', $shipment->id) }}"
                        class="flex items-center justify-center gap-1.5 sm:gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-2.5 sm:px-3.5 py-2.5 rounded-xl shadow-sm hover:shadow transition-all text-center"
@@ -65,6 +94,22 @@
                         <span>Cetak</span>
                     </a>
                 </div>
+                @else
+                <div class="grid grid-cols-3 sm:flex sm:items-center gap-2 col-span-1 sm:col-span-2 xl:col-auto opacity-60">
+                    <button type="button" disabled class="flex items-center justify-center gap-1.5 bg-gray-100 text-gray-400 border border-gray-200 text-xs font-bold px-2.5 py-2.5 rounded-xl cursor-not-allowed select-none" title="Download ZIP hanya tersedia untuk Admin dan Superadmin">
+                        <i class="ph-bold ph-file-zip text-base"></i>
+                        <span>ZIP</span>
+                    </button>
+                    <button type="button" disabled class="flex items-center justify-center gap-1.5 bg-gray-100 text-gray-400 border border-gray-200 text-xs font-bold px-2.5 py-2.5 rounded-xl cursor-not-allowed select-none" title="Download PDF hanya tersedia untuk Admin dan Superadmin">
+                        <i class="ph-bold ph-file-pdf text-base"></i>
+                        <span>PDF</span>
+                    </button>
+                    <button type="button" disabled class="flex items-center justify-center gap-1.5 bg-gray-100 text-gray-400 border border-gray-200 text-xs font-bold px-2.5 py-2.5 rounded-xl cursor-not-allowed select-none" title="Cetak Laporan hanya tersedia untuk Admin dan Superadmin">
+                        <i class="ph-bold ph-printer text-base"></i>
+                        <span>Cetak</span>
+                    </button>
+                </div>
+                @endif
             </div>
         </div>
     </div>
@@ -207,6 +252,140 @@
             </div>
         </div>
 
+    </div>
+
+    <!-- Section: Timeline Riwayat Aktivitas & Perubahan Dokumen (Audit Trail) -->
+    <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-[0_1px_6px_rgba(40,84,145,0.05)] mb-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-gray-100 mb-4 gap-2">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-xl bg-blue-50 text-spv-blue flex items-center justify-center">
+                    <i class="ph-bold ph-clock-counter-clockwise text-base"></i>
+                </div>
+                <div>
+                    <h2 class="text-sm font-bold text-gray-800">Riwayat Dokumen &amp; Audit Trail Perubahan</h2>
+                    <p class="text-[11px] text-gray-400">Pencatatan riwayat siapa yang mengunggah, mengubah data, dan waktu timestamp (WIB).</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-spv-blue border border-blue-100">
+                    <i class="ph-bold ph-git-commit"></i>
+                    {{ $shipment->activities->count() }} Aktivitas Terekam
+                </span>
+            </div>
+        </div>
+
+        @if($shipment->activities->isNotEmpty())
+            <div class="relative pl-6 sm:pl-8 space-y-6 before:absolute before:left-3 sm:before:left-4 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
+                @foreach($shipment->activities as $act)
+                    @php
+                        $badgeBg = match($act->user_role) {
+                            'superadmin' => 'bg-purple-50 text-purple-700 border-purple-200',
+                            'admin' => 'bg-blue-50 text-blue-700 border-blue-200',
+                            'operator' => 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                            default => 'bg-gray-100 text-gray-700 border-gray-200',
+                        };
+                        $dotColor = match($act->action) {
+                            'created' => 'bg-emerald-500 ring-emerald-100',
+                            'submitted' => 'bg-spv-blue ring-blue-100',
+                            'updated' => 'bg-amber-500 ring-amber-100',
+                            default => 'bg-gray-400 ring-gray-100',
+                        };
+                        $iconClass = match($act->action) {
+                            'created' => 'ph-file-plus',
+                            'submitted' => 'ph-check-circle',
+                            'updated' => 'ph-pencil-line',
+                            default => 'ph-info',
+                        };
+                    @endphp
+                    <div class="relative group">
+                        <!-- Dot on timeline -->
+                        <div class="absolute -left-6 sm:-left-8 top-1 w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-white border-2 border-slate-300 flex items-center justify-center shadow-xs">
+                            <span class="w-2.5 h-2.5 rounded-full {{ $dotColor }} ring-4"></span>
+                        </div>
+
+                        <!-- Card Content -->
+                        <div class="bg-slate-50/70 hover:bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 sm:p-4 transition-all">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 mb-2">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="font-bold text-gray-800 text-xs flex items-center gap-1.5">
+                                        <i class="ph-bold {{ $iconClass }} text-sm text-spv-blue"></i>
+                                        {{ $act->title }}
+                                    </span>
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wider {{ $badgeBg }}">
+                                        {{ $act->user_role }}
+                                    </span>
+                                </div>
+                                <div class="flex items-center gap-1.5 text-[11px] text-gray-500 font-mono">
+                                    <i class="ph-bold ph-calendar text-gray-400"></i>
+                                    <span>{{ $act->created_at->format('d M Y, H:i:s') }} WIB</span>
+                                    <span class="text-gray-300">&bull;</span>
+                                    <span class="text-gray-400 font-sans text-[10px]">({{ $act->created_at->diffForHumans() }})</span>
+                                </div>
+                            </div>
+
+                            <div class="text-xs text-gray-600 mb-2">
+                                <span class="font-medium text-gray-700">Pelaksana:</span>
+                                <strong class="text-gray-900">{{ $act->user_name }}</strong>
+                                @if($act->description)
+                                    <span class="text-gray-400 mx-1">&bull;</span>
+                                    <span>{{ $act->description }}</span>
+                                @endif
+                            </div>
+
+                            @if(!empty($act->changes) && is_array($act->changes))
+                                <div class="mt-3 pt-2.5 border-t border-slate-200/70" x-data="{ expanded: false }">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-[11px] font-bold text-gray-700 flex items-center gap-1">
+                                            <i class="ph-bold ph-arrows-clockwise text-spv-blue"></i>
+                                            Detail Perubahan / Nilai Kolom:
+                                        </span>
+                                        <button type="button" @click="expanded = !expanded" class="text-[10px] text-spv-blue hover:underline font-semibold cursor-pointer">
+                                            <span x-text="expanded ? 'Sembunyikan Rincian' : 'Lihat Rincian ({{ count($act->changes) }} kolom)'"></span>
+                                        </button>
+                                    </div>
+                                    <div x-show="expanded" x-collapse class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                                        @foreach($act->changes as $key => $change)
+                                            @if(is_array($change) && isset($change['new']))
+                                                <div class="p-2 bg-white rounded-lg border border-slate-200">
+                                                    <span class="block text-[10px] font-bold text-gray-500 uppercase">{{ $change['label'] ?? $key }}</span>
+                                                    <div class="flex items-center gap-2 mt-1 text-[11px]">
+                                                        <span class="text-red-500 line-through truncate max-w-[120px]">{{ $change['old'] ?? '-' }}</span>
+                                                        <i class="ph-bold ph-arrow-right text-[10px] text-gray-400"></i>
+                                                        <span class="text-emerald-700 font-bold truncate max-w-[160px]">{{ $change['new'] ?? '-' }}</span>
+                                                    </div>
+                                                </div>
+                                            @else
+                                                <div class="p-2 bg-white rounded-lg border border-slate-200">
+                                                    <span class="block text-[10px] font-bold text-gray-500 uppercase">{{ $key }}</span>
+                                                    <span class="text-gray-800 font-semibold">{{ is_array($change) ? json_encode($change) : $change }}</span>
+                                                </div>
+                                            @endif
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        @else
+            <!-- Fallback jika dokumen dibuat sebelum sistem audit trail shipment_activities aktif -->
+            <div class="bg-slate-50/70 rounded-xl p-4 border border-slate-200/80 text-xs text-gray-600 flex items-start gap-3">
+                <i class="ph-bold ph-info text-spv-blue text-lg shrink-0 mt-0.5"></i>
+                <div>
+                    <p class="font-bold text-gray-800">Dokumen Awal Terdaftar</p>
+                    <p class="text-gray-500 text-[11px] mt-0.5">
+                        Dibuat pada <strong class="text-gray-700">{{ $shipment->created_at->format('d M Y, H:i:s') }} WIB</strong> 
+                        oleh <strong class="text-gray-700">{{ $shipment->user?->nama_warehouse ?? 'Operator Lapangan' }}</strong>.
+                    </p>
+                    @if($shipment->status === 'submitted')
+                        <p class="text-emerald-700 text-[11px] font-semibold mt-1">
+                            Disubmit final pada {{ $shipment->submitted_at ? $shipment->submitted_at->format('d M Y, H:i:s') . ' WIB' : '-' }}.
+                        </p>
+                    @endif
+                </div>
+            </div>
+        @endif
     </div>
 
     <!-- Section 3: Galeri Bukti Foto SOP (27 Titik Inspeksi) -->
@@ -685,4 +864,39 @@
         </template>
     </div>
 
+    <!-- Modal Konfirmasi Hapus Shipment (Superadmin Only) -->
+    @if(auth()->user()?->isSuperadmin())
+    <div x-cloak
+         x-show="deleteModalOpen"
+         class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4"
+         @keydown.escape.window="deleteModalOpen = false">
+        <div class="bg-white rounded-3xl shadow-2xl border border-gray-100 max-w-md w-full p-6 text-center"
+             @click.away="deleteModalOpen = false">
+            <div class="w-14 h-14 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center text-3xl mx-auto mb-4 ring-8 ring-red-50/50">
+                <i class="ph-bold ph-trash"></i>
+            </div>
+            <h3 class="text-base font-bold text-gray-800">Hapus Dokumen Shipment?</h3>
+            <p class="text-xs text-gray-500 mt-2 leading-relaxed">
+                Apakah Anda yakin ingin menghapus dokumen shipment <strong class="text-gray-700">{{ $shipment->packing_list_no ?: ($shipment->nomor_container_atau_plat ?: 'Shipment #' . $shipment->id) }}</strong>?
+                Seluruh berkas bukti foto evidence dan riwayat dokumen ini akan dihapus secara permanen.
+            </p>
+
+            <form method="POST" action="{{ route('shipments.destroy', $shipment->id) }}" class="mt-6 flex items-center gap-3">
+                @csrf
+                @method('DELETE')
+                <button type="button" @click="deleteModalOpen = false"
+                        class="flex-1 py-2.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 transition-colors">
+                    Batal
+                </button>
+                <button type="submit"
+                        class="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2">
+                    <i class="ph-bold ph-trash"></i>
+                    <span>Ya, Hapus</span>
+                </button>
+            </form>
+        </div>
+    </div>
+    @endif
+
+</div>
 </x-layout>

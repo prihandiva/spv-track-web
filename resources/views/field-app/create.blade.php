@@ -2,14 +2,35 @@
 
     <!-- Page Header -->
     <div style="padding: 4px 2px 8px;">
-        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
-            <div style="width: 36px; height: 36px; border-radius: 12px; background: linear-gradient(135deg, #285491, #0d5950); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(40,84,145,0.25);">
-                <i class="ph-bold ph-clipboard-text" style="font-size: 18px; color: white;"></i>
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 36px; height: 36px; border-radius: 12px; background: linear-gradient(135deg, #285491, #0d5950); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(40,84,145,0.25);">
+                    <i class="ph-bold {{ isset($shipment) ? 'ph-pencil-simple-line' : 'ph-clipboard-text' }}" style="font-size: 18px; color: white;"></i>
+                </div>
+                <div>
+                    <h1 style="font-size: 16px; font-weight: 700; color: #1f2937; line-height: 1.2;">
+                        @if(isset($shipment))
+                            {{ $shipment->status === 'submitted' ? 'Edit Dokumen Shipment' : 'Edit & Lengkapi Draft Staging' }}
+                        @else
+                            Mulai Staging
+                        @endif
+                    </h1>
+                    <p style="font-size: 11px; color: #64748b;">
+                        @if(isset($shipment))
+                            No: <strong>{{ $shipment->packing_list_no ?: ($shipment->nomor_container_atau_plat ?: 'Shipment #' . $shipment->id) }}</strong> &bull; Periksa & perbarui formulir sebelum melanjutkan
+                        @else
+                            Scan dokumen Shipment Order untuk auto-fill 5 data utama pengiriman
+                        @endif
+                    </p>
+                </div>
             </div>
-            <div>
-                <h1 style="font-size: 16px; font-weight: 700; color: #1f2937; line-height: 1.2;">Mulai Staging</h1>
-                <p style="font-size: 11px; color: #64748b;">Scan dokumen Shipment Order untuk auto-fill 5 data utama pengiriman</p>
-            </div>
+            @if(isset($shipment))
+                <a href="{{ route('shipments.show', $shipment->id) }}"
+                   style="display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: #285491; background: #eff4fc; border: 1px solid #bfcfe8; padding: 6px 12px; border-radius: 10px; text-decoration: none; transition: background 0.15s;"
+                   onmouseover="this.style.background='#e0edff'" onmouseout="this.style.background='#eff4fc'">
+                    <i class="ph-bold ph-arrow-left"></i> Kembali
+                </a>
+            @endif
         </div>
     </div>
 
@@ -26,17 +47,17 @@
         </div>
     @endif
 
-    <form action="{{ route('field-app.store', [], false) }}" method="POST" enctype="multipart/form-data"
+    <form action="{{ isset($shipment) ? route('field-app.update', $shipment->id, false) : route('field-app.store', [], false) }}" method="POST" enctype="multipart/form-data"
           x-data="{
-              nomorContainer: '{{ old('nomor_container_atau_plat', '') }}',
-              shipmentGroup: '{{ old('shipment_group', '') }}',
-              shipmentNo: '{{ old('shipment_no', '') }}',
-              agenForwarding: '{{ old('agen_forwarding', '') }}',
-              tujuanPengiriman: '{{ old('tujuan_pengiriman', '') }}',
-              platNomor: '{{ old('plat_nomor', '') }}',
-              namaSopir: '{{ old('nama_sopir', '') }}',
-              selectedKaryawanIds: {{ Js::from(array_map('strval', (array) old('karyawan_ids', old('karyawan_id') ? [old('karyawan_id')] : []))) }},
-              packingListNo: '{{ old('packing_list_no', '') }}',
+              nomorContainer: '{{ old('nomor_container_atau_plat', $shipment->nomor_container_atau_plat ?? '') }}',
+              shipmentGroup: '{{ old('shipment_group', $shipment->shipment_group ?? '') }}',
+              shipmentNo: '{{ old('shipment_no', $shipment->shipment_no ?? '') }}',
+              agenForwarding: '{{ old('agen_forwarding', $shipment->agen_forwarding ?? '') }}',
+              tujuanPengiriman: '{{ old('tujuan_pengiriman', $shipment->tujuan_pengiriman ?? '') }}',
+              platNomor: '{{ old('plat_nomor', $shipment->plat_nomor ?? '') }}',
+              namaSopir: '{{ old('nama_sopir', $shipment->nama_sopir ?? '') }}',
+              selectedKaryawanIds: {{ Js::from(array_map('strval', (array) old('karyawan_ids', isset($shipment) ? ($shipment->karyawans->pluck('id')->map('strval')->all() ?: ($shipment->karyawan_id ? [(string) $shipment->karyawan_id] : [])) : (old('karyawan_id') ? [(string) old('karyawan_id')] : [])))) }},
+              packingListNo: '{{ old('packing_list_no', $shipment->packing_list_no ?? '') }}',
               dropdownOpen: false,
               searchKaryawan: '',
               photoPreviewUrl: '',
@@ -271,6 +292,9 @@
 
           style="display: flex; flex-direction: column; gap: 14px;">
         @csrf
+        @if(isset($shipment))
+            @method('PUT')
+        @endif
 
         <input type="hidden" name="ocr_raw_text" :value="ocrRawText">
 
@@ -768,15 +792,15 @@
                     <div>
                         <label class="field-label">Produk</label>
                         <select name="jenis_produk" class="field-input">
-                            <option value="fiber">Fiber</option>
-                            <option value="sodium">Sodium</option>
+                            <option value="fiber" {{ old('jenis_produk', $shipment->jenis_produk ?? 'fiber') === 'fiber' ? 'selected' : '' }}>Fiber</option>
+                            <option value="sodium" {{ old('jenis_produk', $shipment->jenis_produk ?? 'fiber') === 'sodium' ? 'selected' : '' }}>Sodium</option>
                         </select>
                     </div>
                     <div>
                         <label class="field-label">Jenis Pengiriman</label>
                         <select name="jenis_pengiriman" class="field-input">
-                            <option value="export">Export</option>
-                            <option value="lokal">Lokal</option>
+                            <option value="export" {{ old('jenis_pengiriman', $shipment->jenis_pengiriman ?? 'export') === 'export' ? 'selected' : '' }}>Export</option>
+                            <option value="lokal" {{ old('jenis_pengiriman', $shipment->jenis_pengiriman ?? 'export') === 'lokal' ? 'selected' : '' }}>Lokal</option>
                         </select>
                     </div>
                 </div>
@@ -784,32 +808,32 @@
                     <div>
                         <label class="field-label">Cuaca</label>
                         <select name="cuaca" class="field-input">
-                            <option value="kering">☀️ Kering</option>
-                            <option value="mendung">☁️ Mendung</option>
-                            <option value="hujan">🌧️ Hujan</option>
-                            <option value="gerimis">🌦️ Gerimis</option>
+                            <option value="kering" {{ old('cuaca', $shipment->cuaca ?? 'kering') === 'kering' ? 'selected' : '' }}>☀️ Kering</option>
+                            <option value="mendung" {{ old('cuaca', $shipment->cuaca ?? 'kering') === 'mendung' ? 'selected' : '' }}>☁️ Mendung</option>
+                            <option value="hujan" {{ old('cuaca', $shipment->cuaca ?? 'kering') === 'hujan' ? 'selected' : '' }}>🌧️ Hujan</option>
+                            <option value="gerimis" {{ old('cuaca', $shipment->cuaca ?? 'kering') === 'gerimis' ? 'selected' : '' }}>🌦️ Gerimis</option>
                         </select>
                     </div>
                     <div>
                         <label class="field-label">Waktu</label>
                         <select name="waktu" class="field-input">
-                            <option value="siang">🌤️ Siang</option>
-                            <option value="sore">🌅 Sore</option>
-                            <option value="malam">🌙 Malam</option>
+                            <option value="siang" {{ old('waktu', $shipment->waktu ?? 'siang') === 'siang' ? 'selected' : '' }}>🌤️ Siang</option>
+                            <option value="sore" {{ old('waktu', $shipment->waktu ?? 'siang') === 'sore' ? 'selected' : '' }}>🌅 Sore</option>
+                            <option value="malam" {{ old('waktu', $shipment->waktu ?? 'siang') === 'malam' ? 'selected' : '' }}>🌙 Malam</option>
                         </select>
                     </div>
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                     <div>
                         <label class="field-label">Tanggal Staging</label>
-                        <input type="date" name="tanggal_staging" required value="{{ date('Y-m-d') }}" class="field-input">
+                        <input type="date" name="tanggal_staging" required value="{{ old('tanggal_staging', isset($shipment) && $shipment->tanggal_staging ? $shipment->tanggal_staging->format('Y-m-d') : date('Y-m-d')) }}" class="field-input">
                     </div>
                     <div>
                         <label class="field-label">Lokasi Warehouse</label>
                         <select name="warehouse_lokasi" class="field-input">
-                            <option value="atas">Atas</option>
-                            <option value="tengah">Tengah</option>
-                            <option value="bawah">Bawah</option>
+                            <option value="atas" {{ old('warehouse_lokasi', $shipment->warehouse_lokasi ?? 'atas') === 'atas' ? 'selected' : '' }}>Atas</option>
+                            <option value="tengah" {{ old('warehouse_lokasi', $shipment->warehouse_lokasi ?? 'atas') === 'tengah' ? 'selected' : '' }}>Tengah</option>
+                            <option value="bawah" {{ old('warehouse_lokasi', $shipment->warehouse_lokasi ?? 'atas') === 'bawah' ? 'selected' : '' }}>Bawah</option>
                         </select>
                     </div>
                 </div>
@@ -1006,8 +1030,16 @@
                     : 'width: 100%; background: #94a3b8; color: #f1f5f9; font-weight: 700; font-size: 14px; border: none; border-radius: 14px; padding: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: not-allowed; box-shadow: none; opacity: 0.7; transition: all 0.2s; margin-top: 4px;'"
                 onmouseover="if (!this.disabled) { this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 24px rgba(40,84,145,0.45)'; }"
                 onmouseout="if (!this.disabled) { this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 16px rgba(40,84,145,0.35)'; }">
-            Lanjut ke Loading Evidence
-            <i class="ph-bold ph-arrow-right" style="font-size: 16px;"></i>
+            @if(isset($shipment) && $shipment->status === 'submitted')
+                <i class="ph-bold ph-floppy-disk" style="font-size: 18px;"></i>
+                Simpan Perubahan Data Dokumen
+            @elseif(isset($shipment))
+                Simpan &amp; Lanjut ke Loading Evidence
+                <i class="ph-bold ph-arrow-right" style="font-size: 16px;"></i>
+            @else
+                Lanjut ke Loading Evidence
+                <i class="ph-bold ph-arrow-right" style="font-size: 16px;"></i>
+            @endif
         </button>
 
         <!-- LIGHTBOX MODAL: Zoom Full Foto Dokumen -->

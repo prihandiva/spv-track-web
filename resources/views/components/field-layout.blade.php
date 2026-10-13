@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
     <meta name="theme-color" content="#285491">
     <title>SPV-Track Field App</title>
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('favicon.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}">
     <!-- Tailwind CSS (Offline Local Bundle + CDN Fallback) -->
     <script src="{{ asset('vendor/tailwind.min.js') }}"></script>
     <script>
@@ -279,9 +283,19 @@
         </div>
         <div style="display: flex; align-items: center; gap: 8px;">
             <x-server-clock variant="dark" />
-            <div style="width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.15); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; cursor: pointer;">
-                OP
+            @php
+                $fieldUser = auth()->user();
+                $fieldInitials = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $fieldUser?->nama_warehouse ?? 'OP'), 0, 2));
+            @endphp
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.15); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700;" title="{{ $fieldUser?->nama_warehouse }} ({{ $fieldUser?->role_display_name }})">
+                {{ $fieldInitials }}
             </div>
+            <form action="{{ route('logout') }}" method="POST" style="margin: 0;">
+                @csrf
+                <button type="submit" onclick="return confirm('Apakah Anda yakin ingin logout?')" style="background: rgba(255,255,255,0.15); border: none; color: white; width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer;" title="Keluar / Logout">
+                    <i class="ph-bold ph-sign-out" style="font-size: 16px;"></i>
+                </button>
+            </form>
         </div>
     </header>
 

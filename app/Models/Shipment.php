@@ -104,4 +104,29 @@ class Shipment extends Model
     {
         return $this->hasMany(ShipmentPhoto::class)->where('is_extra', true)->latest();
     }
+
+    public function activities(): HasMany
+    {
+        return $this->hasMany(ShipmentActivity::class)->latest();
+    }
+
+    /**
+     * Record an audit trail activity log on this shipment.
+     */
+    public function logActivity(string $action, string $title, ?string $description = null, ?array $changes = null, ?User $user = null): ShipmentActivity
+    {
+        $actor = $user ?? auth()->user();
+        $name = $actor ? $actor->nama_warehouse : 'Sistem SPV-Track';
+        $role = $actor ? $actor->role : 'system';
+
+        return $this->activities()->create([
+            'user_id' => $actor?->id,
+            'user_name' => $name,
+            'user_role' => $role,
+            'action' => $action,
+            'title' => $title,
+            'description' => $description,
+            'changes' => $changes,
+        ]);
+    }
 }

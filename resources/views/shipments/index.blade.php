@@ -8,17 +8,36 @@
                 <p class="text-xs text-gray-500 mt-1">Kelola dan pantau semua shipment dari lapangan.</p>
             </div>
             <div class="flex items-center gap-2.5 flex-wrap w-full sm:w-auto">
+                @if(auth()->user()?->canDownloadReports())
                 <button type="button"
                         @click="openModal()"
                         class="flex items-center justify-center gap-2 bg-white hover:bg-emerald-50 text-emerald-700 hover:text-emerald-800 border border-emerald-200 hover:border-emerald-300 text-xs font-bold px-4 py-2.5 rounded-xl shadow-[0_2px_8px_rgba(5,158,61,0.08)] hover:-translate-y-0.5 transition-all group flex-1 sm:flex-none">
                     <i class="ph-bold ph-file-zip text-base text-emerald-600 group-hover:scale-110 transition-transform"></i>
                     <span>Download Batch ZIP</span>
                 </button>
+                @else
+                <button type="button" disabled
+                        class="flex items-center justify-center gap-2 bg-gray-100 text-gray-400 border border-gray-200 text-xs font-bold px-4 py-2.5 rounded-xl cursor-not-allowed opacity-60 flex-1 sm:flex-none select-none"
+                        title="Download Batch ZIP hanya tersedia untuk role Admin dan Superadmin.">
+                    <i class="ph-bold ph-file-zip text-base"></i>
+                    <span>Download Batch ZIP</span>
+                </button>
+                @endif
+
+                @if(auth()->user()?->canCreateShipment())
                 <a href="{{ route('field-app.create') }}" target="_blank"
                    class="flex items-center justify-center gap-2 bg-spv-blue hover:bg-blue-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-[0_4px_12px_rgba(40,84,145,0.25)] hover:-translate-y-0.5 transition-all flex-1 sm:flex-none">
                     <i class="ph-bold ph-plus text-sm"></i>
                     Buat Shipment
                 </a>
+                @else
+                <button type="button" disabled
+                        class="flex items-center justify-center gap-2 bg-gray-200 text-gray-400 border border-gray-300 text-xs font-bold px-4 py-2.5 rounded-xl cursor-not-allowed opacity-60 flex-1 sm:flex-none select-none"
+                        title="Hanya akun Operator dan Superadmin yang dapat membuat shipment baru.">
+                    <i class="ph-bold ph-lock-key text-sm text-gray-400"></i>
+                    <span>Buat Shipment</span>
+                </button>
+                @endif
             </div>
         </div>
     </div>
@@ -111,12 +130,38 @@
                                        class="p-1.5 rounded-lg transition-all text-gray-400 hover:text-red-600 hover:bg-red-50">
                                         <i class="ph-bold ph-file-pdf text-base"></i>
                                     </a>
-                                    <a href="{{ route('field-app.timeline', $shipment->id) }}"
-                                       title="Buka Loading Evidence"
-                                       target="_blank"
-                                       class="p-1.5 rounded-lg transition-all text-gray-400 hover:text-spv-green hover:bg-emerald-50">
-                                        <i class="ph-bold ph-camera text-base"></i>
-                                    </a>
+
+                                    @if($shipment->status === 'draft')
+                                        <a href="{{ route('field-app.edit', $shipment->id) }}"
+                                           title="Lanjutkan Pengisian Draft Staging (Sebelum Ambil Foto)"
+                                           class="p-1.5 rounded-lg transition-all text-amber-500 hover:text-amber-600 hover:bg-amber-50">
+                                            <i class="ph-bold ph-pencil-simple-line text-base"></i>
+                                        </a>
+                                    @else
+                                        <a href="{{ route('field-app.timeline', $shipment->id) }}"
+                                           title="Buka Loading Evidence Foto SOP"
+                                           target="_blank"
+                                           class="p-1.5 rounded-lg transition-all text-gray-400 hover:text-spv-green hover:bg-emerald-50">
+                                            <i class="ph-bold ph-camera text-base"></i>
+                                        </a>
+
+                                        @if(auth()->user()?->canEditShipment($shipment))
+                                            <a href="{{ route('field-app.edit', $shipment->id) }}"
+                                               title="Edit Dokumen Shipment"
+                                               class="p-1.5 rounded-lg transition-all text-gray-400 hover:text-spv-blue hover:bg-blue-50">
+                                                <i class="ph-bold ph-pencil-simple text-base"></i>
+                                            </a>
+                                        @endif
+                                    @endif
+
+                                    @if(auth()->user()?->isSuperadmin())
+                                        <button type="button"
+                                                @click="confirmDelete('{{ route('shipments.destroy', $shipment->id) }}', '{{ $shipment->packing_list_no ?: ($shipment->nomor_container_atau_plat ?: 'Shipment #' . $shipment->id) }}')"
+                                                title="Hapus Shipment (Superadmin)"
+                                                class="p-1.5 rounded-lg transition-all text-gray-400 hover:text-red-600 hover:bg-red-50 cursor-pointer">
+                                            <i class="ph-bold ph-trash text-base"></i>
+                                        </button>
+                                    @endif
                                 </div>
                             </td>
                         </tr>
@@ -525,6 +570,40 @@
 
         </div>
     </div>
+
+    <!-- Modal Konfirmasi Hapus Shipment (Superadmin) -->
+    @if(auth()->user()?->isSuperadmin())
+    <div x-cloak
+         x-show="deleteModalOpen"
+         class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4"
+         @keydown.escape.window="deleteModalOpen = false">
+        <div class="bg-white rounded-3xl shadow-2xl border border-gray-100 max-w-md w-full p-6 text-center"
+             @click.away="deleteModalOpen = false">
+            <div class="w-14 h-14 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center text-3xl mx-auto mb-4 ring-8 ring-red-50/50">
+                <i class="ph-bold ph-trash"></i>
+            </div>
+            <h3 class="text-base font-bold text-gray-800">Hapus Dokumen Shipment?</h3>
+            <p class="text-xs text-gray-500 mt-2 leading-relaxed">
+                Apakah Anda yakin ingin menghapus shipment <strong class="text-gray-700" x-text="deleteShipmentName"></strong>?
+                Seluruh berkas bukti foto evidence dan data terkait akan dihapus permanen dari server.
+            </p>
+
+            <form method="POST" :action="deleteActionUrl" class="mt-6 flex items-center gap-3">
+                @csrf
+                @method('DELETE')
+                <button type="button" @click="deleteModalOpen = false"
+                        class="flex-1 py-2.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 transition-colors">
+                    Batal
+                </button>
+                <button type="submit"
+                        class="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2">
+                    <i class="ph-bold ph-trash"></i>
+                    <span>Ya, Hapus</span>
+                </button>
+            </form>
+        </div>
+    </div>
+    @endif
 </div>
 
 <script>
@@ -551,6 +630,14 @@ function batchZipDownloadManager() {
         isOpen: false,
         isLoading: false,
         isDownloading: false,
+        deleteModalOpen: false,
+        deleteActionUrl: '',
+        deleteShipmentName: '',
+        confirmDelete(url, name) {
+            this.deleteActionUrl = url;
+            this.deleteShipmentName = name;
+            this.deleteModalOpen = true;
+        },
         mode: 'harian',
         year: curYear,
         month: curMonth,

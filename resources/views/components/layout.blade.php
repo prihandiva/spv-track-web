@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $title ?? (trim($__env->yieldContent('title')) ? $__env->yieldContent('title') . ' — SPV-Track' : 'SPV-Track Dashboard') }}</title>
     
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('favicon.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}">
+    
     <!-- Tailwind CSS (Offline Local Bundle + CDN Fallback) -->
     <script src="{{ asset('vendor/tailwind.min.js') }}"></script>
     <script>
@@ -146,6 +151,7 @@
                 <span class="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full" style="background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.85);">42</span>
             </a>
 
+            @if(auth()->user()?->isSuperadmin() || auth()->user()?->isAdmin())
             <a href="{{ route('karyawan.index') }}"
                @click="sidebarOpen = false"
                class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-xl mb-0.5 {{ request()->routeIs('karyawan.*') ? 'active-glow' : 'inactive' }}"
@@ -153,7 +159,9 @@
                 <i class="ph-fill ph-users nav-icon text-xl shrink-0"></i>
                 <span class="text-sm font-medium">Petugas</span>
             </a>
+            @endif
 
+            @if(auth()->user()?->isSuperadmin() || auth()->user()?->isAdmin())
             <div class="my-3 mx-1" style="border-top: 1px solid rgba(255,255,255,0.07);"></div>
             <p class="px-3 pb-2 text-[9px] font-bold uppercase tracking-[0.15em]" style="color: rgba(255,255,255,0.35);">Sistem</p>
 
@@ -164,8 +172,10 @@
                 <i class="ph-fill ph-file-text nav-icon text-xl shrink-0"></i>
                 <span class="text-sm font-medium">Laporan</span>
             </a>
+            @endif
 
-            <!-- Pengaturan dengan Sub-Menu Dropdown / Accordion -->
+            <!-- Pengaturan: HANYA SUPERADMIN -->
+            @if(auth()->user()?->isSuperadmin())
             <div class="mb-0.5" x-data="{ expanded: {{ request()->routeIs('settings.*') ? 'true' : 'false' }} }">
                 <button type="button"
                         @click="expanded = !expanded"
@@ -227,8 +237,10 @@
                     </a>
                 </div>
             </div>
+            @endif
 
             <div class="pt-4 px-1">
+                @if(auth()->user()?->canCreateShipment())
                 <a href="{{ route('field-app.create') }}" target="_blank"
                    class="nav-item flex items-center gap-2.5 px-3 py-3 rounded-xl border transition-all duration-300"
                    style="border-color: rgba(99,195,132,0.3); background: rgba(13,89,80,0.4); color: #63c384;"
@@ -237,26 +249,47 @@
                     <i class="ph-bold ph-device-mobile-camera text-lg nav-icon shrink-0"></i>
                     <div>
                         <p class="text-xs font-bold leading-none">Field App</p>
-                        <p class="text-[9px] mt-0.5" style="color: rgba(99,195,132,0.6);">Buka di tab baru</p>
+                        <p class="text-[9px] mt-0.5" style="color: rgba(99,195,132,0.6);">Input Pengiriman</p>
                     </div>
                     <i class="ph-bold ph-arrow-square-out text-sm ml-auto opacity-60"></i>
                 </a>
+                @else
+                <div class="flex items-center gap-2.5 px-3 py-2.5 rounded-xl border opacity-50 cursor-not-allowed select-none"
+                     style="border-color: rgba(255,255,255,0.1); background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.4);"
+                     title="Hanya akun Operator & Superadmin yang dapat membuat shipment">
+                    <i class="ph-bold ph-device-mobile-camera text-lg shrink-0"></i>
+                    <div>
+                        <p class="text-xs font-bold leading-none">Field App</p>
+                        <p class="text-[9px] mt-0.5 text-amber-300/70">Khusus Operator</p>
+                    </div>
+                    <i class="ph-bold ph-lock-key text-xs ml-auto text-amber-300/70"></i>
+                </div>
+                @endif
             </div>
         </nav>
 
         @php
-            $sidebarUser = auth()->user() ?? \App\Models\User::first();
-            $sidebarName = $sidebarUser?->nama_warehouse ?? 'Admin Warehouse';
-            $sidebarEmail = $sidebarUser?->email ?? 'admin@spvtrack.com';
-            $sidebarInitials = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $sidebarName) ?: 'AD', 0, 2));
+            $authUser = auth()->user();
+            $sidebarName = $authUser?->nama_warehouse ?? 'Pengguna';
+            $sidebarRole = $authUser?->role_display_name ?? 'Operator';
+            $sidebarUsername = $authUser?->username ?? 'user';
+            $sidebarRoleBadge = match($authUser?->role) {
+                'superadmin' => 'bg-emerald-400/20 text-emerald-300 border-emerald-400/30',
+                'admin' => 'bg-blue-400/20 text-blue-300 border-blue-400/30',
+                default => 'bg-amber-400/20 text-amber-300 border-amber-400/30',
+            };
+            $sidebarInitials = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $sidebarName) ?: 'SP', 0, 2));
         @endphp
-        <div class="shrink-0 p-3" style="border-top: 1px solid rgba(255,255,255,0.07); background: rgba(0,0,0,0.1);">
-            <div class="flex items-center gap-3 p-2 rounded-xl cursor-pointer hover:bg-white/10 transition-all">
-                <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+        <div class="shrink-0 p-3" style="border-top: 1px solid rgba(255,255,255,0.07); background: rgba(0,0,0,0.15);">
+            <div class="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition-all">
+                <div class="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 shadow-sm"
                      style="background: linear-gradient(135deg, #e1f8eb, #63c384); color: #0d5950;">{{ $sidebarInitials }}</div>
-                <div class="overflow-hidden flex-1">
-                    <p class="text-xs font-semibold text-white truncate leading-none">{{ $sidebarName }}</p>
-                    <p class="text-[10px] mt-0.5 truncate" style="color: rgba(255,255,255,0.4);">{{ $sidebarEmail }}</p>
+                <div class="overflow-hidden flex-1 min-w-0">
+                    <p class="text-xs font-bold text-white truncate leading-tight">{{ $sidebarName }}</p>
+                    <div class="flex items-center gap-1.5 mt-1">
+                        <span class="text-[9px] font-bold px-1.5 py-0.2 rounded border {{ $sidebarRoleBadge }}">{{ $sidebarRole }}</span>
+                        <span class="text-[10px] text-white/40 truncate font-mono">{{ '@' . $sidebarUsername }}</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -284,11 +317,23 @@
                 <x-server-clock />
             </div>
 
-            <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                <button class="flex items-center gap-1.5 text-gray-400 text-xs font-medium px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl hover:text-red-600 hover:bg-red-50 transition-all">
-                    <span class="hidden lg:inline">Keluar</span>
-                    <i class="ph-bold ph-sign-out text-base"></i>
-                </button>
+            <div class="flex items-center gap-2 sm:gap-3 shrink-0">
+                <div class="hidden md:flex items-center gap-2 pl-3 border-l border-gray-200">
+                    <div class="text-right">
+                        <p class="text-xs font-bold text-gray-800 leading-tight">{{ auth()->user()?->nama_warehouse }}</p>
+                        <p class="text-[10px] text-gray-400 font-medium">{{ auth()->user()?->role_display_name }}</p>
+                    </div>
+                </div>
+                <form action="{{ route('logout') }}" method="POST" class="inline">
+                    @csrf
+                    <button type="submit"
+                            onclick="return confirm('Apakah Anda yakin ingin logout dari sistem?')"
+                            class="flex items-center gap-1.5 text-gray-600 hover:text-red-600 hover:bg-red-50 text-xs font-bold px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl border border-gray-200 hover:border-red-200 transition-all cursor-pointer shadow-sm"
+                            title="Keluar / Logout">
+                        <i class="ph-bold ph-sign-out text-base text-red-500"></i>
+                        <span class="hidden sm:inline">Keluar</span>
+                    </button>
+                </form>
             </div>
         </header>
 

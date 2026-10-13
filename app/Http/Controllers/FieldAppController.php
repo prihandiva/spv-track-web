@@ -81,8 +81,7 @@ class FieldAppController extends Controller
         $karyawanIds = array_values(array_unique(array_filter((array) $validated['karyawan_ids'])));
         $validated['karyawan_id'] = $karyawanIds[0] ?? null;
 
-        // Add dummy user_id
-        $validated['user_id'] = 1;
+        $validated['user_id'] = auth()->id() ?? 1;
         $validated['status'] = 'draft';
         if (empty($validated['nama_sopir'])) {
             $validated['nama_sopir'] = '-';
@@ -100,7 +99,209 @@ class FieldAppController extends Controller
             ]);
         }
 
+        // Catat aktivitas dokumen awal (Draft)
+        $shipment->logActivity(
+            action: 'created',
+            title: 'Dokumen Dibuat (Draft)',
+            description: 'Memulai pengisian form staging shipment baru',
+            changes: [
+                'packing_list_no' => [
+                    'label' => 'No. Surat Jalan / Packing List',
+                    'old' => '-',
+                    'new' => $shipment->packing_list_no,
+                ],
+                'shipment_group' => [
+                    'label' => 'Shipment Group',
+                    'old' => '-',
+                    'new' => $shipment->shipment_group,
+                ],
+                'shipment_no' => [
+                    'label' => 'Shipment No',
+                    'old' => '-',
+                    'new' => $shipment->shipment_no,
+                ],
+                'nomor_container' => [
+                    'label' => 'No. Container',
+                    'old' => '-',
+                    'new' => $shipment->nomor_container_atau_plat,
+                ],
+                'plat_nomor' => [
+                    'label' => 'Plat Nomor',
+                    'old' => '-',
+                    'new' => $shipment->plat_nomor,
+                ],
+                'produk' => [
+                    'label' => 'Jenis Produk',
+                    'old' => '-',
+                    'new' => ucfirst($shipment->jenis_produk),
+                ],
+            ]
+        );
+
         return redirect()->route('field-app.timeline', $shipment->id);
+    }
+
+    public function edit(Shipment $shipment): View|RedirectResponse
+    {
+        $user = auth()->user();
+        if ($user && ! $user->canEditShipment($shipment)) {
+            return redirect()->route('shipments.show', $shipment->id)
+                ->with('error', 'Dokumen yang telah berstatus submitted hanya dapat diubah oleh Admin atau Superadmin.');
+        }
+
+        $shipment->load(['karyawans', 'karyawan']);
+        $karyawans = Karyawan::where('status', 'aktif')->orderBy('nama')->get();
+
+        $history = [
+            'packing_list_no' => Shipment::whereNotNull('packing_list_no')->where('packing_list_no', '!=', '')->distinct()->pluck('packing_list_no')->filter()->values(),
+            'shipment_group' => Shipment::whereNotNull('shipment_group')->where('shipment_group', '!=', '')->distinct()->pluck('shipment_group')->filter()->values(),
+            'shipment_no' => Shipment::whereNotNull('shipment_no')->where('shipment_no', '!=', '')->distinct()->pluck('shipment_no')->filter()->values(),
+            'agen_forwarding' => Shipment::whereNotNull('agen_forwarding')->where('agen_forwarding', '!=', '')->distinct()->pluck('agen_forwarding')->filter()->values(),
+            'tujuan_pengiriman' => Shipment::whereNotNull('tujuan_pengiriman')->where('tujuan_pengiriman', '!=', '')->distinct()->pluck('tujuan_pengiriman')->filter()->values(),
+            'nama_sopir' => Shipment::whereNotNull('nama_sopir')->where('nama_sopir', '!=', '')->distinct()->pluck('nama_sopir')->filter()->values(),
+            'plat_nomor' => Shipment::whereNotNull('plat_nomor')->where('plat_nomor', '!=', '')->distinct()->pluck('plat_nomor')->filter()->values(),
+            'nomor_container' => Shipment::whereNotNull('nomor_container_atau_plat')->where('nomor_container_atau_plat', '!=', '')->distinct()->pluck('nomor_container_atau_plat')->filter()->values(),
+        ];
+
+        return view('field-app.create', compact('shipment', 'karyawans', 'history'));
+    }
+
+    public function update(Request $request, Shipment $shipment): RedirectResponse
+    {
+        $user = auth()->user();
+        if ($user && ! $user->canEditShipment($shipment)) {
+            return redirect()->route('shipments.show', $shipment->id)
+                ->with('error', 'Dokumen yang telah berstatus submitted hanya dapat diubah oleh Admin atau Superadmin.');
+        }
+
+        if (! $request->has('karyawan_ids') && $request->filled('karyawan_id')) {
+            $request->merge(['karyawan_ids' => [(int) $request->input('karyawan_id')]]);
+        }
+
+        $validated = $request->validate([
+            'jenis_produk' => 'required|in:fiber,sodium',
+            'jenis_pengiriman' => 'required|in:export,lokal',
+            'packing_list_no' => 'required|numeric|digits:9',
+            'shipment_group' => 'required|numeric|digits:9',
+            'shipment_no' => 'required|numeric|digits:9',
+            'agen_forwarding' => 'nullable|string',
+            'tujuan_pengiriman' => 'nullable|string',
+            'plat_nomor' => 'required|string|max:255',
+            'nama_sopir' => 'nullable|string|max:255',
+            'nomor_container_atau_plat' => 'required|string|max:255',
+            'cuaca' => 'required|in:kering,mendung,hujan,gerimis',
+            'waktu' => 'required|in:siang,sore,malam',
+            'tanggal_staging' => 'required|date',
+            'warehouse_lokasi' => 'required|in:atas,tengah,bawah',
+            'karyawan_ids' => 'required|array|min:1',
+            'karyawan_ids.*' => 'exists:karyawans,id',
+            'karyawan_id' => 'nullable|exists:karyawans,id',
+            'shipment_order_photo' => 'nullable|image|max:20480',
+        ], [
+            'packing_list_no.required' => 'Nomor Surat Jalan/Delivery/Packing List wajib diisi.',
+            'packing_list_no.numeric' => 'Nomor Surat Jalan/Delivery/Packing List harus berupa angka.',
+            'packing_list_no.digits' => 'Nomor Surat Jalan/Delivery/Packing List harus tepat 9 digit angka.',
+            'shipment_group.required' => 'Nomor Shipment Group wajib diisi.',
+            'shipment_group.numeric' => 'Nomor Shipment Group harus berupa angka.',
+            'shipment_group.digits' => 'Nomor Shipment Group harus tepat 9 digit angka.',
+            'shipment_no.required' => 'Nomor Shipment wajib diisi.',
+            'shipment_no.numeric' => 'Nomor Shipment harus berupa angka.',
+            'shipment_no.digits' => 'Nomor Shipment harus tepat 9 digit angka.',
+            'plat_nomor.required' => 'Plat Nomor kendaraan wajib diisi.',
+            'nomor_container_atau_plat.required' => 'Nomor Container wajib diisi.',
+            'karyawan_ids.required' => 'Pilih minimal 1 orang petugas / karyawan.',
+            'karyawan_ids.min' => 'Pilih minimal 1 orang petugas / karyawan.',
+        ]);
+
+        $karyawanIds = array_values(array_unique(array_filter((array) $validated['karyawan_ids'])));
+        $validated['karyawan_id'] = $karyawanIds[0] ?? null;
+
+        if (empty($validated['nama_sopir'])) {
+            $validated['nama_sopir'] = '-';
+        }
+
+        // Deteksi audit diff perbedaan perubahan nilai field
+        $fieldLabels = [
+            'packing_list_no' => 'No. Surat Jalan / Packing List',
+            'shipment_group' => 'Shipment Group',
+            'shipment_no' => 'Shipment No',
+            'plat_nomor' => 'Plat Nomor',
+            'nomor_container_atau_plat' => 'No. Container',
+            'nama_sopir' => 'Nama Sopir',
+            'agen_forwarding' => 'Agen Forwarding',
+            'tujuan_pengiriman' => 'Tujuan Pengiriman',
+            'jenis_produk' => 'Jenis Produk',
+            'jenis_pengiriman' => 'Jenis Pengiriman',
+            'cuaca' => 'Cuaca',
+            'waktu' => 'Shift Waktu',
+            'tanggal_staging' => 'Tanggal Staging',
+            'warehouse_lokasi' => 'Lokasi Warehouse',
+        ];
+
+        $changes = [];
+        foreach ($fieldLabels as $field => $label) {
+            $oldVal = (string) ($shipment->{$field} ?? '');
+            $newVal = (string) ($validated[$field] ?? '');
+            if ($field === 'tanggal_staging' && $shipment->tanggal_staging) {
+                $oldVal = $shipment->tanggal_staging->format('Y-m-d');
+            }
+            if ($oldVal !== $newVal) {
+                $changes[$field] = [
+                    'label' => $label,
+                    'old' => $oldVal !== '' ? $oldVal : '-',
+                    'new' => $newVal !== '' ? $newVal : '-',
+                ];
+            }
+        }
+
+        $oldKaryawanNames = $shipment->allKaryawans()->pluck('nama')->sort()->values()->join(', ');
+        $newKaryawans = Karyawan::whereIn('id', $karyawanIds)->pluck('nama')->sort()->values()->join(', ');
+        if ($oldKaryawanNames !== $newKaryawans) {
+            $changes['petugas'] = [
+                'label' => 'Petugas Lapangan',
+                'old' => $oldKaryawanNames ?: '-',
+                'new' => $newKaryawans ?: '-',
+            ];
+        }
+
+        $shipment->update(collect($validated)->except(['shipment_order_photo', 'karyawan_ids'])->toArray());
+        $shipment->karyawans()->sync($karyawanIds);
+
+        if ($request->hasFile('shipment_order_photo')) {
+            $request->file('shipment_order_photo')->store('shipment_orders', 'public');
+            $shipment->shipmentOrder()->updateOrCreate(
+                ['shipment_id' => $shipment->id],
+                [
+                    'shipment_group' => $shipment->shipment_group,
+                    'shipment_no' => $shipment->shipment_no,
+                    'raw_ocr_text' => $request->input('ocr_raw_text', ''),
+                ]
+            );
+        }
+
+        $changeCount = count($changes);
+        $roleName = $user ? $user->role_display_name : 'Pengguna';
+        $title = $shipment->status === 'submitted' 
+            ? "Dokumen Diubah oleh {$roleName}" 
+            : "Draft Diperbarui oleh {$roleName}";
+        $desc = $changeCount > 0 
+            ? "Memperbarui {$changeCount} kolom data dokumen pengiriman" 
+            : "Meninjau dan memperbarui dokumen tanpa perubahan data";
+
+        $shipment->logActivity(
+            action: 'updated',
+            title: $title,
+            description: $desc,
+            changes: $changes
+        );
+
+        if ($shipment->status === 'submitted') {
+            return redirect()->route('shipments.show', $shipment->id)
+                ->with('success', "Perubahan data dokumen {$shipment->packing_list_no} berhasil disimpan.");
+        }
+
+        return redirect()->route('field-app.timeline', $shipment->id)
+            ->with('success', 'Data draft berhasil diperbarui. Silakan lanjutkan ke proses bukti foto evidence.');
     }
 
     public function timeline(Shipment $shipment)
@@ -231,6 +432,32 @@ class FieldAppController extends Controller
         }
 
         $shipment->update($updates);
+
+        // Catat aktivitas Dokumen Disubmit Final
+        $user = auth()->user();
+        $roleName = $user ? $user->role_display_name : 'Operator Lapangan';
+        $shipment->logActivity(
+            action: 'submitted',
+            title: "Dokumen Disubmit Final oleh {$roleName}",
+            description: 'Seluruh foto evidence SOP (26 titik) telah diverifikasi dan dokumen disubmit ke sistem',
+            changes: [
+                'status' => [
+                    'label' => 'Status Dokumen',
+                    'old' => 'Draft',
+                    'new' => 'Submitted',
+                ],
+                'waktu_kedatangan_container' => [
+                    'label' => 'Waktu Kedatangan Container',
+                    'old' => '-',
+                    'new' => $validated['waktu_kedatangan_container'],
+                ],
+                'waktu_keberangkatan_container' => [
+                    'label' => 'Waktu Keberangkatan Container',
+                    'old' => '-',
+                    'new' => $validated['waktu_keberangkatan_container'],
+                ],
+            ]
+        );
 
         return redirect('/')->with('success', 'Shipment berhasil di-submit!');
     }

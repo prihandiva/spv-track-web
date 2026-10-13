@@ -46,10 +46,64 @@ class ShipmentController extends Controller
 
     public function show(Shipment $shipment)
     {
-        $shipment->load(['karyawan', 'karyawans', 'user', 'evidenceItems.sopPhotoPoint', 'photos']);
+        $shipment->load([
+            'karyawan',
+            'karyawans',
+            'user',
+            'evidenceItems.sopPhotoPoint',
+            'photos',
+            'activities' => fn ($q) => $q->latest(),
+        ]);
         $points = SopPhotoPoint::orderBy('urutan')->get();
 
         return view('shipments.show', compact('shipment', 'points'));
+    }
+
+    /**
+     * Hapus shipment beserta seluruh relasi dan file fisiknya (Hanya Superadmin).
+     */
+    public function destroy(Shipment $shipment)
+    {
+        if (! auth()->user()?->isSuperadmin()) {
+            abort(403, 'Hanya Superadmin yang memiliki hak akses untuk menghapus shipment.');
+        }
+
+        $identitas = $shipment->packing_list_no ?: ($shipment->nomor_container_atau_plat ?: ('Shipment #' . $shipment->id));
+
+        // Hapus folder penyimpanan file foto fisik di storage
+        $storageDir = storage_path("app/public/shipments/{$shipment->id}");
+        if (File::isDirectory($storageDir)) {
+            File::deleteDirectory($storageDir);
+        }
+
+        // Hapus file ZIP dan PDF yang mungkin tersimpan di cache
+        $cacheZipFiles = glob(storage_path("app/zip_cache/{$shipment->id}_*"));
+        if ($cacheZipFiles) {
+            foreach ($cacheZipFiles as $f) {
+                @unlink($f);
+            }
+        }
+        $cachePdfFiles = glob(storage_path("app/pdf_cache/{$shipment->id}_*"));
+        if ($cachePdfFiles) {
+            foreach ($cachePdfFiles as $f) {
+                @unlink($f);
+            }
+        }
+
+        // Hapus relasi
+        $shipment->karyawans()->detach();
+        $shipment->evidenceItems()->delete();
+        $shipment->photos()->delete();
+        $shipment->extraPhotos()->delete();
+        $shipment->activities()->delete();
+        $shipment->shipmentOrder()?->delete();
+        $shipment->packingList()?->delete();
+
+        // Hapus record shipment
+        $shipment->delete();
+
+        return redirect()->route('shipments.index')
+            ->with('success', "Shipment {$identitas} berhasil dihapus permanen oleh Superadmin.");
     }
 
     /**

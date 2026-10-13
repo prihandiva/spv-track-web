@@ -183,12 +183,20 @@
                                        class="p-1.5 rounded-lg transition-all text-gray-400 hover:text-spv-blue hover:bg-blue-50">
                                         <i class="ph-bold ph-eye text-base"></i>
                                     </a>
-                                    <a href="{{ route('field-app.timeline', $shipment->id) }}"
-                                       title="Buka Foto Evidence"
-                                       target="_blank"
-                                       class="p-1.5 rounded-lg transition-all text-gray-400 hover:text-spv-green hover:bg-emerald-50">
-                                        <i class="ph-bold ph-camera text-base"></i>
-                                    </a>
+                                    @if($shipment->status === 'draft')
+                                        <a href="{{ route('field-app.edit', $shipment->id) }}"
+                                           title="Lanjutkan Pengisian Draft Staging (Sebelum Ambil Foto)"
+                                           class="p-1.5 rounded-lg transition-all text-amber-500 hover:text-amber-600 hover:bg-amber-50">
+                                            <i class="ph-bold ph-pencil-simple-line text-base"></i>
+                                        </a>
+                                    @else
+                                        <a href="{{ route('field-app.timeline', $shipment->id) }}"
+                                           title="Buka Foto Evidence"
+                                           target="_blank"
+                                           class="p-1.5 rounded-lg transition-all text-gray-400 hover:text-spv-green hover:bg-emerald-50">
+                                            <i class="ph-bold ph-camera text-base"></i>
+                                        </a>
+                                    @endif
                                 </div>
                             </td>
                         </tr>

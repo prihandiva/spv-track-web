@@ -55,11 +55,13 @@ class UserController extends Controller
     {
         $validated = $request->validate([
             'nama_warehouse' => ['required', 'string', 'max:255'],
+            'username' => ['nullable', 'string', 'max:50', 'unique:users,username'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:6'],
             'role' => ['required', 'in:superadmin,admin,operator'],
         ], [
             'nama_warehouse.required' => 'Nama warehouse / akun pengguna wajib diisi.',
+            'username.unique' => 'Username ini sudah digunakan.',
             'email.required' => 'Alamat email wajib diisi.',
             'email.email' => 'Format email tidak valid.',
             'email.unique' => 'Email ini sudah terdaftar oleh pengguna lain.',
@@ -69,12 +71,16 @@ class UserController extends Controller
             'role.in' => 'Pilihan role tidak valid.',
         ]);
 
+        if (empty($validated['username'])) {
+            $validated['username'] = strtolower(preg_replace('/[^a-zA-Z0-9_]/', '', explode('@', $validated['email'])[0]));
+        }
+
         $validated['password'] = Hash::make($validated['password']);
 
         $user = User::create($validated);
 
         return redirect()->route('settings.users.index')
-            ->with('success', "Pengguna {$user->nama_warehouse} ({$user->email}) berhasil didaftarkan dengan role {$user->role_display_name}.");
+            ->with('success', "Pengguna {$user->nama_warehouse} ({$user->username} / {$user->email}) berhasil didaftarkan dengan role {$user->role_display_name}.");
     }
 
     /**
@@ -84,11 +90,13 @@ class UserController extends Controller
     {
         $validated = $request->validate([
             'nama_warehouse' => ['required', 'string', 'max:255'],
+            'username' => ['nullable', 'string', 'max:50', 'unique:users,username,'.$user->id],
             'email' => ['required', 'email', 'max:255', 'unique:users,email,'.$user->id],
             'password' => ['nullable', 'string', 'min:6'],
             'role' => ['required', 'in:superadmin,admin,operator'],
         ], [
             'nama_warehouse.required' => 'Nama warehouse / akun pengguna wajib diisi.',
+            'username.unique' => 'Username ini sudah digunakan.',
             'email.required' => 'Alamat email wajib diisi.',
             'email.email' => 'Format email tidak valid.',
             'email.unique' => 'Email ini sudah digunakan oleh pengguna lain.',
@@ -108,6 +116,7 @@ class UserController extends Controller
 
         $payload = [
             'nama_warehouse' => $validated['nama_warehouse'],
+            'username' => $validated['username'] ?: $user->username,
             'email' => $validated['email'],
             'role' => $validated['role'],
         ];

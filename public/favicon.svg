@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="spvGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#059e3d"/>
+      <stop offset="100%" stop-color="#63c384"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#059e3d" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  
+  <!-- Base Squircle with Gradient -->
+  <rect width="256" height="256" rx="58" fill="url(#spvGrad)"/>
+  
+  <!-- Shipping Container Icon in Center -->
+  <g fill="#ffffff" filter="url(#shadow)">
+    <!-- Container Body & Frame -->
+    <path d="M224,56 H32 C23.2,56 16,63.2 16,72 V184 C16,192.8 23.2,200 32,200 H224 C232.8,200 240,192.8 240,184 V72 C240,63.2 232.8,56 224,56 Z M68,180 H36 V76 H68 Z M188,180 H88 V76 H188 Z M220,180 H204 V76 H220 Z" 
+          transform="matrix(0.72 0 0 0.72 35.84 35.84)"/>
+    <!-- Corrugated Panel Slats for realistic container look -->
+    <rect x="110" y="93" width="7" height="70" rx="3.5" transform="matrix(0.72 0 0 0.72 35.84 35.84)"/>
+    <rect x="135" y="93" width="7" height="70" rx="3.5" transform="matrix(0.72 0 0 0.72 35.84 35.84)"/>
+    <rect x="160" y="93" width="7" height="70" rx="3.5" transform="matrix(0.72 0 0 0.72 35.84 35.84)"/>
+  </g>
+</svg>

@@ -16,6 +16,7 @@ class User extends Authenticatable
 
     protected $fillable = [
         'nama_warehouse',
+        'username',
         'email',
         'password',
         'role',
@@ -58,5 +59,71 @@ class User extends Authenticatable
             'operator' => 'Operator Lapangan',
             default => ucfirst((string) $this->role),
         };
+    }
+
+    public function isSuperadmin(): bool
+    {
+        return $this->role === 'superadmin';
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    public function isOperator(): bool
+    {
+        return $this->role === 'operator';
+    }
+
+    /**
+     * Operator & Superadmin can create shipment.
+     * Admin is view-only for shipment creation.
+     */
+    public function canCreateShipment(): bool
+    {
+        return in_array($this->role, ['superadmin', 'operator']);
+    }
+
+    /**
+     * Only Superadmin can access Settings (Role, Users, Master SOP, Parameter).
+     */
+    public function canAccessSettings(): bool
+    {
+        return $this->role === 'superadmin';
+    }
+
+    /**
+     * Superadmin & Admin can download reports (PDF, Excel, ZIP).
+     */
+    public function canDownloadReports(): bool
+    {
+        return in_array($this->role, ['superadmin', 'admin']);
+    }
+
+    /**
+     * Check if user has permission to edit a specific shipment:
+     * - Superadmin & Admin: can edit draft and submitted shipments
+     * - Operator: can only edit draft shipments
+     */
+    public function canEditShipment(?Shipment $shipment = null): bool
+    {
+        if ($this->isSuperadmin() || $this->isAdmin()) {
+            return true;
+        }
+
+        if ($this->isOperator()) {
+            return ! $shipment || $shipment->status === 'draft';
+        }
+
+        return false;
+    }
+
+    /**
+     * Only Superadmin has permission to permanently delete shipments.
+     */
+    public function canDeleteShipment(): bool
+    {
+        return $this->isSuperadmin();
     }
 }

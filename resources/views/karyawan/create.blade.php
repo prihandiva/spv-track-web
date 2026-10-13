@@ -165,11 +165,18 @@
                         <p class="text-[10px] text-gray-500 mt-0.5">Uji coba langsung pilihan petugas di form staging.</p>
                     </div>
                 </div>
+                @if(auth()->user()?->canCreateShipment())
                 <a href="{{ route('field-app.create') }}" target="_blank"
                    class="mt-4 flex items-center justify-center gap-1.5 w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 rounded-xl transition-all shadow-sm">
                     <span>Buka Field App</span>
                     <i class="ph-bold ph-arrow-square-out text-sm"></i>
                 </a>
+                @else
+                <div class="mt-4 flex items-center justify-center gap-1.5 w-full bg-gray-100 text-gray-400 text-xs font-bold py-2 rounded-xl border border-gray-200 cursor-not-allowed select-none">
+                    <i class="ph-bold ph-lock-key text-xs"></i>
+                    <span>Khusus Operator</span>
+                </div>
+                @endif
             </div>
         </div>
 

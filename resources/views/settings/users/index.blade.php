@@ -147,7 +147,11 @@
                                         </div>
                                         <div>
                                             <p class="font-bold text-gray-900 leading-tight">{{ $user->nama_warehouse }}</p>
-                                            <p class="text-[11px] text-gray-500 mt-0.5">{{ $user->email }}</p>
+                                            <p class="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1.5 font-mono">
+                                                <span class="text-spv-blue font-semibold">&#64;{{ $user->username ?? 'user' }}</span>
+                                                <span class="text-gray-300">&bull;</span>
+                                                <span>{{ $user->email }}</span>
+                                            </p>
                                         </div>
                                     </div>
                                 </td>

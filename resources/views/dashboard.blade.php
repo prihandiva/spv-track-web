@@ -45,12 +45,21 @@
 
                     <!-- Quick Action Buttons -->
                     <div class="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2.5 sm:gap-3 mt-5">
+                        @if(auth()->user()?->canCreateShipment())
                         <a href="{{ route('field-app.create') }}" target="_blank"
                            class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-900/30 transition-all transform hover:-translate-y-0.5 w-full sm:w-auto">
                             <i class="ph-bold ph-device-mobile-camera text-base"></i>
                             <span>Buka Field App Mobile</span>
                             <i class="ph-bold ph-arrow-up-right text-xs opacity-75"></i>
                         </a>
+                        @else
+                        <button type="button" disabled
+                                class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-white/10 text-white/50 border border-white/10 cursor-not-allowed opacity-60 w-full sm:w-auto select-none"
+                                title="Hanya akun Operator & Superadmin yang dapat membuat shipment baru.">
+                            <i class="ph-bold ph-lock-key text-base text-amber-300"></i>
+                            <span>Buka Field App (Khusus Operator)</span>
+                        </button>
+                        @endif
 
                         <a href="{{ route('shipments.index') }}"
                            class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/20 text-white border border-white/20 backdrop-blur-sm transition-all transform hover:-translate-y-0.5 w-full sm:w-auto">
@@ -262,9 +271,13 @@
 
                 <div class="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between">
                     <span class="text-[10px] text-gray-400">Butuh bantuan di lapangan? Hubungi PIC Supervisor Gudang</span>
+                    @if(auth()->user()?->canCreateShipment())
                     <a href="{{ route('field-app.create') }}" target="_blank" class="text-xs font-bold text-spv-blue hover:text-spv-green flex items-center gap-1">
                         Buka Field App <i class="ph-bold ph-arrow-square-out text-xs"></i>
                     </a>
+                    @else
+                    <span class="text-xs text-gray-400 font-medium">Field App (Khusus Operator)</span>
+                    @endif
                 </div>
             </div>
 
@@ -590,12 +603,21 @@
                            class="text-xs font-semibold px-3 py-1.5 rounded-xl border border-gray-200 text-gray-600 hover:text-spv-blue hover:border-spv-blue transition-all">
                             Lihat Semua
                         </a>
+                        @if(auth()->user()?->canCreateShipment())
                         <a href="{{ route('field-app.create') }}" target="_blank"
                            class="text-xs font-bold px-3.5 py-1.5 rounded-xl text-white flex items-center gap-1.5 shadow-sm transition-all"
                            style="background: linear-gradient(135deg, #285491, #0d5950);">
                             <i class="ph-bold ph-plus text-xs"></i>
                             <span>Buat Staging</span>
                         </a>
+                        @else
+                        <button type="button" disabled
+                                class="text-xs font-bold px-3 py-1.5 rounded-xl bg-gray-100 text-gray-400 border border-gray-200 flex items-center gap-1.5 cursor-not-allowed opacity-60 select-none"
+                                title="Hanya akun Operator & Superadmin yang dapat membuat shipment baru.">
+                            <i class="ph-bold ph-lock-key text-xs"></i>
+                            <span>Buat Staging</span>
+                        </button>
+                        @endif
                     </div>
                 </div>
 
@@ -660,12 +682,30 @@
                                                class="p-1.5 rounded-lg text-gray-400 hover:text-spv-blue hover:bg-blue-50 transition-colors">
                                                 <i class="ph-bold ph-eye text-base"></i>
                                             </a>
-                                            <a href="{{ route('field-app.timeline', $s->id) }}"
-                                               title="Timeline Bukti Foto (27 Titik SOP)"
-                                               target="_blank"
-                                               class="p-1.5 rounded-lg text-gray-400 hover:text-spv-green hover:bg-emerald-50 transition-colors">
-                                                <i class="ph-bold ph-camera text-base"></i>
-                                            </a>
+
+                                            @if($s->status === 'draft')
+                                                <a href="{{ route('field-app.edit', $s->id) }}"
+                                                   title="Lanjutkan Pengisian Draft Staging (Sebelum Ambil Foto)"
+                                                   class="p-1.5 rounded-lg text-amber-500 hover:text-amber-600 hover:bg-amber-50 transition-colors">
+                                                    <i class="ph-bold ph-pencil-simple-line text-base"></i>
+                                                </a>
+                                            @else
+                                                <a href="{{ route('field-app.timeline', $s->id) }}"
+                                                   title="Timeline Bukti Foto (27 Titik SOP)"
+                                                   target="_blank"
+                                                   class="p-1.5 rounded-lg text-gray-400 hover:text-spv-green hover:bg-emerald-50 transition-colors">
+                                                    <i class="ph-bold ph-camera text-base"></i>
+                                                </a>
+
+                                                @if(auth()->user()?->canEditShipment($s))
+                                                    <a href="{{ route('field-app.edit', $s->id) }}"
+                                                       title="Edit Dokumen Shipment"
+                                                       class="p-1.5 rounded-lg text-gray-400 hover:text-spv-blue hover:bg-blue-50 transition-colors">
+                                                        <i class="ph-bold ph-pencil-simple text-base"></i>
+                                                    </a>
+                                                @endif
+                                            @endif
+
                                             <a href="{{ route('shipments.download-pdf', $s->id) }}"
                                                title="Download PDF Laporan"
                                                class="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors">
