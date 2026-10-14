@@ -41,7 +41,13 @@ class ShipmentController extends Controller
 
         $shipments = $query->paginate(10)->withQueryString();
 
-        return view('shipments.index', compact('shipments'));
+        // Ambil data armada yang sedang dalam proses staging aktif (status: draft)
+        $activeStagingShipments = Shipment::where('status', 'draft')
+            ->with(['karyawan', 'karyawans', 'evidenceItems', 'photos'])
+            ->latest()
+            ->get();
+
+        return view('shipments.index', compact('shipments', 'activeStagingShipments'));
     }
 
     public function show(Shipment $shipment)

@@ -49,15 +49,15 @@
 
     <form action="{{ isset($shipment) ? route('field-app.update', $shipment->id, false) : route('field-app.store', [], false) }}" method="POST" enctype="multipart/form-data"
           x-data="{
-              nomorContainer: '{{ old('nomor_container_atau_plat', $shipment->nomor_container_atau_plat ?? '') }}',
-              shipmentGroup: '{{ old('shipment_group', $shipment->shipment_group ?? '') }}',
-              shipmentNo: '{{ old('shipment_no', $shipment->shipment_no ?? '') }}',
-              agenForwarding: '{{ old('agen_forwarding', $shipment->agen_forwarding ?? '') }}',
-              tujuanPengiriman: '{{ old('tujuan_pengiriman', $shipment->tujuan_pengiriman ?? '') }}',
-              platNomor: '{{ old('plat_nomor', $shipment->plat_nomor ?? '') }}',
-              namaSopir: '{{ old('nama_sopir', $shipment->nama_sopir ?? '') }}',
+              nomorContainer: {{ Js::from((string) old('nomor_container_atau_plat', $shipment->nomor_container_atau_plat ?? '')) }},
+              shipmentGroup: {{ Js::from((string) old('shipment_group', $shipment->shipment_group ?? '')) }},
+              shipmentNo: {{ Js::from((string) old('shipment_no', $shipment->shipment_no ?? '')) }},
+              agenForwarding: {{ Js::from((string) old('agen_forwarding', $shipment->agen_forwarding ?? '')) }},
+              tujuanPengiriman: {{ Js::from((string) old('tujuan_pengiriman', $shipment->tujuan_pengiriman ?? '')) }},
+              platNomor: {{ Js::from((string) old('plat_nomor', $shipment->plat_nomor ?? '')) }},
+              namaSopir: {{ Js::from((string) old('nama_sopir', $shipment->nama_sopir ?? '')) }},
               selectedKaryawanIds: {{ Js::from(array_map('strval', (array) old('karyawan_ids', isset($shipment) ? ($shipment->karyawans->pluck('id')->map('strval')->all() ?: ($shipment->karyawan_id ? [(string) $shipment->karyawan_id] : [])) : (old('karyawan_id') ? [(string) old('karyawan_id')] : [])))) }},
-              packingListNo: '{{ old('packing_list_no', $shipment->packing_list_no ?? '') }}',
+              packingListNo: {{ Js::from((string) old('packing_list_no', $shipment->packing_list_no ?? '')) }},
               dropdownOpen: false,
               searchKaryawan: '',
               photoPreviewUrl: '',
@@ -511,8 +511,12 @@
                             <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:6px;">
                                 <span style="font-size:9px; color:#9ca3af; align-self:center;">Riwayat:</span>
                                 @foreach(($history['packing_list_no'] ?? collect())->take(3) as $rec)
-                                    <button type="button" @click="packingListNo = '{{ preg_replace('/\D/', '', $rec) }}'.slice(0, 9)"
-                                            style="font-size:10px; font-weight: 600; padding:2px 7px; border-radius:10px; background:#fff; color:#285491; border:1px solid #bfcfe8; cursor:pointer;">
+                                    <button type="button" 
+                                            @click="packingListNo = ($el.dataset.val || '').replace(/\D/g, '').slice(0, 9)"
+                                            data-val="{{ $rec }}"
+                                            title="Klik untuk mengisi: {{ $rec }}"
+                                            style="font-size:10px; font-weight: 600; padding:2px 7px; border-radius:10px; background:#fff; color:#285491; border:1px solid #bfcfe8; cursor:pointer;"
+                                            onmouseover="this.style.background='#eff4fc'" onmouseout="this.style.background='#fff'">
                                         {{ $rec }}
                                     </button>
                                 @endforeach
@@ -567,8 +571,12 @@
                             @if(count($history['shipment_group'] ?? []) > 0)
                                 <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;">
                                     @foreach(($history['shipment_group'] ?? collect())->take(2) as $rec)
-                                        <button type="button" @click="shipmentGroup = '{{ preg_replace('/\D/', '', $rec) }}'.slice(0, 9)"
-                                                style="font-size:9px; font-weight: 600; padding:2px 6px; border-radius:8px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer;">
+                                        <button type="button" 
+                                                @click="shipmentGroup = ($el.dataset.val || '').replace(/\D/g, '').slice(0, 9)"
+                                                data-val="{{ $rec }}"
+                                                title="Klik untuk mengisi: {{ $rec }}"
+                                                style="font-size:9px; font-weight: 600; padding:2px 6px; border-radius:8px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer;"
+                                                onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff4fc'">
                                             {{ $rec }}
                                         </button>
                                     @endforeach
@@ -621,8 +629,12 @@
                             @if(count($history['shipment_no'] ?? []) > 0)
                                 <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;">
                                     @foreach(($history['shipment_no'] ?? collect())->take(2) as $rec)
-                                        <button type="button" @click="shipmentNo = '{{ preg_replace('/\D/', '', $rec) }}'.slice(0, 9)"
-                                                style="font-size:9px; font-weight: 600; padding:2px 6px; border-radius:8px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer;">
+                                        <button type="button" 
+                                                @click="shipmentNo = ($el.dataset.val || '').replace(/\D/g, '').slice(0, 9)"
+                                                data-val="{{ $rec }}"
+                                                title="Klik untuk mengisi: {{ $rec }}"
+                                                style="font-size:9px; font-weight: 600; padding:2px 6px; border-radius:8px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer;"
+                                                onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff4fc'">
                                             {{ $rec }}
                                         </button>
                                     @endforeach
@@ -649,8 +661,13 @@
                                 <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;">
                                     <span style="font-size:9px; color:#9ca3af; align-self:center;">Riwayat:</span>
                                     @foreach(($history['agen_forwarding'] ?? collect())->take(2) as $rec)
-                                        <button type="button" @click="agenForwarding = '{{ addslashes($rec) }}'"
-                                                style="font-size:10px; font-weight: 600; padding:2px 7px; border-radius:10px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer;">
+                                        <button type="button" 
+                                                @click="agenForwarding = $el.dataset.val"
+                                                data-val="{{ $rec }}"
+                                                title="Klik untuk mengisi riwayat ini"
+                                                style="font-size:10px; font-weight: 600; padding:2px 7px; border-radius:10px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer; text-align:left; max-width:100%; word-break:break-word;"
+                                                onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#93c5fd'"
+                                                onmouseout="this.style.background='#eff4fc'; this.style.borderColor='#d0e0f5'">
                                             {{ $rec }}
                                         </button>
                                     @endforeach
@@ -674,8 +691,13 @@
                                 <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;">
                                     <span style="font-size:9px; color:#9ca3af; align-self:center;">Riwayat:</span>
                                     @foreach(($history['tujuan_pengiriman'] ?? collect())->take(2) as $rec)
-                                        <button type="button" @click="tujuanPengiriman = '{{ addslashes($rec) }}'"
-                                                style="font-size:10px; font-weight: 600; padding:2px 7px; border-radius:10px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer;">
+                                        <button type="button" 
+                                                @click="tujuanPengiriman = $el.dataset.val"
+                                                data-val="{{ $rec }}"
+                                                title="Klik untuk mengisi riwayat ini"
+                                                style="font-size:10px; font-weight: 600; padding:3px 8px; border-radius:10px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer; text-align:left; max-width:100%; word-break:break-word; line-height:1.3;"
+                                                onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#93c5fd'"
+                                                onmouseout="this.style.background='#eff4fc'; this.style.borderColor='#d0e0f5'">
                                             {{ $rec }}
                                         </button>
                                     @endforeach
@@ -703,7 +725,13 @@
                                 <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;">
                                     <span style="font-size:9px; color:#9ca3af; align-self:center;">Riwayat:</span>
                                     @foreach(($history['plat_nomor'] ?? collect())->take(2) as $rec)
-                                        <button type="button" @click="platNomor = '{{ addslashes($rec) }}'" style="font-size:10px; font-weight: 600; padding:2px 7px; border-radius:10px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer;">
+                                        <button type="button" 
+                                                @click="platNomor = $el.dataset.val"
+                                                data-val="{{ $rec }}"
+                                                title="Klik untuk mengisi: {{ $rec }}"
+                                                style="font-size:10px; font-weight: 600; padding:2px 7px; border-radius:10px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer;"
+                                                onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#93c5fd'"
+                                                onmouseout="this.style.background='#eff4fc'; this.style.borderColor='#d0e0f5'">
                                             {{ $rec }}
                                         </button>
                                     @endforeach
@@ -735,7 +763,13 @@
                                 @if(count($history['nomor_container'] ?? []) > 0)
                                     <span style="font-size:9px; color:#9ca3af; align-self:center; margin-left: 2px;">Riwayat:</span>
                                     @foreach(($history['nomor_container'] ?? collect())->take(2) as $rec)
-                                        <button type="button" @click="nomorContainer = '{{ addslashes($rec) }}'" style="font-size:10px; font-weight: 600; padding:2px 7px; border-radius:10px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer;">
+                                        <button type="button" 
+                                                @click="nomorContainer = $el.dataset.val"
+                                                data-val="{{ $rec }}"
+                                                title="Klik untuk mengisi: {{ $rec }}"
+                                                style="font-size:10px; font-weight: 600; padding:2px 7px; border-radius:10px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer;"
+                                                onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#93c5fd'"
+                                                onmouseout="this.style.background='#eff4fc'; this.style.borderColor='#d0e0f5'">
                                             {{ $rec }}
                                         </button>
                                     @endforeach
@@ -761,7 +795,13 @@
                             <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;">
                                 <span style="font-size:9px; color:#9ca3af; align-self:center;">Riwayat:</span>
                                 @foreach(($history['nama_sopir'] ?? collect())->take(3) as $rec)
-                                    <button type="button" @click="namaSopir = '{{ addslashes($rec) }}'" style="font-size:10px; font-weight: 600; padding:2px 7px; border-radius:10px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer;">
+                                    <button type="button" 
+                                            @click="namaSopir = $el.dataset.val"
+                                            data-val="{{ $rec }}"
+                                            title="Klik untuk mengisi: {{ $rec }}"
+                                            style="font-size:10px; font-weight: 600; padding:2px 7px; border-radius:10px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer;"
+                                            onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#93c5fd'"
+                                            onmouseout="this.style.background='#eff4fc'; this.style.borderColor='#d0e0f5'">
                                         {{ $rec }}
                                     </button>
                                 @endforeach

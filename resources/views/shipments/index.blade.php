@@ -42,6 +42,165 @@
         </div>
     </div>
 
+    <!-- Live Staging Monitoring Section (Real-time Ongoing Staging) -->
+    @if(isset($activeStagingShipments) && $activeStagingShipments->isNotEmpty())
+        @php
+            $exportDraftCount = $activeStagingShipments->where('jenis_pengiriman', 'export')->count();
+            $lokalDraftCount = $activeStagingShipments->where('jenis_pengiriman', 'lokal')->count();
+        @endphp
+        <div class="bg-white rounded-2xl sm:rounded-3xl border border-rose-100 shadow-[0_4px_24px_rgba(225,29,72,0.06)] p-4 sm:p-5 lg:p-6 mb-6 relative overflow-hidden"
+             x-data="{ showCards: true }">
+            
+            <!-- Ambient Background Glow -->
+            <div class="absolute -top-10 -right-10 w-44 h-44 bg-rose-50 rounded-full blur-3xl pointer-events-none opacity-70"></div>
+            
+            <!-- Section Header -->
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-3.5 relative z-10">
+                <div class="flex items-start sm:items-center gap-3">
+                    <!-- Red Blinking LIVE Badge -->
+                    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-rose-50 border border-rose-200/90 shadow-xs shrink-0">
+                        <span class="relative flex h-2.5 w-2.5">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-600"></span>
+                        </span>
+                        <span class="text-[11px] font-black tracking-wider text-rose-600 uppercase">LIVE STAGING</span>
+                    </div>
+
+                    <div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <h2 class="text-base sm:text-lg font-bold text-gray-800">Staging Sedang Berlangsung</h2>
+                            <span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700">
+                                {{ $activeStagingShipments->count() }} Unit Aktif
+                            </span>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-0.5">Armada aktif yang sedang dalam proses loading, inspeksi, dan upload bukti SOP 27 titik di warehouse.</p>
+                    </div>
+                </div>
+
+                <!-- Right Side Summary & Quick Controls -->
+                <div class="flex items-center gap-2.5 flex-wrap self-end md:self-center">
+                    <div class="hidden sm:flex items-center gap-2 text-xs text-gray-600 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-xl">
+                        <span class="font-semibold text-purple-700 flex items-center gap-1">
+                            <i class="ph-fill ph-shipping-container"></i> {{ $exportDraftCount }} Export
+                        </span>
+                        <span class="text-gray-300">&bull;</span>
+                        <span class="font-semibold text-spv-blue flex items-center gap-1">
+                            <i class="ph-fill ph-truck"></i> {{ $lokalDraftCount }} Lokal
+                        </span>
+                    </div>
+
+                    <a href="{{ route('shipments.index', ['status' => 'draft']) }}" 
+                       class="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition-colors"
+                       title="Saring tabel master di bawah hanya menampilkan armada draft">
+                        <i class="ph-bold ph-funnel"></i>
+                        <span>Filter Draft di Tabel</span>
+                    </a>
+
+                    <button type="button" 
+                            @click="showCards = !showCards"
+                            class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+                            :title="showCards ? 'Sembunyikan Kartu Staging' : 'Tampilkan Kartu Staging'">
+                        <i class="ph-bold text-base transition-transform duration-200" :class="showCards ? 'ph-caret-up' : 'ph-caret-down'"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Horizontal Cards Reel -->
+            <div x-show="showCards" x-transition.opacity.duration.200ms class="mt-4 pt-3.5 border-t border-rose-100/60">
+                <div class="overflow-x-auto pb-2 -mx-1 px-1 flex gap-3.5 scrollbar-thin">
+                    @foreach($activeStagingShipments as $staging)
+                        @php
+                            $evidenceDone = $staging->evidenceItems->count();
+                            $percent = round(($evidenceDone / 27) * 100);
+                            $officers = $staging->allKaryawans()->pluck('nama')->toArray();
+                            $primaryOfficer = count($officers) > 0 ? $officers[0] : ($staging->karyawan?->nama ?? 'Belum Ditugaskan');
+                            $extraCount = count($officers) > 1 ? count($officers) - 1 : 0;
+                            $identifier = $staging->packing_list_no ?: ($staging->nomor_container_atau_plat ?? 'SPV-' . $staging->id);
+                        @endphp
+                        <div class="min-w-[275px] max-w-[295px] flex-shrink-0 bg-white rounded-2xl border border-gray-200/80 p-3.5 hover:shadow-md hover:border-spv-blue/40 transition-all flex flex-col justify-between group">
+                            <div>
+                                <!-- Card Header -->
+                                <div class="flex items-start justify-between gap-2 mb-2">
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 {{ $staging->jenis_pengiriman === 'export' ? 'bg-purple-50 text-purple-700' : 'bg-blue-50 text-blue-700' }}">
+                                            <i class="ph-fill {{ $staging->jenis_pengiriman === 'export' ? 'ph-shipping-container' : 'ph-truck' }} text-base"></i>
+                                        </div>
+                                        <div class="min-w-0">
+                                            <a href="{{ route('shipments.show', $staging->id) }}" class="text-xs font-bold text-gray-800 hover:text-spv-blue transition-colors truncate block max-w-[150px]" title="{{ $identifier }}">
+                                                {{ $identifier }}
+                                            </a>
+                                            <span class="text-[10px] text-gray-400 capitalize block leading-tight">
+                                                {{ $staging->jenis_produk }} &bull; {{ $staging->jenis_pengiriman }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                                        Draft
+                                    </span>
+                                </div>
+
+                                <!-- Card Meta Details -->
+                                <div class="space-y-1.5 py-2 my-1 border-y border-gray-100 text-[11px] text-gray-600">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <span class="text-gray-400 shrink-0">Plat / Sopir:</span>
+                                        <span class="font-medium text-gray-700 text-right truncate max-w-[160px]" title="{{ $staging->plat_nomor ?? '-' }} ({{ $staging->nama_sopir ?? '-' }})">
+                                            {{ $staging->plat_nomor ?? '-' }} &bull; {{ $staging->nama_sopir ?? '-' }}
+                                        </span>
+                                    </div>
+                                    <div class="flex items-center justify-between gap-2">
+                                        <span class="text-gray-400 shrink-0">Lokasi &amp; Shift:</span>
+                                        <span class="font-medium text-gray-700 capitalize text-right truncate max-w-[160px]">
+                                            {{ $staging->warehouse_lokasi ? 'Gudang ' . ucfirst($staging->warehouse_lokasi) : 'Gudang Atas' }} &bull; {{ ucfirst($staging->waktu ?? 'Siang') }}
+                                        </span>
+                                    </div>
+                                    <div class="flex items-center justify-between gap-2">
+                                        <span class="text-gray-400 shrink-0">Petugas:</span>
+                                        <span class="font-medium text-gray-700 truncate max-w-[150px] text-right" title="{{ implode(', ', $officers) }}">
+                                            {{ $primaryOfficer }}{{ $extraCount > 0 ? " +{$extraCount}" : '' }}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <!-- SOP Progress Meter -->
+                                <div class="mt-2.5">
+                                    <div class="flex items-center justify-between text-[10px] mb-1">
+                                        <span class="text-gray-500 font-medium">Progress SOP Foto</span>
+                                        <span class="font-bold {{ $evidenceDone > 0 ? 'text-spv-blue' : 'text-gray-400' }}">
+                                            {{ $evidenceDone }}/27 ({{ $percent }}%)
+                                        </span>
+                                    </div>
+                                    <div class="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                                        <div class="h-full rounded-full transition-all duration-500 {{ $percent > 0 ? 'bg-spv-blue' : 'bg-gray-200' }}" style="width: {{ max($percent, 4) }}%"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <div class="flex items-center gap-1.5 mt-3 pt-2.5 border-t border-gray-100">
+                                <a href="{{ route('field-app.timeline', $staging->id) }}" target="_blank"
+                                   class="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-xl text-xs font-bold text-white bg-spv-blue hover:bg-blue-800 shadow-sm transition-all text-center">
+                                    <i class="ph-bold ph-camera text-sm"></i>
+                                    <span>Ambil Foto</span>
+                                </a>
+                                <a href="{{ route('field-app.edit', $staging->id) }}"
+                                   class="p-1.5 rounded-xl border border-gray-200 text-gray-600 hover:text-spv-blue hover:bg-blue-50 transition-colors"
+                                   title="Edit Data Staging">
+                                    <i class="ph-bold ph-pencil-simple text-sm"></i>
+                                </a>
+                                <a href="{{ route('shipments.show', $staging->id) }}"
+                                   class="p-1.5 rounded-xl border border-gray-200 text-gray-600 hover:text-spv-blue hover:bg-blue-50 transition-colors"
+                                   title="Lihat Detail">
+                                    <i class="ph-bold ph-eye text-sm"></i>
+                                </a>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+    @endif
+
     <!-- Main Table Card -->
     <div class="bg-white rounded-2xl shadow-[0_1px_6px_rgba(40,84,145,0.05)] border border-gray-100 overflow-hidden">
         

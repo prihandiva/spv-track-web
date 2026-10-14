@@ -187,7 +187,16 @@
                style="{{ request()->routeIs('shipments.*') ? 'background: rgba(5,158,61,0.85); color: white;' : 'color: rgba(255,255,255,0.65);' }}">
                 <i class="ph-fill ph-package nav-icon text-xl shrink-0"></i>
                 <span class="text-sm font-medium">Shipments</span>
-                <span class="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full" style="background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.85);">42</span>
+                @if(isset($activeStagingCount))
+                    <span class="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1.5 transition-all"
+                          style="{{ request()->routeIs('shipments.*') ? 'background: rgba(255,255,255,0.22); color: #ffffff;' : ($activeStagingCount > 0 ? 'background: rgba(245,158,11,0.25); color: #fef08a; border: 1px solid rgba(245,158,11,0.35);' : 'background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.6);') }}"
+                          title="{{ $activeStagingCount }} shipment sedang dalam proses staging aktif">
+                        @if($activeStagingCount > 0)
+                            <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                        @endif
+                        <span>{{ $activeStagingCount }}</span>
+                    </span>
+                @endif
             </a>
 
             @if(auth()->user()?->isSuperadmin() || auth()->user()?->isAdmin())
