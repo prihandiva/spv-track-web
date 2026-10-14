@@ -625,98 +625,95 @@
                     <table class="w-full text-left whitespace-nowrap">
                         <thead style="background:#fafbfd;">
                             <tr>
-                                <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Identitas Armada</th>
-                                <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider hidden sm:table-cell">Produk</th>
-                                <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider hidden md:table-cell">Tipe</th>
-                                <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider hidden lg:table-cell">Petugas</th>
-                                <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider hidden lg:table-cell">Waktu</th>
-                                <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Status</th>
-                                <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-right">Aksi</th>
+                                <th class="px-3.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Identitas Armada</th>
+                                <th class="px-2.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider hidden sm:table-cell">Produk</th>
+                                <th class="px-2.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider hidden md:table-cell">Tipe</th>
+                                <th class="px-2.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider hidden lg:table-cell">Petugas & Waktu</th>
+                                <th class="px-2.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Status</th>
+                                <th class="px-3.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-right">Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
                             @forelse($shipments as $s)
                                 <tr class="border-t border-gray-100 hover:bg-blue-50/20 transition-colors">
-                                    <td class="px-5 py-3.5">
+                                    <td class="px-3.5 py-2.5">
                                         <div class="flex items-center gap-2.5">
-                                            <div class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style="background:#eff4fc;">
-                                                <i class="ph-fill {{ $s->jenis_pengiriman === 'export' ? 'ph-shipping-container' : 'ph-truck' }} text-base" style="color:#285491;"></i>
+                                            <div class="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style="background:#eff4fc;">
+                                                <i class="ph-fill {{ $s->jenis_pengiriman === 'export' ? 'ph-shipping-container' : 'ph-truck' }} text-sm" style="color:#285491;"></i>
                                             </div>
                                             <div>
                                                 <a href="{{ route('shipments.show', $s->id) }}" class="text-xs font-bold text-gray-800 hover:text-spv-blue">
                                                     {{ $s->packing_list_no ?: ($s->nomor_container_atau_plat ?? 'SPV-' . $s->id) }}
                                                 </a>
-                                                <p class="text-[10px] text-gray-400">Cont: {{ $s->nomor_container_atau_plat ?? '-' }} &bull; Plat: {{ $s->plat_nomor ?? '—' }}</p>
+                                                <p class="text-[10px] text-gray-400 leading-tight">Cont: {{ $s->nomor_container_atau_plat ?? '-' }} &bull; Plat: {{ $s->plat_nomor ?? '—' }}</p>
                                             </div>
                                         </div>
                                     </td>
-                                    <td class="px-5 py-3.5 hidden sm:table-cell">
+                                    <td class="px-2.5 py-2.5 hidden sm:table-cell">
                                         <span class="text-xs font-medium text-gray-700 capitalize">{{ $s->jenis_produk }}</span>
                                     </td>
-                                    <td class="px-5 py-3.5 hidden md:table-cell">
-                                        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold capitalize {{ $s->jenis_pengiriman === 'export' ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-gray-100 text-gray-700' }}">
+                                    <td class="px-2.5 py-2.5 hidden md:table-cell">
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold capitalize {{ $s->jenis_pengiriman === 'export' ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-gray-100 text-gray-700' }}">
                                             {{ $s->jenis_pengiriman }}
                                         </span>
                                     </td>
-                                    <td class="px-5 py-3.5 hidden lg:table-cell">
-                                        <p class="text-xs text-gray-600">{{ $s->karyawan?->nama ?? '-' }}</p>
+                                    <td class="px-2.5 py-2.5 hidden lg:table-cell">
+                                        <p class="text-xs font-medium text-gray-700 leading-tight">{{ $s->karyawan?->nama ?? '-' }}</p>
+                                        <p class="text-[10px] text-gray-400 leading-tight">{{ $s->created_at->format('d M, H:i') }} WIB</p>
                                     </td>
-                                    <td class="px-5 py-3.5 hidden lg:table-cell">
-                                        <p class="text-[10px] text-gray-400">{{ $s->created_at->format('d M, H:i') }}</p>
-                                    </td>
-                                    <td class="px-5 py-3.5">
+                                    <td class="px-2.5 py-2.5">
                                         @if($s->status === 'submitted')
-                                            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>Submitted
                                             </span>
                                         @else
-                                            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
                                                 <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>Draft
                                             </span>
                                         @endif
                                     </td>
-                                    <td class="px-5 py-3.5 text-right">
+                                    <td class="px-3.5 py-2.5 text-right">
                                         <div class="flex items-center justify-end gap-1">
                                             <a href="{{ route('shipments.show', $s->id) }}"
                                                title="Lihat Detail Shipment"
-                                               class="p-1.5 rounded-lg text-gray-400 hover:text-spv-blue hover:bg-blue-50 transition-colors">
-                                                <i class="ph-bold ph-eye text-base"></i>
+                                               class="p-1 rounded-lg text-gray-400 hover:text-spv-blue hover:bg-blue-50 transition-colors">
+                                                <i class="ph-bold ph-eye text-sm"></i>
                                             </a>
 
                                             @if($s->status === 'draft')
                                                 <a href="{{ route('field-app.edit', $s->id) }}"
                                                    title="Lanjutkan Pengisian Draft Staging (Sebelum Ambil Foto)"
-                                                   class="p-1.5 rounded-lg text-amber-500 hover:text-amber-600 hover:bg-amber-50 transition-colors">
-                                                    <i class="ph-bold ph-pencil-simple-line text-base"></i>
+                                                   class="p-1 rounded-lg text-amber-500 hover:text-amber-600 hover:bg-amber-50 transition-colors">
+                                                    <i class="ph-bold ph-pencil-simple-line text-sm"></i>
                                                 </a>
                                             @else
                                                 <a href="{{ route('field-app.timeline', $s->id) }}"
                                                    title="Timeline Bukti Foto (27 Titik SOP)"
                                                    target="_blank"
-                                                   class="p-1.5 rounded-lg text-gray-400 hover:text-spv-green hover:bg-emerald-50 transition-colors">
-                                                    <i class="ph-bold ph-camera text-base"></i>
+                                                   class="p-1 rounded-lg text-gray-400 hover:text-spv-green hover:bg-emerald-50 transition-colors">
+                                                    <i class="ph-bold ph-camera text-sm"></i>
                                                 </a>
 
                                                 @if(auth()->user()?->canEditShipment($s))
                                                     <a href="{{ route('field-app.edit', $s->id) }}"
                                                        title="Edit Dokumen Shipment"
-                                                       class="p-1.5 rounded-lg text-gray-400 hover:text-spv-blue hover:bg-blue-50 transition-colors">
-                                                        <i class="ph-bold ph-pencil-simple text-base"></i>
+                                                       class="p-1 rounded-lg text-gray-400 hover:text-spv-blue hover:bg-blue-50 transition-colors">
+                                                        <i class="ph-bold ph-pencil-simple text-sm"></i>
                                                     </a>
                                                 @endif
                                             @endif
 
                                             <a href="{{ route('shipments.download-pdf', $s->id) }}"
                                                title="Download PDF Laporan"
-                                               class="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors">
-                                                <i class="ph-bold ph-file-pdf text-base"></i>
+                                               class="p-1 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors">
+                                                <i class="ph-bold ph-file-pdf text-sm"></i>
                                             </a>
                                         </div>
                                     </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="7" class="text-center py-8 text-xs text-gray-400">Belum ada data shipment</td>
+                                    <td colspan="6" class="text-center py-8 text-xs text-gray-400">Belum ada data shipment</td>
                                 </tr>
                             @endforelse
                         </tbody>

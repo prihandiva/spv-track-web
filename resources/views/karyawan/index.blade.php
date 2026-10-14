@@ -112,12 +112,12 @@
                 <table class="w-full text-left whitespace-nowrap">
                     <thead style="background:#fafbfd;">
                         <tr>
-                            <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Petugas Lapangan</th>
-                            <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Nomor Induk / NIK</th>
-                            <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Status Akun</th>
-                            <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-center">Staging Ditangani</th>
-                            <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Terdaftar Sejak</th>
-                            <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-right">Aksi</th>
+                            <th class="px-3.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Petugas Lapangan</th>
+                            <th class="px-3 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Nomor Induk / NIK</th>
+                            <th class="px-2.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Status Akun</th>
+                            <th class="px-2.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-center">Staging Ditangani</th>
+                            <th class="px-3 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Terdaftar Sejak</th>
+                            <th class="px-3.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-right">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -130,9 +130,9 @@
                             @endphp
                             <tr style="border-top: 1px solid #f0f4f9;" onmouseover="this.style.background='#fafcff'" onmouseout="this.style.background='transparent'">
                                 <!-- Petugas Info -->
-                                <td class="px-5 py-3.5">
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 shadow-sm"
+                                <td class="px-3.5 py-2.5">
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 shadow-sm"
                                              style="background: linear-gradient(135deg, {{ $karyawan->status === 'aktif' ? '#e1f8eb, #63c384' : '#f3f4f6, #d1d5db' }}); color: {{ $karyawan->status === 'aktif' ? '#0d5950' : '#4b5563' }};">
                                             {{ strtoupper($initials) }}
                                         </div>
@@ -140,27 +140,27 @@
                                             <a href="{{ route('karyawan.show', $karyawan->id) }}" class="text-xs font-bold text-gray-800 hover:text-spv-blue transition-colors">
                                                 {{ $karyawan->nama }}
                                             </a>
-                                            <p class="text-[10px] text-gray-400">Petugas Staging Warehouse</p>
+                                            <p class="text-[10px] text-gray-400 leading-tight">Petugas Staging Warehouse</p>
                                         </div>
                                     </div>
                                 </td>
 
                                 <!-- NIK / Nomor Induk -->
-                                <td class="px-5 py-3.5">
-                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono font-semibold bg-gray-100 text-gray-700 border border-gray-200">
-                                        <i class="ph-bold ph-identification-badge text-sm text-gray-400"></i>
+                                <td class="px-3 py-2.5">
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-mono font-semibold bg-gray-100 text-gray-700 border border-gray-200">
+                                        <i class="ph-bold ph-identification-badge text-xs text-gray-400"></i>
                                         {{ $karyawan->nomor_induk }}
                                     </span>
                                 </td>
 
                                 <!-- Status -->
-                                <td class="px-5 py-3.5">
+                                <td class="px-2.5 py-2.5">
                                     <form action="{{ route('karyawan.toggle-status', $karyawan->id) }}" method="POST" class="inline-block">
                                         @csrf
                                         @method('PATCH')
                                         <button type="submit"
                                                 title="Klik untuk mengubah status"
-                                                class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold transition-all {{ $karyawan->status === 'aktif' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100' : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200' }}">
+                                                class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold transition-all {{ $karyawan->status === 'aktif' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100' : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200' }}">
                                             @if($karyawan->status === 'aktif')
                                                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                                                 Aktif
@@ -168,16 +168,16 @@
                                                 <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
                                                 Nonaktif
                                             @endif
-                                            <i class="ph-bold ph-arrows-clockwise text-[10px] opacity-60 ml-0.5"></i>
+                                            <i class="ph-bold ph-arrows-clockwise text-[9px] opacity-60 ml-0.5"></i>
                                         </button>
                                     </form>
                                 </td>
 
                                 <!-- Shipments Count -->
-                                <td class="px-5 py-3.5 text-center">
+                                <td class="px-2.5 py-2.5 text-center">
                                     @if($karyawan->shipments_count > 0)
                                         <a href="{{ route('karyawan.show', $karyawan->id) }}"
-                                           class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-50 text-spv-blue hover:bg-blue-100 transition-colors">
+                                           class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold bg-blue-50 text-spv-blue hover:bg-blue-100 transition-colors">
                                             <i class="ph-bold ph-package text-xs"></i>
                                             {{ $karyawan->shipments_count }} Staging
                                         </a>
@@ -187,36 +187,36 @@
                                 </td>
 
                                 <!-- Registered At -->
-                                <td class="px-5 py-3.5">
+                                <td class="px-3 py-2.5">
                                     <p class="text-[11px] text-gray-500 font-medium">
                                         {{ $karyawan->created_at ? $karyawan->created_at->format('d M Y') : '—' }}
                                     </p>
                                 </td>
 
                                 <!-- Actions -->
-                                <td class="px-5 py-3.5 text-right">
+                                <td class="px-3.5 py-2.5 text-right">
                                     <div class="flex items-center justify-end gap-1">
                                         <!-- Detail -->
                                         <a href="{{ route('karyawan.show', $karyawan->id) }}"
                                            title="Lihat Detail Petugas"
-                                           class="p-1.5 rounded-lg transition-all text-gray-400 hover:text-spv-blue hover:bg-blue-50">
-                                            <i class="ph-bold ph-eye text-base"></i>
+                                           class="p-1 rounded-lg transition-all text-gray-400 hover:text-spv-blue hover:bg-blue-50">
+                                            <i class="ph-bold ph-eye text-sm"></i>
                                         </a>
 
                                         <!-- Edit Modal Trigger -->
                                         <button type="button"
                                                 @click="openEdit('{{ $karyawan->id }}', '{{ addslashes($karyawan->nama) }}', '{{ addslashes($karyawan->nomor_induk) }}', '{{ $karyawan->status }}', '{{ route('karyawan.update', $karyawan->id) }}')"
                                                 title="Edit Petugas"
-                                                class="p-1.5 rounded-lg transition-all text-gray-400 hover:text-amber-600 hover:bg-amber-50">
-                                            <i class="ph-bold ph-pencil-simple text-base"></i>
+                                                class="p-1 rounded-lg transition-all text-gray-400 hover:text-amber-600 hover:bg-amber-50">
+                                            <i class="ph-bold ph-pencil-simple text-sm"></i>
                                         </button>
 
                                         <!-- Delete Modal Trigger -->
                                         <button type="button"
                                                 @click="openDelete('{{ $karyawan->id }}', '{{ addslashes($karyawan->nama) }}', '{{ addslashes($karyawan->nomor_induk) }}', '{{ route('karyawan.destroy', $karyawan->id) }}', {{ $karyawan->shipments_count }})"
                                                 title="Hapus Petugas"
-                                                class="p-1.5 rounded-lg transition-all text-gray-400 hover:text-rose-600 hover:bg-rose-50">
-                                            <i class="ph-bold ph-trash text-base"></i>
+                                                class="p-1 rounded-lg transition-all text-gray-400 hover:text-rose-600 hover:bg-rose-50">
+                                            <i class="ph-bold ph-trash text-sm"></i>
                                         </button>
                                     </div>
                                 </td>

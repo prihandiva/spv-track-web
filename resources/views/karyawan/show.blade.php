@@ -132,69 +132,69 @@
             <table class="w-full text-left whitespace-nowrap">
                 <thead style="background:#fafbfd;">
                     <tr>
-                        <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">No. Packing List / Container</th>
-                        <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Jenis Produk</th>
-                        <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Tipe</th>
-                        <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Tanggal & Waktu</th>
-                        <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Status</th>
-                        <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-right">Aksi</th>
+                        <th class="px-3.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">No. Packing List / Container</th>
+                        <th class="px-3 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Jenis Produk</th>
+                        <th class="px-2.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Tipe</th>
+                        <th class="px-3 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Tanggal & Waktu</th>
+                        <th class="px-2.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Status</th>
+                        <th class="px-3.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-right">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse($shipments as $shipment)
                         <tr style="border-top: 1px solid #f0f4f9;" onmouseover="this.style.background='#fafcff'" onmouseout="this.style.background='transparent'">
-                            <td class="px-5 py-3.5">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style="background:#eff4fc;">
-                                        <i class="ph-fill {{ $shipment->jenis_pengiriman === 'export' ? 'ph-shipping-container' : 'ph-truck' }} text-base" style="color:#285491;"></i>
+                            <td class="px-3.5 py-2.5">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style="background:#eff4fc;">
+                                        <i class="ph-fill {{ $shipment->jenis_pengiriman === 'export' ? 'ph-shipping-container' : 'ph-truck' }} text-sm" style="color:#285491;"></i>
                                     </div>
                                     <div>
                                         <a href="{{ route('shipments.show', $shipment->id) }}" class="text-xs font-bold text-gray-800 hover:text-spv-blue transition-colors">
                                             {{ $shipment->packing_list_no ?: ($shipment->nomor_container_atau_plat ?? 'SPV-' . $shipment->id) }}
                                         </a>
-                                        <p class="text-[10px] text-gray-400">Cont: {{ $shipment->nomor_container_atau_plat ?? '-' }} &bull; Plat: {{ $shipment->plat_nomor ?? ($shipment->shipment_no ?? '—') }}</p>
+                                        <p class="text-[10px] text-gray-400 leading-tight">Cont: {{ $shipment->nomor_container_atau_plat ?? '-' }} &bull; Plat: {{ $shipment->plat_nomor ?? ($shipment->shipment_no ?? '—') }}</p>
                                     </div>
                                 </div>
                             </td>
-                            <td class="px-5 py-3.5"><p class="text-xs text-gray-600 capitalize font-medium">{{ $shipment->jenis_produk }}</p></td>
-                            <td class="px-5 py-3.5">
-                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold capitalize {{ $shipment->jenis_pengiriman === 'export' ? 'bg-purple-50 text-purple-700' : 'bg-gray-100 text-gray-600' }}">
+                            <td class="px-3 py-2.5"><p class="text-xs text-gray-600 capitalize font-medium">{{ $shipment->jenis_produk }}</p></td>
+                            <td class="px-2.5 py-2.5">
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold capitalize {{ $shipment->jenis_pengiriman === 'export' ? 'bg-purple-50 text-purple-700' : 'bg-gray-100 text-gray-600' }}">
                                     {{ $shipment->jenis_pengiriman }}
                                 </span>
                             </td>
-                            <td class="px-5 py-3.5"><p class="text-[11px] text-gray-500 font-medium">{{ $shipment->created_at->format('d M Y, H:i') }} WIB</p></td>
-                            <td class="px-5 py-3.5">
+                            <td class="px-3 py-2.5"><p class="text-[11px] text-gray-500 font-medium">{{ $shipment->created_at->format('d M Y, H:i') }} WIB</p></td>
+                            <td class="px-2.5 py-2.5">
                                 @if($shipment->status === 'submitted')
-                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-green-50 text-green-700 border border-green-200">
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-50 text-green-700 border border-green-200">
                                         <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
                                         Submitted
                                     </span>
                                 @else
-                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
                                         <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
                                         Draft
                                     </span>
                                 @endif
                             </td>
-                            <td class="px-5 py-3.5 text-right">
+                            <td class="px-3.5 py-2.5 text-right">
                                 <div class="flex items-center justify-end gap-1">
                                     <a href="{{ route('shipments.show', $shipment->id) }}"
                                        title="Lihat Detail Shipment"
-                                       class="p-1.5 rounded-lg transition-all text-gray-400 hover:text-spv-blue hover:bg-blue-50">
-                                        <i class="ph-bold ph-eye text-base"></i>
+                                       class="p-1 rounded-lg transition-all text-gray-400 hover:text-spv-blue hover:bg-blue-50">
+                                        <i class="ph-bold ph-eye text-sm"></i>
                                     </a>
                                     @if($shipment->status === 'draft')
                                         <a href="{{ route('field-app.edit', $shipment->id) }}"
                                            title="Lanjutkan Pengisian Draft Staging (Sebelum Ambil Foto)"
-                                           class="p-1.5 rounded-lg transition-all text-amber-500 hover:text-amber-600 hover:bg-amber-50">
-                                            <i class="ph-bold ph-pencil-simple-line text-base"></i>
+                                           class="p-1 rounded-lg transition-all text-amber-500 hover:text-amber-600 hover:bg-amber-50">
+                                            <i class="ph-bold ph-pencil-simple-line text-sm"></i>
                                         </a>
                                     @else
                                         <a href="{{ route('field-app.timeline', $shipment->id) }}"
                                            title="Buka Foto Evidence"
                                            target="_blank"
-                                           class="p-1.5 rounded-lg transition-all text-gray-400 hover:text-spv-green hover:bg-emerald-50">
-                                            <i class="ph-bold ph-camera text-base"></i>
+                                           class="p-1 rounded-lg transition-all text-gray-400 hover:text-spv-green hover:bg-emerald-50">
+                                            <i class="ph-bold ph-camera text-sm"></i>
                                         </a>
                                     @endif
                                 </div>

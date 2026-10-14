@@ -429,122 +429,131 @@
                     <table class="w-full text-left whitespace-nowrap">
                         <thead style="background:#fafbfd;">
                             <tr>
-                                <th class="px-5 py-3.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">No</th>
-                                <th class="px-5 py-3.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">No. Packing List / Identitas</th>
-                                <th class="px-5 py-3.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Waktu Staging</th>
-                                <th class="px-5 py-3.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Produk & Tipe</th>
-                                <th class="px-5 py-3.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Sopir & Tujuan</th>
-                                <th class="px-5 py-3.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Petugas</th>
-                                <th class="px-5 py-3.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Kepatuhan 27 SOP</th>
-                                <th class="px-5 py-3.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Validasi OCR</th>
-                                <th class="px-5 py-3.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Status</th>
-                                <th class="px-5 py-3.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-right">Aksi</th>
+                                <th class="px-2 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-center w-8">No</th>
+                                <th class="px-2.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Identitas Armada</th>
+                                <th class="px-2 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Waktu Staging</th>
+                                <th class="px-2 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Produk & Tipe</th>
+                                <th class="px-2 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Sopir & Tujuan</th>
+                                <th class="px-2 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Petugas</th>
+                                <th class="px-2 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Kepatuhan SOP</th>
+                                <th class="px-1.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-center">OCR</th>
+                                <th class="px-1.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-center">Status</th>
+                                <th class="px-2.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-right">Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
                             @forelse($paginatedShipments as $index => $shipment)
                                 <tr style="border-top: 1px solid #f0f4f9;" onmouseover="this.style.background='#fafcff'" onmouseout="this.style.background='transparent'">
-                                    <td class="px-5 py-4 text-xs font-bold text-gray-400">
+                                    <td class="px-2 py-2.5 text-xs font-bold text-gray-400 text-center">
                                         {{ ($paginatedShipments->currentPage() - 1) * $paginatedShipments->perPage() + $index + 1 }}
                                     </td>
-                                    <td class="px-5 py-4">
-                                        <div class="flex items-center gap-3">
-                                            <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style="background:#eff4fc;">
-                                                <i class="ph-fill {{ $shipment->jenis_pengiriman === 'export' ? 'ph-shipping-container' : 'ph-truck' }} text-lg" style="color:#285491;"></i>
+                                    <td class="px-2.5 py-2.5 max-w-[150px]">
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style="background:#eff4fc;">
+                                                <i class="ph-fill {{ $shipment->jenis_pengiriman === 'export' ? 'ph-shipping-container' : 'ph-truck' }} text-sm" style="color:#285491;"></i>
                                             </div>
-                                            <div>
-                                                <a href="{{ route('shipments.show', $shipment->id) }}" class="text-xs font-bold text-gray-900 hover:text-spv-blue transition-colors">
+                                            <div class="min-w-0">
+                                                <a href="{{ route('shipments.show', $shipment->id) }}" class="text-xs font-bold text-gray-900 hover:text-spv-blue transition-colors truncate block">
                                                     {{ $shipment->packing_list_no ?: ($shipment->nomor_container_atau_plat ?? 'SPV-' . $shipment->id) }}
                                                 </a>
-                                                <p class="text-[10px] text-gray-400">
-                                                    Cont: <span class="font-mono text-gray-600">{{ $shipment->nomor_container_atau_plat ?: '-' }}</span> &bull; 
-                                                    Plat: <span class="font-mono text-gray-600">{{ $shipment->plat_nomor ?: ($shipment->shipment_no ?: '—') }}</span>
+                                                <p class="text-[10px] text-gray-400 leading-tight truncate">
+                                                    <span class="font-mono text-gray-600">{{ $shipment->nomor_container_atau_plat ?: '-' }}</span> &bull; 
+                                                    <span class="font-mono text-gray-600">{{ $shipment->plat_nomor ?: ($shipment->shipment_no ?: '—') }}</span>
                                                 </p>
                                             </div>
                                         </div>
                                     </td>
-                                    <td class="px-5 py-4">
-                                        <p class="text-xs font-semibold text-gray-800">
+                                    <td class="px-2 py-2.5">
+                                        <p class="text-xs font-semibold text-gray-800 leading-tight">
                                             {{ $shipment->tanggal_staging ? $shipment->tanggal_staging->format('d M Y') : ($shipment->created_at ? $shipment->created_at->format('d M Y') : '-') }}
                                         </p>
-                                        <p class="text-[10px] text-gray-400">
-                                            Shift: {{ ucfirst((string)$shipment->waktu) }} &bull; Lokasi: {{ ucfirst((string)$shipment->warehouse_lokasi) }}
+                                        <p class="text-[10px] text-gray-400 leading-tight">
+                                            {{ ucfirst((string)$shipment->waktu) }} &bull; {{ ucfirst((string)$shipment->warehouse_lokasi) }}
                                         </p>
                                     </td>
-                                    <td class="px-5 py-4">
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider {{ $shipment->jenis_produk === 'fiber' ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700' }}">
+                                    <td class="px-2 py-2.5">
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider {{ $shipment->jenis_produk === 'fiber' ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700' }}">
                                             {{ $shipment->jenis_produk }}
                                         </span>
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider {{ $shipment->jenis_pengiriman === 'export' ? 'bg-purple-50 text-purple-700' : 'bg-gray-100 text-gray-600' }} ml-1">
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider {{ $shipment->jenis_pengiriman === 'export' ? 'bg-purple-50 text-purple-700' : 'bg-gray-100 text-gray-600' }} ml-1">
                                             {{ $shipment->jenis_pengiriman }}
                                         </span>
                                     </td>
-                                    <td class="px-5 py-4">
-                                        <p class="text-xs text-gray-700 font-medium">{{ $shipment->nama_sopir ?: '—' }}</p>
-                                        <p class="text-[10px] text-gray-400 truncate max-w-[140px]">{{ $shipment->tujuan_pengiriman ?: ($shipment->agen_forwarding ?: '-') }}</p>
+                                    <td class="px-2 py-2.5 max-w-[110px]">
+                                        <p class="text-xs text-gray-700 font-medium leading-tight truncate">{{ $shipment->nama_sopir ?: '—' }}</p>
+                                        <p class="text-[10px] text-gray-400 truncate leading-tight">{{ $shipment->tujuan_pengiriman ?: ($shipment->agen_forwarding ?: '-') }}</p>
                                     </td>
-                                    <td class="px-5 py-4">
-                                        <p class="text-xs text-gray-700 font-semibold">
-                                            {{ $shipment->allKaryawans()->pluck('nama')->join(', ') ?: ($shipment->karyawan?->nama ?? '-') }}
-                                        </p>
+                                    <td class="px-2 py-2.5">
+                                        @php
+                                            $kNames = $shipment->allKaryawans()->pluck('nama');
+                                            $firstK = $kNames->first() ?: ($shipment->karyawan?->nama ?? '-');
+                                            $extraK = $kNames->count() > 1 ? $kNames->count() - 1 : 0;
+                                            $allKStr = $kNames->join(', ') ?: ($shipment->karyawan?->nama ?? '-');
+                                        @endphp
+                                        <div class="flex items-center gap-1 max-w-[130px] truncate" title="{{ $allKStr }}">
+                                            <span class="text-xs text-gray-700 font-semibold leading-tight truncate">{{ $firstK }}</span>
+                                            @if($extraK > 0)
+                                                <span class="text-[9px] font-bold text-spv-blue bg-blue-50 border border-blue-200/60 px-1 py-0.2 rounded-full shrink-0">+{{ $extraK }}</span>
+                                            @endif
+                                        </div>
                                     </td>
-                                    <td class="px-5 py-4">
-                                        <div class="flex items-center gap-2">
+                                    <td class="px-2 py-2.5">
+                                        <div class="flex items-center gap-1.5">
                                             @if($shipment->is_complete)
-                                                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                                     <i class="ph-bold ph-check text-xs"></i>
                                                     27 / 27 (100%)
                                                 </span>
                                             @else
-                                                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
                                                     <i class="ph-bold ph-warning text-xs"></i>
                                                     {{ $shipment->points_count }} / 27 ({{ $shipment->compliance_rate }}%)
                                                 </span>
                                             @endif
                                         </div>
                                     </td>
-                                    <td class="px-5 py-4">
+                                    <td class="px-1.5 py-2.5 text-center">
                                         @if($shipment->ocr_match)
-                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-green-50 text-green-700 border border-green-200">
+                                            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-50 text-green-700 border border-green-200">
                                                 <i class="ph-bold ph-check-circle"></i> Cocok
                                             </span>
                                         @elseif($shipment->ocr_checked)
-                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
                                                 <i class="ph-bold ph-warning-circle"></i> Mismatch
                                             </span>
                                         @else
                                             <span class="text-[10px] text-gray-400">-</span>
                                         @endif
                                     </td>
-                                    <td class="px-5 py-4">
+                                    <td class="px-1.5 py-2.5 text-center">
                                         @if($shipment->status === 'submitted')
-                                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-green-50 text-green-700 border border-green-200">
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-50 text-green-700 border border-green-200">
                                                 <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
                                                 Submitted
                                             </span>
                                         @else
-                                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
                                                 <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
                                                 Draft
                                             </span>
                                         @endif
                                     </td>
-                                    <td class="px-5 py-4 text-right">
-                                        <div class="flex items-center justify-end gap-1.5">
+                                    <td class="px-2.5 py-2.5 text-right">
+                                        <div class="flex items-center justify-end gap-1">
                                             <a href="{{ route('shipments.show', $shipment->id) }}"
                                                title="Lihat Detail Transaksi & Foto"
-                                               class="p-1.5 rounded-lg text-gray-400 hover:text-spv-blue hover:bg-blue-50 transition-colors">
-                                                <i class="ph-bold ph-eye text-base"></i>
+                                               class="p-1 rounded-lg text-gray-400 hover:text-spv-blue hover:bg-blue-50 transition-colors">
+                                                <i class="ph-bold ph-eye text-sm"></i>
                                             </a>
                                             <a href="{{ route('shipments.report', $shipment->id) }}" target="_blank"
                                                title="Cetak Laporan PDF Satuan"
-                                               class="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors">
-                                                <i class="ph-bold ph-printer text-base"></i>
+                                               class="p-1 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors">
+                                                <i class="ph-bold ph-printer text-sm"></i>
                                             </a>
                                             <a href="{{ route('shipments.download-evidence', $shipment->id) }}"
                                                title="Unduh Berkas Evidence ZIP"
-                                               class="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition-colors">
-                                                <i class="ph-bold ph-file-zip text-base"></i>
+                                               class="p-1 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition-colors">
+                                                <i class="ph-bold ph-file-zip text-sm"></i>
                                             </a>
                                         </div>
                                     </td>
@@ -598,37 +607,37 @@
                     <table class="w-full text-left whitespace-nowrap">
                         <thead style="background:#fafbfd;">
                             <tr>
-                                <th class="px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider w-12 text-center">#</th>
-                                <th class="px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Nama Titik SOP</th>
-                                <th class="px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Tipe</th>
-                                <th class="px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Keterisian Armada</th>
-                                <th class="px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider w-44">Tingkat Kepatuhan</th>
-                                <th class="px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-center">Status</th>
-                                <th class="px-4 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Armada Kurang Titik</th>
+                                <th class="px-2.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider w-10 text-center">#</th>
+                                <th class="px-3 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Nama Titik SOP</th>
+                                <th class="px-2.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Tipe</th>
+                                <th class="px-3 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Keterisian Armada</th>
+                                <th class="px-3 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider w-40">Tingkat Kepatuhan</th>
+                                <th class="px-2.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-center">Status</th>
+                                <th class="px-3 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Armada Kurang Titik</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach($sopAuditMatrix as $audit)
                                 <tr style="border-top: 1px solid #f0f4f9;" onmouseover="this.style.background='#fafcff'" onmouseout="this.style.background='transparent'">
-                                    <td class="px-4 py-3.5 text-center font-bold text-xs text-gray-500">
+                                    <td class="px-2.5 py-2.5 text-center font-bold text-xs text-gray-500">
                                         {{ $audit->urutan }}
                                     </td>
-                                    <td class="px-4 py-3.5">
-                                        <p class="text-xs font-bold text-gray-900">{{ $audit->nama_titik }}</p>
+                                    <td class="px-3 py-2.5">
+                                        <p class="text-xs font-bold text-gray-900 leading-tight">{{ $audit->nama_titik }}</p>
                                         @if($audit->deskripsi)
-                                            <p class="text-[10px] text-gray-400 max-w-md truncate">{{ $audit->deskripsi }}</p>
+                                            <p class="text-[10px] text-gray-400 max-w-md truncate leading-tight">{{ $audit->deskripsi }}</p>
                                         @endif
                                     </td>
-                                    <td class="px-4 py-3.5">
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold uppercase bg-gray-100 text-gray-600">
+                                    <td class="px-2.5 py-2.5">
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-gray-100 text-gray-600">
                                             {{ $audit->tipe_item }}
                                         </span>
                                     </td>
-                                    <td class="px-4 py-3.5">
+                                    <td class="px-3 py-2.5">
                                         <span class="text-xs font-bold text-gray-800">{{ $audit->covered_count }}</span>
                                         <span class="text-xs text-gray-400">/ {{ $summary->total_shipments }} Kontainer</span>
                                     </td>
-                                    <td class="px-4 py-3.5">
+                                    <td class="px-3 py-2.5">
                                         <div class="flex items-center gap-2">
                                             <div class="flex-1 bg-gray-100 h-2 rounded-full overflow-hidden">
                                                 <div class="h-2 rounded-full {{ $audit->percentage >= 95 ? 'bg-emerald-500' : ($audit->percentage >= 80 ? 'bg-amber-500' : 'bg-rose-500') }}"
@@ -639,22 +648,22 @@
                                             </span>
                                         </div>
                                     </td>
-                                    <td class="px-4 py-3.5 text-center">
+                                    <td class="px-2.5 py-2.5 text-center">
                                         @if($audit->percentage >= 95)
-                                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                                 <i class="ph-bold ph-check text-xs"></i> Sempurna
                                             </span>
                                         @elseif($audit->percentage >= 80)
-                                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
                                                 <i class="ph-bold ph-warning text-xs"></i> Baik
                                             </span>
                                         @else
-                                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
                                                 <i class="ph-bold ph-x text-xs"></i> Perhatian
                                             </span>
                                         @endif
                                     </td>
-                                    <td class="px-4 py-3.5">
+                                    <td class="px-3 py-2.5">
                                         @if($audit->missing_count === 0)
                                             <span class="text-[11px] text-emerald-600 font-bold">&check; Semua Lengkap</span>
                                         @else
@@ -691,43 +700,43 @@
                     <table class="w-full text-left whitespace-nowrap">
                         <thead style="background:#fafbfd;">
                             <tr>
-                                <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Petugas Lapangan</th>
-                                <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">NIK / No. Induk</th>
-                                <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-center">Total Ditangani</th>
-                                <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-center">Foto Lengkap (27/27)</th>
-                                <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider w-40">Rata-rata Kepatuhan</th>
-                                <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Produk (Fiber / Sodium)</th>
-                                <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Tipe (Export / Lokal)</th>
-                                <th class="px-5 py-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-center">Status Akun</th>
+                                <th class="px-3.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Petugas Lapangan</th>
+                                <th class="px-3 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">NIK / No. Induk</th>
+                                <th class="px-2.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-center">Total Ditangani</th>
+                                <th class="px-2.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-center">Foto Lengkap (27/27)</th>
+                                <th class="px-3 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider w-36">Rata-rata Kepatuhan</th>
+                                <th class="px-3 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Produk (Fiber / Sodium)</th>
+                                <th class="px-3 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Tipe (Export / Lokal)</th>
+                                <th class="px-2.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-center">Status Akun</th>
                             </tr>
                         </thead>
                         <tbody>
                             @forelse($petugasProductivity as $stat)
                                 <tr style="border-top: 1px solid #f0f4f9;" onmouseover="this.style.background='#fafcff'" onmouseout="this.style.background='transparent'">
-                                    <td class="px-5 py-4">
-                                        <div class="flex items-center gap-3">
-                                            <div class="w-9 h-9 rounded-xl bg-spv-blue text-white flex items-center justify-center font-bold text-xs">
+                                    <td class="px-3.5 py-2.5">
+                                        <div class="flex items-center gap-2.5">
+                                            <div class="w-7 h-7 rounded-lg bg-spv-blue text-white flex items-center justify-center font-bold text-xs shrink-0">
                                                 {{ strtoupper(substr($stat->petugas->nama, 0, 2)) }}
                                             </div>
                                             <div>
-                                                <p class="text-xs font-bold text-gray-900">{{ $stat->petugas->nama }}</p>
-                                                <p class="text-[10px] text-gray-400">Petugas Staging</p>
+                                                <p class="text-xs font-bold text-gray-900 leading-tight">{{ $stat->petugas->nama }}</p>
+                                                <p class="text-[10px] text-gray-400 leading-tight">Petugas Staging</p>
                                             </div>
                                         </div>
                                     </td>
-                                    <td class="px-5 py-4 font-mono text-xs text-gray-600">
+                                    <td class="px-3 py-2.5 font-mono text-xs text-gray-600">
                                         {{ $stat->petugas->nomor_induk }}
                                     </td>
-                                    <td class="px-5 py-4 text-center">
+                                    <td class="px-2.5 py-2.5 text-center">
                                         <span class="text-sm font-black text-gray-900">{{ $stat->total_handled }}</span>
                                         <span class="text-[10px] text-gray-400">Kontainer</span>
                                     </td>
-                                    <td class="px-5 py-4 text-center">
-                                        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    <td class="px-2.5 py-2.5 text-center">
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                             {{ $stat->complete_count }} Unit
                                         </span>
                                     </td>
-                                    <td class="px-5 py-4">
+                                    <td class="px-3 py-2.5">
                                         <div class="flex items-center gap-2">
                                             <div class="flex-1 bg-gray-100 h-2 rounded-full overflow-hidden">
                                                 <div class="bg-emerald-500 h-2 rounded-full" style="width: {{ $stat->avg_compliance }}%;"></div>
@@ -735,15 +744,15 @@
                                             <span class="text-xs font-black text-emerald-700">{{ $stat->avg_compliance }}%</span>
                                         </div>
                                     </td>
-                                    <td class="px-5 py-4">
+                                    <td class="px-3 py-2.5">
                                         <span class="text-xs text-gray-700">Fiber: <strong>{{ $stat->fiber_count }}</strong></span> &bull; 
                                         <span class="text-xs text-gray-700">Sodium: <strong>{{ $stat->sodium_count }}</strong></span>
                                     </td>
-                                    <td class="px-5 py-4">
+                                    <td class="px-3 py-2.5">
                                         <span class="text-xs text-gray-700">Export: <strong>{{ $stat->export_count }}</strong></span> &bull; 
                                         <span class="text-xs text-gray-700">Lokal: <strong>{{ $stat->lokal_count }}</strong></span>
                                     </td>
-                                    <td class="px-5 py-4 text-center">
+                                    <td class="px-2.5 py-2.5 text-center">
                                         @if($stat->petugas->status === 'aktif')
                                             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-green-50 text-green-700 border border-green-200">
                                                 Aktif

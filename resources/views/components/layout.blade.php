@@ -56,11 +56,50 @@
     
     <style>
         [x-cloak] { display: none !important; }
-        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #c8c5c0; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #c8c5c0; border-radius: 9999px; }
         ::-webkit-scrollbar-thumb:hover { background: #285491; }
-        
+
+        /* Sleek Modern Scrollbar for Table Overflow Containers */
+        .overflow-x-auto,
+        .table-scroll-container {
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e1 #f8fafc;
+            -webkit-overflow-scrolling: touch;
+        }
+        .overflow-x-auto::-webkit-scrollbar,
+        .table-scroll-container::-webkit-scrollbar {
+            height: 6px;
+            width: 6px;
+        }
+        .overflow-x-auto::-webkit-scrollbar-track,
+        .table-scroll-container::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 9999px;
+        }
+        .overflow-x-auto::-webkit-scrollbar-thumb,
+        .table-scroll-container::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 9999px;
+            transition: background 0.2s ease;
+        }
+        .overflow-x-auto::-webkit-scrollbar-thumb:hover,
+        .table-scroll-container::-webkit-scrollbar-thumb:hover {
+            background: #285491;
+        }
+
+        /* Drag to Scroll Cursor States */
+        .table-has-overflow {
+            cursor: grab;
+        }
+        .table-is-dragging,
+        .table-is-dragging * {
+            cursor: grabbing !important;
+            user-select: none !important;
+            -webkit-user-select: none !important;
+        }
+
         @keyframes fadeSlideIn {
             from { opacity: 0; transform: translateY(8px); }
             to { opacity: 1; transform: none; }
@@ -378,5 +417,114 @@
 
     </div>
 
+    <!-- Drag-to-Scroll Script for All Table Containers -->
+    <script>
+        (function() {
+            function setupDragToScroll() {
+                const containers = document.querySelectorAll('.overflow-x-auto, [data-table-scroll]');
+                
+                containers.forEach(container => {
+                    if (container._dragScrollBound) return;
+                    container._dragScrollBound = true;
+
+                    let isDown = false;
+                    let startX = 0;
+                    let scrollLeft = 0;
+                    let hasDragged = false;
+                    const dragThreshold = 5;
+
+                    function updateOverflowStatus() {
+                        const hasOverflow = container.scrollWidth > container.clientWidth + 2;
+                        if (hasOverflow) {
+                            container.classList.add('table-has-overflow');
+                        } else {
+                            container.classList.remove('table-has-overflow');
+                        }
+                    }
+
+                    updateOverflowStatus();
+
+                    if (window.ResizeObserver) {
+                        const ro = new ResizeObserver(() => updateOverflowStatus());
+                        ro.observe(container);
+                        if (container.firstElementChild) {
+                            ro.observe(container.firstElementChild);
+                        }
+                    }
+
+                    container.addEventListener('mousedown', (e) => {
+                        // Only left click
+                        if (e.button !== 0) return;
+
+                        // Don't drag if clicking directly into form inputs or text fields
+                        if (e.target.closest('input, textarea, select')) return;
+
+                        // Only allow dragging if there is horizontal overflow
+                        if (container.scrollWidth <= container.clientWidth + 2) return;
+
+                        isDown = true;
+                        hasDragged = false;
+                        startX = e.pageX;
+                        scrollLeft = container.scrollLeft;
+                    });
+
+                    window.addEventListener('mousemove', (e) => {
+                        if (!isDown) return;
+
+                        const dx = e.pageX - startX;
+
+                        if (!hasDragged && Math.abs(dx) > dragThreshold) {
+                            hasDragged = true;
+                            container.classList.add('table-is-dragging');
+                            document.body.classList.add('table-is-dragging');
+                        }
+
+                        if (hasDragged) {
+                            e.preventDefault();
+                            container.scrollLeft = scrollLeft - dx;
+                        }
+                    });
+
+                    function handleDragEnd() {
+                        if (!isDown) return;
+                        isDown = false;
+
+                        if (hasDragged) {
+                            // Suppress accidental click events triggered after dragging
+                            const stopClick = (clickEvent) => {
+                                clickEvent.preventDefault();
+                                clickEvent.stopPropagation();
+                                window.removeEventListener('click', stopClick, true);
+                            };
+                            window.addEventListener('click', stopClick, true);
+                            setTimeout(() => {
+                                window.removeEventListener('click', stopClick, true);
+                            }, 50);
+
+                            container.classList.remove('table-is-dragging');
+                            document.body.classList.remove('table-is-dragging');
+                        }
+                        hasDragged = false;
+                    }
+
+                    window.addEventListener('mouseup', handleDragEnd);
+                });
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', setupDragToScroll);
+            } else {
+                setupDragToScroll();
+            }
+
+            // Re-run setup when Alpine or dynamic DOM updates happen
+            document.addEventListener('alpine:initialized', () => setTimeout(setupDragToScroll, 200));
+            window.addEventListener('resize', setupDragToScroll);
+            
+            // Watch for DOM changes (like tab changes)
+            const observer = new MutationObserver(() => setupDragToScroll());
+            observer.observe(document.body, { childList: true, subtree: true });
+        })();
+    </script>
 </body>
 </html>

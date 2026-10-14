@@ -119,11 +119,11 @@
                 <table class="w-full text-left text-xs text-gray-600">
                     <thead class="bg-gray-50 text-[11px] font-bold uppercase tracking-wider text-gray-400" style="border-bottom: 1px solid #f0f4f9;">
                         <tr>
-                            <th scope="col" class="py-3.5 px-5">Pengguna & Akun</th>
-                            <th scope="col" class="py-3.5 px-5">Role Akses</th>
-                            <th scope="col" class="py-3.5 px-5 text-center">Staging Terkait</th>
-                            <th scope="col" class="py-3.5 px-5">Terdaftar Pada</th>
-                            <th scope="col" class="py-3.5 px-5 text-right">Aksi</th>
+                            <th scope="col" class="py-2.5 px-3.5">Pengguna & Akun</th>
+                            <th scope="col" class="py-2.5 px-3">Role Akses</th>
+                            <th scope="col" class="py-2.5 px-2.5 text-center">Staging Terkait</th>
+                            <th scope="col" class="py-2.5 px-3">Terdaftar Pada</th>
+                            <th scope="col" class="py-2.5 px-3.5 text-right">Aksi</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
@@ -139,15 +139,15 @@
                             @endphp
                             <tr class="hover:bg-blue-50/30 transition-colors">
                                 <!-- Pengguna & Akun -->
-                                <td class="py-3.5 px-5">
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs shrink-0"
+                                <td class="py-2.5 px-3.5">
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0"
                                              style="background: {{ $user->role === 'superadmin' ? 'linear-gradient(135deg, #7c3aed, #a855f7)' : ($user->role === 'admin' ? 'linear-gradient(135deg, #285491, #3568b0)' : 'linear-gradient(135deg, #059e3d, #63c384)') }}; color: white;">
                                             {{ $initials }}
                                         </div>
                                         <div>
                                             <p class="font-bold text-gray-900 leading-tight">{{ $user->nama_warehouse }}</p>
-                                            <p class="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1.5 font-mono">
+                                            <p class="text-[10px] text-gray-500 mt-0.5 flex items-center gap-1.5 font-mono leading-tight">
                                                 <span class="text-spv-blue font-semibold">&#64;{{ $user->username ?? 'user' }}</span>
                                                 <span class="text-gray-300">&bull;</span>
                                                 <span>{{ $user->email }}</span>
@@ -157,8 +157,8 @@
                                 </td>
 
                                 <!-- Role Akses -->
-                                <td class="py-3.5 px-5 whitespace-nowrap">
-                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border {{ $roleBadgeColor }}">
+                                <td class="py-2.5 px-3 whitespace-nowrap">
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border {{ $roleBadgeColor }}">
                                         @if($user->role === 'superadmin')
                                             <i class="ph-fill ph-crown text-xs"></i>
                                         @elseif($user->role === 'admin')
@@ -171,32 +171,32 @@
                                 </td>
 
                                 <!-- Staging Terkait -->
-                                <td class="py-3.5 px-5 text-center whitespace-nowrap">
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-lg bg-gray-100 text-gray-700 text-xs font-semibold">
+                                <td class="py-2.5 px-2.5 text-center whitespace-nowrap">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-md bg-gray-100 text-gray-700 text-xs font-semibold">
                                         {{ $user->shipments_count ?? 0 }} Shipment
                                     </span>
                                 </td>
 
                                 <!-- Terdaftar Pada -->
-                                <td class="py-3.5 px-5 whitespace-nowrap text-gray-500">
+                                <td class="py-2.5 px-3 whitespace-nowrap text-gray-500 text-[11px]">
                                     {{ $user->created_at ? $user->created_at->locale('id')->isoFormat('D MMM YYYY, HH:mm') : '-' }}
                                 </td>
 
                                 <!-- Aksi -->
-                                <td class="py-3.5 px-5 text-right whitespace-nowrap">
-                                    <div class="flex items-center justify-end gap-1.5">
+                                <td class="py-2.5 px-3.5 text-right whitespace-nowrap">
+                                    <div class="flex items-center justify-end gap-1">
                                         <button type="button"
                                                 @click="openEdit('{{ $user->id }}', '{{ addslashes($user->nama_warehouse) }}', '{{ addslashes($user->email) }}', '{{ $user->role }}', '{{ route('settings.users.update', $user) }}')"
-                                                class="p-2 rounded-xl text-gray-500 hover:text-spv-blue hover:bg-blue-50 transition-all"
+                                                class="p-1 rounded-lg text-gray-500 hover:text-spv-blue hover:bg-blue-50 transition-all"
                                                 title="Edit Pengguna">
-                                            <i class="ph-bold ph-pencil-simple text-base"></i>
+                                            <i class="ph-bold ph-pencil-simple text-sm"></i>
                                         </button>
 
                                         <button type="button"
                                                 @click="openDelete('{{ $user->id }}', '{{ addslashes($user->nama_warehouse) }}', '{{ addslashes($user->email) }}', '{{ $user->role }}', '{{ route('settings.users.destroy', $user) }}')"
-                                                class="p-2 rounded-xl text-gray-500 hover:text-rose-600 hover:bg-rose-50 transition-all"
+                                                class="p-1 rounded-lg text-gray-500 hover:text-rose-600 hover:bg-rose-50 transition-all"
                                                 title="Hapus Pengguna">
-                                            <i class="ph-bold ph-trash text-base"></i>
+                                            <i class="ph-bold ph-trash text-sm"></i>
                                         </button>
                                     </div>
                                 </td>

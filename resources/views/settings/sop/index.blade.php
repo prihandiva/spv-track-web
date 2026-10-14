@@ -164,20 +164,20 @@
                 <table class="w-full text-left text-xs text-gray-600">
                     <thead class="bg-gray-50 text-[11px] font-bold uppercase tracking-wider text-gray-400" style="border-bottom: 1px solid #f0f4f9;">
                         <tr>
-                            <th scope="col" class="py-3.5 px-4 text-center w-20">Urutan</th>
-                            <th scope="col" class="py-3.5 px-5">Nama Titik & Petunjuk Petugas</th>
-                            <th scope="col" class="py-3.5 px-4">Tipe Media</th>
-                            <th scope="col" class="py-3.5 px-4">Target Kargo</th>
-                            <th scope="col" class="py-3.5 px-4 text-center">Status Wajib</th>
-                            <th scope="col" class="py-3.5 px-5 text-center">Validasi & AI Trigger</th>
-                            <th scope="col" class="py-3.5 px-4 text-right">Aksi</th>
+                            <th scope="col" class="py-2.5 px-3 text-center w-16">Urutan</th>
+                            <th scope="col" class="py-2.5 px-3.5">Nama Titik & Petunjuk Petugas</th>
+                            <th scope="col" class="py-2.5 px-3">Tipe Media</th>
+                            <th scope="col" class="py-2.5 px-3">Target Kargo</th>
+                            <th scope="col" class="py-2.5 px-2.5 text-center">Status Wajib</th>
+                            <th scope="col" class="py-2.5 px-3 text-center">Validasi & AI Trigger</th>
+                            <th scope="col" class="py-2.5 px-3 text-right">Aksi</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
                         @forelse($points as $point)
                             <tr class="hover:bg-blue-50/20 transition-colors">
                                 <!-- Urutan with Reorder Buttons -->
-                                <td class="py-3.5 px-4 text-center whitespace-nowrap">
+                                <td class="py-2.5 px-3 text-center whitespace-nowrap">
                                     <div class="flex items-center justify-center gap-1">
                                         <div class="flex flex-col gap-0.5">
                                             <form action="{{ route('settings.sop.move', $point) }}" method="POST">
@@ -197,36 +197,36 @@
                                                 </button>
                                             </form>
                                         </div>
-                                        <span class="w-7 h-7 rounded-lg bg-gray-100 text-gray-800 font-extrabold text-xs flex items-center justify-center shadow-xs">
+                                        <span class="w-6 h-6 rounded-md bg-gray-100 text-gray-800 font-extrabold text-[11px] flex items-center justify-center shadow-xs">
                                             #{{ $point->urutan }}
                                         </span>
                                     </div>
                                 </td>
 
                                 <!-- Nama Titik & Deskripsi -->
-                                <td class="py-3.5 px-5">
+                                <td class="py-2.5 px-3.5">
                                     <p class="font-bold text-gray-900 leading-snug">{{ $point->nama_titik }}</p>
                                     @if($point->deskripsi)
-                                        <p class="text-[11px] text-gray-500 mt-0.5 line-clamp-2">{{ $point->deskripsi }}</p>
+                                        <p class="text-[10px] text-gray-500 mt-0.5 line-clamp-2 leading-tight">{{ $point->deskripsi }}</p>
                                     @else
-                                        <p class="text-[11px] text-gray-400 italic mt-0.5">Tidak ada deskripsi tambahan</p>
+                                        <p class="text-[10px] text-gray-400 italic mt-0.5 leading-tight">Tidak ada deskripsi tambahan</p>
                                     @endif
                                 </td>
 
                                 <!-- Tipe Media -->
-                                <td class="py-3.5 px-4 whitespace-nowrap">
+                                <td class="py-2.5 px-3 whitespace-nowrap">
                                     @if($point->tipe_item === 'foto')
-                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-spv-blue border border-blue-200">
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-spv-blue border border-blue-200">
                                             <i class="ph-bold ph-camera text-xs"></i>
                                             Foto
                                         </span>
                                     @elseif($point->tipe_item === 'dokumen')
-                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                             <i class="ph-bold ph-file-text text-xs"></i>
                                             Dokumen
                                         </span>
                                     @else
-                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
                                             <i class="ph-bold ph-video-camera text-xs"></i>
                                             Video
                                         </span>
@@ -234,20 +234,20 @@
                                 </td>
 
                                 <!-- Target Kargo -->
-                                <td class="py-3.5 px-4 whitespace-nowrap">
-                                    <span class="text-[11px] font-semibold text-gray-600 uppercase">
+                                <td class="py-2.5 px-3 whitespace-nowrap">
+                                    <span class="text-[10px] font-semibold text-gray-600 uppercase">
                                         {{ $point->jenis_pengiriman === 'both' ? 'Export & Lokal' : ucfirst($point->jenis_pengiriman) }}
                                     </span>
                                 </td>
 
                                 <!-- Status Wajib (Quick Toggle) -->
-                                <td class="py-3.5 px-4 text-center whitespace-nowrap">
+                                <td class="py-2.5 px-2.5 text-center whitespace-nowrap">
                                     <form action="{{ route('settings.sop.toggle', $point) }}" method="POST" class="inline-block">
                                         @csrf
                                         @method('PATCH')
                                         <input type="hidden" name="field" value="wajib">
                                         <button type="submit"
-                                                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all {{ $point->wajib ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200' }}"
+                                                class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all {{ $point->wajib ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100' : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200' }}"
                                                 title="Klik untuk ubah status wajib">
                                             <i class="ph-bold {{ $point->wajib ? 'ph-check' : 'ph-minus' }} text-xs"></i>
                                             {{ $point->wajib ? 'Wajib' : 'Opsional' }}
@@ -256,15 +256,15 @@
                                 </td>
 
                                 <!-- Validasi & AI Trigger -->
-                                <td class="py-3.5 px-5 text-center whitespace-nowrap">
-                                    <div class="flex items-center justify-center gap-1.5">
+                                <td class="py-2.5 px-3 text-center whitespace-nowrap">
+                                    <div class="flex items-center justify-center gap-1">
                                         <!-- OCR Container -->
                                         <form action="{{ route('settings.sop.toggle', $point) }}" method="POST" class="inline">
                                             @csrf
                                             @method('PATCH')
                                             <input type="hidden" name="field" value="perlu_ocr_container">
                                             <button type="submit"
-                                                    class="px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all {{ $point->perlu_ocr_container ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-gray-50 text-gray-400 border-gray-200 opacity-40 hover:opacity-100' }}"
+                                                    class="px-1.5 py-0.5 rounded-md text-[10px] font-bold border transition-all {{ $point->perlu_ocr_container ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-gray-50 text-gray-400 border-gray-200 opacity-40 hover:opacity-100' }}"
                                                     title="OCR No. Container: Klik untuk toggle">
                                                 OCR
                                             </button>
@@ -276,7 +276,7 @@
                                             @method('PATCH')
                                             <input type="hidden" name="field" value="perlu_deteksi_orang">
                                             <button type="submit"
-                                                    class="px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all {{ $point->perlu_deteksi_orang ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-gray-50 text-gray-400 border-gray-200 opacity-40 hover:opacity-100' }}"
+                                                    class="px-1.5 py-0.5 rounded-md text-[10px] font-bold border transition-all {{ $point->perlu_deteksi_orang ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-gray-50 text-gray-400 border-gray-200 opacity-40 hover:opacity-100' }}"
                                                     title="Deteksi Orang (YOLOv8): Klik untuk toggle">
                                                 Orang
                                             </button>
@@ -288,7 +288,7 @@
                                             @method('PATCH')
                                             <input type="hidden" name="field" value="perlu_deteksi_barcode">
                                             <button type="submit"
-                                                    class="px-2 py-0.5 rounded-lg text-[10px] font-bold border transition-all {{ $point->perlu_deteksi_barcode ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-gray-50 text-gray-400 border-gray-200 opacity-40 hover:opacity-100' }}"
+                                                    class="px-1.5 py-0.5 rounded-md text-[10px] font-bold border transition-all {{ $point->perlu_deteksi_barcode ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-gray-50 text-gray-400 border-gray-200 opacity-40 hover:opacity-100' }}"
                                                     title="Deteksi Barcode: Klik untuk toggle">
                                                 Barcode
                                             </button>
@@ -297,20 +297,20 @@
                                 </td>
 
                                 <!-- Aksi -->
-                                <td class="py-3.5 px-4 text-right whitespace-nowrap">
-                                    <div class="flex items-center justify-end gap-1.5">
+                                <td class="py-2.5 px-3 text-right whitespace-nowrap">
+                                    <div class="flex items-center justify-end gap-1">
                                         <button type="button"
                                                 @click="openEdit({{ json_encode($point) }}, '{{ route('settings.sop.update', $point) }}')"
-                                                class="p-2 rounded-xl text-gray-500 hover:text-spv-blue hover:bg-blue-50 transition-all"
+                                                class="p-1 rounded-lg text-gray-500 hover:text-spv-blue hover:bg-blue-50 transition-all"
                                                 title="Edit Titik SOP">
-                                            <i class="ph-bold ph-pencil-simple text-base"></i>
+                                            <i class="ph-bold ph-pencil-simple text-sm"></i>
                                         </button>
 
                                         <button type="button"
                                                 @click="openDelete('{{ $point->id }}', '{{ $point->urutan }}', '{{ addslashes($point->nama_titik) }}', {{ $point->evidence_items_count ?? 0 }}, '{{ route('settings.sop.destroy', $point) }}')"
-                                                class="p-2 rounded-xl text-gray-500 hover:text-rose-600 hover:bg-rose-50 transition-all"
+                                                class="p-1 rounded-lg text-gray-500 hover:text-rose-600 hover:bg-rose-50 transition-all"
                                                 title="Hapus Titik SOP">
-                                            <i class="ph-bold ph-trash text-base"></i>
+                                            <i class="ph-bold ph-trash text-sm"></i>
                                         </button>
                                     </div>
                                 </td>
