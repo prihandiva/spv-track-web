@@ -13,14 +13,14 @@
 @if($variant === 'dark')
     <!-- Dark / Gradient Header Variant -->
     <div x-data="serverClockComponent({{ $initialTimestampMs }})"
-         class="inline-flex items-center gap-2 sm:gap-2.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 backdrop-blur-sm transition-all duration-200 text-white select-none shadow-xs"
+         class="inline-flex items-center gap-1.5 sm:gap-2.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 backdrop-blur-sm transition-all duration-200 text-white select-none shadow-xs"
          title="Waktu Server PT. South Pacific Viscose (WIB - Asia/Jakarta)">
         <div class="flex items-center gap-1.5 shrink-0">
             <span class="relative flex h-2 w-2" title="Server Aktif">
                 <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
             </span>
-            <i class="ph-fill ph-clock text-emerald-300 text-sm"></i>
+            <i class="ph-fill ph-clock text-emerald-300 text-xs sm:text-sm"></i>
         </div>
         <div class="flex items-center gap-1 sm:gap-2 leading-tight">
             <span class="hidden md:inline font-medium text-white/90 text-[10px] sm:text-xs whitespace-nowrap" x-text="dateStr">
@@ -31,7 +31,7 @@
                 <span class="font-mono font-bold text-white text-xs sm:text-[13px] tracking-tight tabular-nums" x-text="timeStr">
                     {{ $initialTimeFormatted }}
                 </span>
-                <span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/30 text-emerald-200 border border-emerald-400/40 tracking-wider leading-none">
+                <span class="hidden sm:inline-flex text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/30 text-emerald-200 border border-emerald-400/40 tracking-wider leading-none">
                     WIB
                 </span>
             </div>
@@ -40,7 +40,7 @@
 @else
     <!-- Light / White Header Variant (Default) -->
     <div x-data="serverClockComponent({{ $initialTimestampMs }})"
-         class="inline-flex items-center gap-2 sm:gap-3 px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-xl bg-gradient-to-r from-slate-50 via-white to-blue-50/30 border border-slate-200/90 shadow-[0_1px_3px_rgba(40,84,145,0.06)] hover:border-spv-blue/40 transition-all duration-200 select-none group"
+         class="inline-flex items-center gap-1.5 sm:gap-3 px-2 sm:px-3.5 py-1 sm:py-1.5 rounded-xl bg-gradient-to-r from-slate-50 via-white to-blue-50/30 border border-slate-200/90 shadow-[0_1px_3px_rgba(40,84,145,0.06)] hover:border-spv-blue/40 transition-all duration-200 select-none group"
          title="Waktu Server PT. South Pacific Viscose (Waktu Indonesia Barat - Asia/Jakarta)">
         <!-- Live Server Pulse & Clock Icon -->
         <div class="flex items-center gap-1.5 shrink-0">
@@ -48,7 +48,7 @@
                 <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            <i class="ph-fill ph-clock text-spv-blue text-sm sm:text-base transition-transform group-hover:rotate-12 duration-300"></i>
+            <i class="ph-fill ph-clock text-spv-blue text-xs sm:text-base transition-transform group-hover:rotate-12 duration-300"></i>
         </div>
 
         <!-- Date & Running Clock -->
@@ -67,7 +67,7 @@
                       x-text="timeStr">
                     {{ $initialTimeFormatted }}
                 </span>
-                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100/80 text-emerald-800 border border-emerald-300/70 leading-none tracking-wider shadow-2xs">
+                <span class="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100/80 text-emerald-800 border border-emerald-300/70 leading-none tracking-wider shadow-2xs">
                     WIB
                 </span>
             </div>

@@ -1,23 +1,23 @@
 <x-layout :title="'Daftar Shipments'">
 <div x-data="batchZipDownloadManager()">
     <!-- Header Section Card -->
-    <div class="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 lg:p-6 border border-gray-100 shadow-[0_1px_6px_rgba(40,84,145,0.05)] mb-6">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div class="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-5 lg:p-6 border border-gray-100 shadow-[0_1px_6px_rgba(40,84,145,0.05)] mb-4 sm:mb-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4">
             <div>
-                <h1 class="text-xl font-bold text-gray-800">Daftar Shipments</h1>
-                <p class="text-xs text-gray-500 mt-1">Kelola dan pantau semua shipment dari lapangan.</p>
+                <h1 class="text-lg sm:text-xl font-bold text-gray-800">Daftar Shipments</h1>
+                <p class="text-xs text-gray-500 mt-0.5 sm:mt-1">Kelola dan pantau semua shipment dari lapangan.</p>
             </div>
-            <div class="flex items-center gap-2.5 flex-wrap w-full sm:w-auto">
+            <div class="flex flex-col-reverse sm:flex-row sm:items-center gap-2 sm:gap-2.5 w-full sm:w-auto">
                 @if(auth()->user()?->canDownloadReports())
                 <button type="button"
                         @click="openModal()"
-                        class="flex items-center justify-center gap-2 bg-white hover:bg-emerald-50 text-emerald-700 hover:text-emerald-800 border border-emerald-200 hover:border-emerald-300 text-xs font-bold px-4 py-2.5 rounded-xl shadow-[0_2px_8px_rgba(5,158,61,0.08)] hover:-translate-y-0.5 transition-all group flex-1 sm:flex-none">
+                        class="flex items-center justify-center gap-2 bg-white hover:bg-emerald-50 text-emerald-700 hover:text-emerald-800 border border-emerald-200 hover:border-emerald-300 text-xs font-bold px-4 py-2.5 rounded-xl shadow-[0_2px_8px_rgba(5,158,61,0.08)] hover:-translate-y-0.5 transition-all group w-full sm:w-auto">
                     <i class="ph-bold ph-file-zip text-base text-emerald-600 group-hover:scale-110 transition-transform"></i>
                     <span>Download Batch ZIP</span>
                 </button>
                 @else
                 <button type="button" disabled
-                        class="flex items-center justify-center gap-2 bg-gray-100 text-gray-400 border border-gray-200 text-xs font-bold px-4 py-2.5 rounded-xl cursor-not-allowed opacity-60 flex-1 sm:flex-none select-none"
+                        class="flex items-center justify-center gap-2 bg-gray-100 text-gray-400 border border-gray-200 text-xs font-bold px-4 py-2.5 rounded-xl cursor-not-allowed opacity-60 w-full sm:w-auto select-none"
                         title="Download Batch ZIP hanya tersedia untuk role Admin dan Superadmin.">
                     <i class="ph-bold ph-file-zip text-base"></i>
                     <span>Download Batch ZIP</span>
@@ -26,13 +26,13 @@
 
                 @if(auth()->user()?->canCreateShipment())
                 <a href="{{ route('field-app.create') }}" target="_blank"
-                   class="flex items-center justify-center gap-2 bg-spv-blue hover:bg-blue-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-[0_4px_12px_rgba(40,84,145,0.25)] hover:-translate-y-0.5 transition-all flex-1 sm:flex-none">
+                   class="flex items-center justify-center gap-2 bg-spv-blue hover:bg-blue-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-[0_4px_12px_rgba(40,84,145,0.25)] hover:-translate-y-0.5 transition-all w-full sm:w-auto">
                     <i class="ph-bold ph-plus text-sm"></i>
-                    Buat Shipment
+                    <span>Buat Shipment</span>
                 </a>
                 @else
                 <button type="button" disabled
-                        class="flex items-center justify-center gap-2 bg-gray-200 text-gray-400 border border-gray-300 text-xs font-bold px-4 py-2.5 rounded-xl cursor-not-allowed opacity-60 flex-1 sm:flex-none select-none"
+                        class="flex items-center justify-center gap-2 bg-gray-200 text-gray-400 border border-gray-300 text-xs font-bold px-4 py-2.5 rounded-xl cursor-not-allowed opacity-60 w-full sm:w-auto select-none"
                         title="Hanya akun Operator dan Superadmin yang dapat membuat shipment baru.">
                     <i class="ph-bold ph-lock-key text-sm text-gray-400"></i>
                     <span>Buat Shipment</span>
@@ -48,37 +48,48 @@
             $exportDraftCount = $activeStagingShipments->where('jenis_pengiriman', 'export')->count();
             $lokalDraftCount = $activeStagingShipments->where('jenis_pengiriman', 'lokal')->count();
         @endphp
-        <div class="bg-white rounded-2xl sm:rounded-3xl border border-rose-100 shadow-[0_4px_24px_rgba(225,29,72,0.06)] p-4 sm:p-5 lg:p-6 mb-6 relative overflow-hidden"
+        <div class="bg-white rounded-2xl sm:rounded-3xl border border-rose-100 shadow-[0_4px_24px_rgba(225,29,72,0.06)] p-3.5 sm:p-5 lg:p-6 mb-4 sm:mb-6 relative overflow-hidden"
              x-data="{ showCards: true }">
             
             <!-- Ambient Background Glow -->
             <div class="absolute -top-10 -right-10 w-44 h-44 bg-rose-50 rounded-full blur-3xl pointer-events-none opacity-70"></div>
             
             <!-- Section Header -->
-            <div class="flex flex-col md:flex-row md:items-center justify-between gap-3.5 relative z-10">
-                <div class="flex items-start sm:items-center gap-3">
-                    <!-- Red Blinking LIVE Badge -->
-                    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-rose-50 border border-rose-200/90 shadow-xs shrink-0">
-                        <span class="relative flex h-2.5 w-2.5">
-                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-75"></span>
-                            <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-600"></span>
-                        </span>
-                        <span class="text-[11px] font-black tracking-wider text-rose-600 uppercase">LIVE STAGING</span>
-                    </div>
+            <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <!-- Header Info (Left) -->
+                <div>
+                    <!-- Mobile Top Row: Live badge + Unit Count + Mobile Toggle -->
+                    <div class="flex items-center justify-between gap-2 mb-2 sm:mb-1.5">
+                        <div class="flex items-center gap-2">
+                            <!-- Red Blinking LIVE Badge -->
+                            <div class="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full bg-rose-50 border border-rose-200/90 shadow-2xs shrink-0">
+                                <span class="relative flex h-2 sm:h-2.5 w-2 sm:w-2.5">
+                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-500 opacity-75"></span>
+                                    <span class="relative inline-flex rounded-full h-2 sm:h-2.5 w-2 sm:w-2.5 bg-rose-600"></span>
+                                </span>
+                                <span class="text-[10px] sm:text-[11px] font-black tracking-wider text-rose-600 uppercase">LIVE STAGING</span>
+                            </div>
 
-                    <div>
-                        <div class="flex items-center gap-2 flex-wrap">
-                            <h2 class="text-base sm:text-lg font-bold text-gray-800">Staging Sedang Berlangsung</h2>
-                            <span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700">
+                            <span class="text-[10px] sm:text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 whitespace-nowrap">
                                 {{ $activeStagingShipments->count() }} Unit Aktif
                             </span>
                         </div>
-                        <p class="text-xs text-gray-500 mt-0.5">Armada aktif yang sedang dalam proses loading, inspeksi, dan upload bukti SOP 27 titik di warehouse.</p>
+
+                        <!-- Mobile-only Collapse Button -->
+                        <button type="button" 
+                                @click="showCards = !showCards"
+                                class="md:hidden p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors shrink-0"
+                                :title="showCards ? 'Sembunyikan Kartu Staging' : 'Tampilkan Kartu Staging'">
+                            <i class="ph-bold text-base transition-transform duration-200" :class="showCards ? 'ph-caret-up' : 'ph-caret-down'"></i>
+                        </button>
                     </div>
+
+                    <h2 class="text-base sm:text-lg font-bold text-gray-800 leading-snug">Staging Sedang Berlangsung</h2>
+                    <p class="text-xs text-gray-500 mt-0.5 leading-relaxed">Armada aktif yang sedang dalam proses loading, inspeksi, dan upload bukti SOP 27 titik di warehouse.</p>
                 </div>
 
                 <!-- Right Side Summary & Quick Controls -->
-                <div class="flex items-center gap-2.5 flex-wrap self-end md:self-center">
+                <div class="flex items-center justify-between md:justify-end gap-2.5 flex-wrap pt-2 md:pt-0 border-t border-rose-100/60 md:border-0">
                     <div class="hidden sm:flex items-center gap-2 text-xs text-gray-600 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-xl">
                         <span class="font-semibold text-purple-700 flex items-center gap-1">
                             <i class="ph-fill ph-shipping-container"></i> {{ $exportDraftCount }} Export
@@ -90,15 +101,16 @@
                     </div>
 
                     <a href="{{ route('shipments.index', ['status' => 'draft']) }}" 
-                       class="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition-colors"
+                       class="inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition-colors w-full sm:w-auto"
                        title="Saring tabel master di bawah hanya menampilkan armada draft">
                         <i class="ph-bold ph-funnel"></i>
                         <span>Filter Draft di Tabel</span>
                     </a>
 
+                    <!-- Desktop Collapse Button -->
                     <button type="button" 
                             @click="showCards = !showCards"
-                            class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+                            class="hidden md:inline-flex p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors shrink-0"
                             :title="showCards ? 'Sembunyikan Kartu Staging' : 'Tampilkan Kartu Staging'">
                         <i class="ph-bold text-base transition-transform duration-200" :class="showCards ? 'ph-caret-up' : 'ph-caret-down'"></i>
                     </button>
@@ -106,8 +118,8 @@
             </div>
 
             <!-- Horizontal Cards Reel -->
-            <div x-show="showCards" x-transition.opacity.duration.200ms class="mt-4 pt-3.5 border-t border-rose-100/60">
-                <div class="overflow-x-auto pb-2 -mx-1 px-1 flex gap-3.5 scrollbar-thin">
+            <div x-show="showCards" x-transition.opacity.duration.200ms class="mt-3.5 pt-3.5 border-t border-rose-100/60">
+                <div class="overflow-x-auto pb-2 -mx-3.5 px-3.5 sm:mx-0 sm:px-0 flex gap-3 sm:gap-3.5 scrollbar-thin snap-x snap-mandatory">
                     @foreach($activeStagingShipments as $staging)
                         @php
                             $evidenceDone = $staging->evidenceItems->count();
@@ -117,19 +129,19 @@
                             $extraCount = count($officers) > 1 ? count($officers) - 1 : 0;
                             $identifier = $staging->packing_list_no ?: ($staging->nomor_container_atau_plat ?? 'SPV-' . $staging->id);
                         @endphp
-                        <div class="min-w-[275px] max-w-[295px] flex-shrink-0 bg-white rounded-2xl border border-gray-200/80 p-3.5 hover:shadow-md hover:border-spv-blue/40 transition-all flex flex-col justify-between group">
+                        <div class="w-[82vw] max-w-[280px] sm:w-[285px] sm:min-w-[285px] shrink-0 snap-start bg-white rounded-2xl border border-gray-200/80 p-3.5 hover:shadow-md hover:border-spv-blue/40 transition-all flex flex-col justify-between group">
                             <div>
                                 <!-- Card Header -->
                                 <div class="flex items-start justify-between gap-2 mb-2">
-                                    <div class="flex items-center gap-2.5">
+                                    <div class="flex items-center gap-2.5 min-w-0">
                                         <div class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 {{ $staging->jenis_pengiriman === 'export' ? 'bg-purple-50 text-purple-700' : 'bg-blue-50 text-blue-700' }}">
                                             <i class="ph-fill {{ $staging->jenis_pengiriman === 'export' ? 'ph-shipping-container' : 'ph-truck' }} text-base"></i>
                                         </div>
                                         <div class="min-w-0">
-                                            <a href="{{ route('shipments.show', $staging->id) }}" class="text-xs font-bold text-gray-800 hover:text-spv-blue transition-colors truncate block max-w-[150px]" title="{{ $identifier }}">
+                                            <a href="{{ route('shipments.show', $staging->id) }}" class="text-xs font-bold text-gray-800 hover:text-spv-blue transition-colors truncate block max-w-[140px] sm:max-w-[150px]" title="{{ $identifier }}">
                                                 {{ $identifier }}
                                             </a>
-                                            <span class="text-[10px] text-gray-400 capitalize block leading-tight">
+                                            <span class="text-[10px] text-gray-400 capitalize block leading-tight truncate">
                                                 {{ $staging->jenis_produk }} &bull; {{ $staging->jenis_pengiriman }}
                                             </span>
                                         </div>
@@ -144,13 +156,13 @@
                                 <div class="space-y-1.5 py-2 my-1 border-y border-gray-100 text-[11px] text-gray-600">
                                     <div class="flex items-center justify-between gap-2">
                                         <span class="text-gray-400 shrink-0">Plat / Sopir:</span>
-                                        <span class="font-medium text-gray-700 text-right truncate max-w-[160px]" title="{{ $staging->plat_nomor ?? '-' }} ({{ $staging->nama_sopir ?? '-' }})">
+                                        <span class="font-medium text-gray-700 text-right truncate max-w-[150px]" title="{{ $staging->plat_nomor ?? '-' }} ({{ $staging->nama_sopir ?? '-' }})">
                                             {{ $staging->plat_nomor ?? '-' }} &bull; {{ $staging->nama_sopir ?? '-' }}
                                         </span>
                                     </div>
                                     <div class="flex items-center justify-between gap-2">
                                         <span class="text-gray-400 shrink-0">Lokasi &amp; Shift:</span>
-                                        <span class="font-medium text-gray-700 capitalize text-right truncate max-w-[160px]">
+                                        <span class="font-medium text-gray-700 capitalize text-right truncate max-w-[150px]">
                                             {{ $staging->warehouse_lokasi ? 'Gudang ' . ucfirst($staging->warehouse_lokasi) : 'Gudang Atas' }} &bull; {{ ucfirst($staging->waktu ?? 'Siang') }}
                                         </span>
                                     </div>
@@ -179,17 +191,17 @@
                             <!-- Action Buttons -->
                             <div class="flex items-center gap-1.5 mt-3 pt-2.5 border-t border-gray-100">
                                 <a href="{{ route('field-app.timeline', $staging->id) }}" target="_blank"
-                                   class="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-xl text-xs font-bold text-white bg-spv-blue hover:bg-blue-800 shadow-sm transition-all text-center">
+                                   class="flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold text-white bg-spv-blue hover:bg-blue-800 shadow-sm transition-all text-center">
                                     <i class="ph-bold ph-camera text-sm"></i>
                                     <span>Ambil Foto</span>
                                 </a>
                                 <a href="{{ route('field-app.edit', $staging->id) }}"
-                                   class="p-1.5 rounded-xl border border-gray-200 text-gray-600 hover:text-spv-blue hover:bg-blue-50 transition-colors"
+                                   class="w-8 h-8 rounded-xl border border-gray-200 text-gray-600 hover:text-spv-blue hover:bg-blue-50 transition-colors flex items-center justify-center shrink-0"
                                    title="Edit Data Staging">
                                     <i class="ph-bold ph-pencil-simple text-sm"></i>
                                 </a>
                                 <a href="{{ route('shipments.show', $staging->id) }}"
-                                   class="p-1.5 rounded-xl border border-gray-200 text-gray-600 hover:text-spv-blue hover:bg-blue-50 transition-colors"
+                                   class="w-8 h-8 rounded-xl border border-gray-200 text-gray-600 hover:text-spv-blue hover:bg-blue-50 transition-colors flex items-center justify-center shrink-0"
                                    title="Lihat Detail">
                                     <i class="ph-bold ph-eye text-sm"></i>
                                 </a>
@@ -205,24 +217,24 @@
     <div class="bg-white rounded-2xl shadow-[0_1px_6px_rgba(40,84,145,0.05)] border border-gray-100 overflow-hidden">
         
         <!-- Toolbar & Search -->
-        <form method="GET" action="{{ route('shipments.index') }}" class="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4" style="border-bottom: 1px solid #f0f4f9;">
+        <form method="GET" action="{{ route('shipments.index') }}" class="p-3.5 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4" style="border-bottom: 1px solid #f0f4f9;">
             <div class="relative w-full md:w-80">
                 <i class="ph-bold ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
-                <input type="text" name="search" value="{{ request('search') }}" placeholder="Cari No. Packing List / Plat / Container / Sopir..." 
+                <input type="text" name="search" value="{{ request('search') }}" placeholder="Cari No. PL / Plat / Container / Sopir..." 
                        class="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-spv-blue focus:border-spv-blue outline-none transition-all">
             </div>
             
-            <div class="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0">
-                <a href="{{ route('shipments.index') }}" class="text-[10px] font-bold px-4 py-2 rounded-full whitespace-nowrap {{ !request('type') && !request('status') ? 'bg-spv-blue text-white shadow-sm' : 'text-gray-500 border border-gray-200 hover:bg-gray-50' }}">Semua</a>
-                <a href="{{ route('shipments.index', ['type' => 'export']) }}" class="text-[10px] font-semibold px-4 py-2 rounded-full whitespace-nowrap {{ request('type') === 'export' ? 'bg-spv-blue text-white shadow-sm' : 'text-gray-500 border border-gray-200 hover:bg-gray-50' }}">Export</a>
-                <a href="{{ route('shipments.index', ['type' => 'lokal']) }}" class="text-[10px] font-semibold px-4 py-2 rounded-full whitespace-nowrap {{ request('type') === 'lokal' ? 'bg-spv-blue text-white shadow-sm' : 'text-gray-500 border border-gray-200 hover:bg-gray-50' }}">Lokal</a>
-                <a href="{{ route('shipments.index', ['status' => 'draft']) }}" class="text-[10px] font-semibold px-4 py-2 rounded-full whitespace-nowrap border {{ request('status') === 'draft' ? 'bg-amber-500 text-white border-amber-500 shadow-sm' : 'text-amber-600 border-amber-200 hover:bg-amber-50' }}">Draft</a>
-                <a href="{{ route('shipments.index', ['status' => 'submitted']) }}" class="text-[10px] font-semibold px-4 py-2 rounded-full whitespace-nowrap border {{ request('status') === 'submitted' ? 'bg-green-600 text-white border-green-600 shadow-sm' : 'text-green-600 border-green-200 hover:bg-green-50' }}">Submitted</a>
+            <div class="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 md:pb-0 scrollbar-thin -mx-1 px-1">
+                <a href="{{ route('shipments.index') }}" class="text-[10px] sm:text-xs font-bold px-3 sm:px-4 py-1.5 sm:py-2 rounded-full whitespace-nowrap {{ !request('type') && !request('status') ? 'bg-spv-blue text-white shadow-sm' : 'text-gray-500 border border-gray-200 hover:bg-gray-50' }}">Semua</a>
+                <a href="{{ route('shipments.index', ['type' => 'export']) }}" class="text-[10px] sm:text-xs font-semibold px-3 sm:px-4 py-1.5 sm:py-2 rounded-full whitespace-nowrap {{ request('type') === 'export' ? 'bg-spv-blue text-white shadow-sm' : 'text-gray-500 border border-gray-200 hover:bg-gray-50' }}">Export</a>
+                <a href="{{ route('shipments.index', ['type' => 'lokal']) }}" class="text-[10px] sm:text-xs font-semibold px-3 sm:px-4 py-1.5 sm:py-2 rounded-full whitespace-nowrap {{ request('type') === 'lokal' ? 'bg-spv-blue text-white shadow-sm' : 'text-gray-500 border border-gray-200 hover:bg-gray-50' }}">Lokal</a>
+                <a href="{{ route('shipments.index', ['status' => 'draft']) }}" class="text-[10px] sm:text-xs font-semibold px-3 sm:px-4 py-1.5 sm:py-2 rounded-full whitespace-nowrap border {{ request('status') === 'draft' ? 'bg-amber-500 text-white border-amber-500 shadow-sm' : 'text-amber-600 border-amber-200 hover:bg-amber-50' }}">Draft</a>
+                <a href="{{ route('shipments.index', ['status' => 'submitted']) }}" class="text-[10px] sm:text-xs font-semibold px-3 sm:px-4 py-1.5 sm:py-2 rounded-full whitespace-nowrap border {{ request('status') === 'submitted' ? 'bg-green-600 text-white border-green-600 shadow-sm' : 'text-green-600 border-green-200 hover:bg-green-50' }}">Submitted</a>
             </div>
         </form>
 
-        <!-- Table -->
-        <div class="overflow-x-auto">
+        <!-- Desktop / Tablet Table (>= md) -->
+        <div class="hidden md:block overflow-x-auto">
             <table class="w-full text-left whitespace-nowrap">
                 <thead style="background:#fafbfd;">
                     <tr>
@@ -339,10 +351,137 @@
             </table>
         </div>
 
+        <!-- Mobile Cards List (< md) -->
+        <div class="block md:hidden divide-y divide-gray-100">
+            @forelse($shipments as $shipment)
+                @php
+                    $officers = $shipment->allKaryawans()->pluck('nama')->toArray();
+                    $primaryOfficer = count($officers) > 0 ? implode(', ', $officers) : ($shipment->karyawan?->nama ?? '-');
+                    $identifier = $shipment->packing_list_no ?: ($shipment->nomor_container_atau_plat ?? 'SPV-' . $shipment->id);
+                @endphp
+                <div class="p-3.5 hover:bg-slate-50/60 transition-colors">
+                    <!-- Top row: ID / Type & Status -->
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            <div class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 {{ $shipment->jenis_pengiriman === 'export' ? 'bg-purple-50 text-purple-700' : 'bg-blue-50 text-blue-700' }}">
+                                <i class="ph-fill {{ $shipment->jenis_pengiriman === 'export' ? 'ph-shipping-container' : 'ph-truck' }} text-base"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <a href="{{ route('shipments.show', $shipment->id) }}" class="text-xs font-bold text-gray-800 hover:text-spv-blue transition-colors truncate block" title="{{ $identifier }}">
+                                    {{ $identifier }}
+                                </a>
+                                <p class="text-[10px] text-gray-400 leading-tight truncate">
+                                    Cont: {{ $shipment->nomor_container_atau_plat ?? '-' }} &bull; Plat: {{ $shipment->plat_nomor ?? ($shipment->shipment_no ?? '—') }}
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Status Badge -->
+                        @if($shipment->status === 'submitted')
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-50 text-green-700 border border-green-200 shrink-0">
+                                <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                                Submitted
+                            </span>
+                        @else
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
+                                <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                Draft
+                            </span>
+                        @endif
+                    </div>
+
+                    <!-- Meta specs row -->
+                    <div class="mt-2.5 pt-2 border-t border-gray-100 grid grid-cols-2 gap-2 text-[11px]">
+                        <div>
+                            <span class="text-gray-400 text-[10px] block">Produk &amp; Tipe:</span>
+                            <div class="flex items-center gap-1 mt-0.5">
+                                <span class="font-semibold text-gray-700 capitalize">{{ $shipment->jenis_produk }}</span>
+                                <span class="text-gray-300">&bull;</span>
+                                <span class="px-1.5 py-0.2 rounded text-[10px] font-semibold capitalize {{ $shipment->jenis_pengiriman === 'export' ? 'bg-purple-50 text-purple-700' : 'bg-gray-100 text-gray-600' }}">
+                                    {{ $shipment->jenis_pengiriman }}
+                                </span>
+                            </div>
+                        </div>
+                        <div>
+                            <span class="text-gray-400 text-[10px] block">Waktu Staging:</span>
+                            <span class="font-medium text-gray-600 mt-0.5 block truncate">{{ $shipment->created_at->format('d M Y, H:i') }} WIB</span>
+                        </div>
+                    </div>
+
+                    <div class="mt-1.5 text-[11px] flex items-center gap-1.5 text-gray-500">
+                        <i class="ph-bold ph-user text-gray-400 text-xs shrink-0"></i>
+                        <span class="text-gray-400 text-[10px] shrink-0">Petugas:</span>
+                        <span class="font-medium text-gray-700 truncate">{{ $primaryOfficer }}</span>
+                    </div>
+
+                    <!-- Actions Bar -->
+                    <div class="flex items-center gap-1.5 mt-3 pt-2.5 border-t border-gray-100">
+                        <a href="{{ route('shipments.show', $shipment->id) }}"
+                           class="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-xl text-xs font-bold text-spv-blue bg-blue-50/70 hover:bg-blue-100 transition-colors">
+                            <i class="ph-bold ph-eye text-sm"></i>
+                            <span>Detail</span>
+                        </a>
+
+                        <a href="{{ route('shipments.download-evidence', $shipment->id) }}"
+                           title="Download ZIP"
+                           class="w-8 h-8 rounded-xl border border-gray-200 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 transition-colors flex items-center justify-center shrink-0">
+                            <i class="ph-bold ph-file-zip text-sm"></i>
+                        </a>
+
+                        <a href="{{ route('shipments.download-pdf', $shipment->id) }}"
+                           title="Download PDF"
+                           class="w-8 h-8 rounded-xl border border-gray-200 text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors flex items-center justify-center shrink-0">
+                            <i class="ph-bold ph-file-pdf text-sm"></i>
+                        </a>
+
+                        @if($shipment->status === 'draft')
+                            <a href="{{ route('field-app.edit', $shipment->id) }}"
+                               title="Lanjutkan Draft"
+                               class="w-8 h-8 rounded-xl border border-amber-200 text-amber-600 bg-amber-50 hover:bg-amber-100 transition-colors flex items-center justify-center shrink-0">
+                                <i class="ph-bold ph-pencil-simple-line text-sm"></i>
+                            </a>
+                        @else
+                            <a href="{{ route('field-app.timeline', $shipment->id) }}"
+                               title="Foto SOP"
+                               target="_blank"
+                               class="w-8 h-8 rounded-xl border border-emerald-200 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 transition-colors flex items-center justify-center shrink-0">
+                                <i class="ph-bold ph-camera text-sm"></i>
+                            </a>
+
+                            @if(auth()->user()?->canEditShipment($shipment))
+                                <a href="{{ route('field-app.edit', $shipment->id) }}"
+                                   title="Edit"
+                                   class="w-8 h-8 rounded-xl border border-gray-200 text-gray-500 hover:text-spv-blue hover:bg-blue-50 transition-colors flex items-center justify-center shrink-0">
+                                    <i class="ph-bold ph-pencil-simple text-sm"></i>
+                                </a>
+                            @endif
+                        @endif
+
+                        @if(auth()->user()?->isSuperadmin())
+                            <button type="button"
+                                    @click="confirmDelete('{{ route('shipments.destroy', $shipment->id) }}', '{{ $identifier }}')"
+                                    title="Hapus"
+                                    class="w-8 h-8 rounded-xl border border-gray-200 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors flex items-center justify-center shrink-0 cursor-pointer">
+                                <i class="ph-bold ph-trash text-sm"></i>
+                            </button>
+                        @endif
+                    </div>
+                </div>
+            @empty
+                <div class="text-center py-10 px-4">
+                    <div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3 text-gray-400">
+                        <i class="ph-bold ph-package text-2xl"></i>
+                    </div>
+                    <p class="text-xs font-bold text-gray-700">Belum ada shipment terdaftar</p>
+                    <p class="text-[11px] text-gray-400 mt-1">Gunakan tombol <strong>Buat Shipment</strong> di atas untuk membuat staging baru.</p>
+                </div>
+            @endforelse
+        </div>
+
         <!-- Pagination -->
         @if($shipments->hasPages())
-            <div class="p-4 flex items-center justify-between border-t border-gray-100">
-                <p class="text-[10px] text-gray-500 font-medium">
+            <div class="p-3.5 sm:p-4 flex flex-col sm:flex-row items-center justify-between gap-2.5 border-t border-gray-100">
+                <p class="text-[10px] text-gray-500 font-medium text-center sm:text-left">
                     Menampilkan {{ $shipments->firstItem() ?? 0 }}-{{ $shipments->lastItem() ?? 0 }} dari {{ $shipments->total() }} shipments
                 </p>
                 <div class="flex items-center gap-1">
@@ -362,7 +501,7 @@
                 </div>
             </div>
         @else
-            <div class="p-4 border-t border-gray-100 text-[10px] text-gray-400">
+            <div class="p-3.5 sm:p-4 border-t border-gray-100 text-[10px] text-gray-400 text-center sm:text-left">
                 Total {{ $shipments->total() }} shipment terdaftar
             </div>
         @endif

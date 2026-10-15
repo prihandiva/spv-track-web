@@ -388,28 +388,43 @@
         @endif
     </div>
 
-    <!-- Section 3: Galeri Bukti Foto SOP (27 Titik Inspeksi) -->
+    <!-- Section 3: Galeri Bukti Foto & Video SOP (27 Titik Inspeksi) -->
     @php
         $galleryItems = [];
         foreach ($points as $p) {
             $photo = $shipment->photos->firstWhere('point_no', $p->urutan);
             $evidence = $photo ?: $shipment->evidenceItems->firstWhere('sop_photo_point_id', $p->id);
             if ($evidence) {
+                $filePath = $photo ? ($photo->path ?? $photo->stamped_path) : ($evidence->file_path ?? '');
+                $fileName = $photo ? '' : ($evidence->file_name ?? '');
+                $mime = $photo ? ($photo->mime ?? '') : '';
+                $isVideo = ($p->tipe_item === 'video'
+                    || ($evidence && ($evidence->tipe_item ?? null) === 'video')
+                    || preg_match('/\.(mp4|mov|webm|3gp|avi|m4v|ogg)$/i', (string)($filePath . ' ' . $fileName))
+                    || str_starts_with($mime, 'video/'));
+
+                $mediaUrl = $photo ? $photo->stamped_url : asset('storage/' . $evidence->file_path);
+                $origUrl = $photo ? $photo->original_url : asset('storage/' . $evidence->file_path);
+
                 $galleryItems[] = [
                     'id' => 'point-' . $p->urutan,
                     'point_no' => (int) $p->urutan,
+                    'is_video' => (bool) $isVideo,
                     'title' => 'Titik ' . $p->urutan . ': ' . $p->nama_titik,
                     'ts' => $photo ? $photo->stamped_at?->format('Y-m-d H:i:s \W\I\B') : ($evidence->captured_at ? $evidence->captured_at->format('Y-m-d H:i:s \W\I\B') : '-'),
-                    'src' => $photo ? $photo->stamped_url : asset('storage/' . $evidence->file_path),
-                    'orig' => $photo ? $photo->original_url : asset('storage/' . $evidence->file_path),
+                    'src' => $mediaUrl,
+                    'orig' => $origUrl,
                     'thumb' => $photo ? $photo->thumbnail_url : asset('storage/' . $evidence->file_path),
                 ];
             }
         }
         foreach ($shipment->extraPhotos as $extra) {
+            $filePath = $extra->path ?? $extra->stamped_path ?? '';
+            $isVideo = preg_match('/\.(mp4|mov|webm|3gp|avi|m4v|ogg)$/i', (string)$filePath) || str_starts_with($extra->mime ?? '', 'video/');
             $galleryItems[] = [
                 'id' => 'extra-' . $extra->id,
                 'point_no' => null,
+                'is_video' => (bool) $isVideo,
                 'title' => 'Foto Ekstra: ' . $extra->point_label,
                 'ts' => $extra->stamped_at?->format('Y-m-d H:i:s \W\I\B') ?? '-',
                 'src' => $extra->stamped_url,
@@ -425,7 +440,7 @@
              currentIndex: 0,
              gallery: {{ Js::from($galleryItems) }},
              
-             // Zoom & Pan Inspection State
+             // Zoom & Pan Inspection State (khusus foto)
              zoom: 1,
              minZoom: 1,
              maxZoom: 4,
@@ -440,6 +455,15 @@
                  this.panX = 0;
                  this.panY = 0;
                  this.isDragging = false;
+             },
+
+             pauseVideo() {
+                 this.$nextTick(() => {
+                     const videos = document.querySelectorAll('.lightbox-video-player');
+                     videos.forEach(v => {
+                         try { v.pause(); } catch (e) {}
+                     });
+                 });
              },
 
              zoomIn() {
@@ -507,9 +531,14 @@
              openModal(idx) {
                  if (idx >= 0 && idx < this.gallery.length) {
                      this.resetZoom();
+                     this.pauseVideo();
                      this.currentIndex = idx;
                      this.modalOpen = true;
                  }
+             },
+             closeModal() {
+                 this.pauseVideo();
+                 this.modalOpen = false;
              },
              openByPointNo(pointNo) {
                  const idx = this.gallery.findIndex(g => g.point_no === pointNo);
@@ -525,11 +554,13 @@
              },
              next() {
                  if (this.gallery.length <= 1) return;
+                 this.pauseVideo();
                  this.resetZoom();
                  this.currentIndex = (this.currentIndex + 1) % this.gallery.length;
              },
              prev() {
                  if (this.gallery.length <= 1) return;
+                 this.pauseVideo();
                  this.resetZoom();
                  this.currentIndex = (this.currentIndex - 1 + this.gallery.length) % this.gallery.length;
              },
@@ -539,7 +570,7 @@
          }"
          @keydown.window.arrow-right="modalOpen && next()"
          @keydown.window.arrow-left="modalOpen && prev()"
-         @keydown.window.escape="modalOpen = false"
+         @keydown.window.escape="closeModal()"
          @keydown.window.plus="modalOpen && zoomIn()"
          @keydown.window.equal="modalOpen && zoomIn()"
          @keydown.window.minus="modalOpen && zoomOut()"
@@ -551,7 +582,7 @@
                     <i class="ph-fill ph-camera text-spv-blue text-base"></i>
                     Galeri Loading Evidence (27 Titik SOP Inspeksi)
                 </h2>
-                <p class="text-xs text-gray-400 mt-0.5">Setiap foto dilengkapi stempel timestamp waktu nyata server (WIB) dan tersimpan secara permanen.</p>
+                <p class="text-xs text-gray-400 mt-0.5">Bukti foto & video dilengkapi stempel timestamp waktu nyata server (WIB) dan tersimpan secara permanen.</p>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
                 @php
@@ -573,7 +604,7 @@
                     </a>
                 @endif
                 <span class="text-xs font-bold px-3 py-1 rounded-full bg-blue-50 text-spv-blue border border-blue-100">
-                    {{ $totalPhotosCount }} Foto Tersimpan
+                    {{ $totalPhotosCount }} Bukti Tersimpan
                 </span>
                 @if($extraPhotosCount > 0)
                     <span class="text-xs font-bold px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-100">
@@ -589,55 +620,99 @@
                 @php
                     $photo = $shipment->photos->firstWhere('point_no', $point->urutan);
                     $evidence = $photo ?: $shipment->evidenceItems->firstWhere('sop_photo_point_id', $point->id);
-                    $imageUrl = $photo ? $photo->thumbnail_url : ($evidence ? asset('storage/' . $evidence->file_path) : null);
+                    $mediaUrl = $photo ? $photo->thumbnail_url : ($evidence ? asset('storage/' . $evidence->file_path) : null);
                     $stampedTime = $photo ? $photo->stamped_at?->format('d/m/Y H:i:s \W\I\B') : ($evidence?->captured_at ? $evidence->captured_at->format('Y-m-d H:i:s \W\I\B') : null);
+
+                    $filePath = $photo ? ($photo->path ?? $photo->stamped_path) : ($evidence->file_path ?? '');
+                    $fileName = $photo ? '' : ($evidence->file_name ?? '');
+                    $mime = $photo ? ($photo->mime ?? '') : '';
+                    $isVideo = ($point->tipe_item === 'video'
+                        || ($evidence && ($evidence->tipe_item ?? null) === 'video')
+                        || preg_match('/\.(mp4|mov|webm|3gp|avi|m4v|ogg)$/i', (string)($filePath . ' ' . $fileName))
+                        || str_starts_with($mime, 'video/'));
                 @endphp
 
                 <div class="rounded-xl border {{ $evidence ? 'border-gray-200 bg-white shadow-sm' : 'border-dashed border-gray-200 bg-gray-50/50' }} overflow-hidden flex flex-col transition-all hover:shadow-md">
                     <!-- Photo Header / Point Label -->
                     <div class="p-3 border-b border-gray-100 flex items-center justify-between bg-white">
                         <div class="flex items-center gap-2">
-                            <span class="w-5 h-5 rounded-full bg-blue-50 text-spv-blue font-bold text-[10px] flex items-center justify-center shrink-0">
+                            <span class="w-5 h-5 rounded-full {{ $isVideo ? 'bg-rose-50 text-rose-600' : 'bg-blue-50 text-spv-blue' }} font-bold text-[10px] flex items-center justify-center shrink-0">
                                 {{ $point->urutan }}
                             </span>
                             <p class="text-xs font-bold text-gray-800 truncate" title="{{ $point->nama_titik }}">{{ $point->nama_titik }}</p>
                         </div>
-                        @if($point->wajib)
-                            <span class="text-[9px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded shrink-0">Wajib</span>
-                        @endif
+                        <div class="flex items-center gap-1.5 shrink-0">
+                            @if($isVideo)
+                                <span class="text-[9px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                    <i class="ph-fill ph-video-camera"></i> Video
+                                </span>
+                            @endif
+                            @if($point->wajib)
+                                <span class="text-[9px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded shrink-0">Wajib</span>
+                            @endif
+                        </div>
                     </div>
 
-                    <!-- Photo Container -->
-                    <div class="relative aspect-video bg-gray-900 overflow-hidden flex items-center justify-center group">
-                        @if($evidence && $imageUrl)
-                            <img src="{{ $imageUrl }}"
-                                 alt="{{ $point->nama_titik }}"
-                                 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                    <!-- Photo / Video Container -->
+                    <div class="relative aspect-video bg-gray-950 overflow-hidden flex items-center justify-center group">
+                        @if($evidence && $mediaUrl)
+                            @if($isVideo)
+                                <!-- Video Player Preview (First Frame) -->
+                                <video src="{{ $mediaUrl }}#t=0.001"
+                                       preload="metadata"
+                                       muted
+                                       playsinline
+                                       class="w-full h-full object-cover pointer-events-none">
+                                </video>
+
+                                <!-- Play Badge Overlay -->
+                                <div class="absolute inset-0 flex items-center justify-center pointer-events-none bg-black/20 group-hover:bg-black/40 transition-colors">
+                                    <div class="w-12 h-12 rounded-full bg-black/60 backdrop-blur-md border border-white/30 text-white flex items-center justify-center shadow-2xl group-hover:scale-110 group-hover:bg-rose-600 group-hover:border-rose-500 transition-all">
+                                        <i class="ph-fill ph-play text-xl translate-x-0.5 text-white"></i>
+                                    </div>
+                                </div>
+                            @else
+                                <img src="{{ $mediaUrl }}"
+                                     alt="{{ $point->nama_titik }}"
+                                     class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                            @endif
                             
-                            <!-- Timestamp Badge (Prominent on Bottom of Image) -->
+                            <!-- Timestamp Badge (Prominent on Bottom of Media) -->
                             <div class="absolute bottom-2 left-2 right-2 bg-black/75 backdrop-blur-sm text-amber-300 px-2 py-1 rounded text-[10px] font-mono font-bold flex items-center justify-between border border-white/10 pointer-events-none">
                                 <span class="flex items-center gap-1 truncate">
                                     <i class="ph-bold ph-calendar-check text-xs"></i>
                                     {{ $stampedTime ?: 'Waktu terekam' }}
                                 </span>
-                                <i class="ph-bold ph-magnifying-glass-plus text-xs text-white/80"></i>
+                                @if($isVideo)
+                                    <span class="flex items-center gap-1 text-white/90 text-[10px] font-sans font-semibold">
+                                        <i class="ph-bold ph-play-circle text-xs"></i> Putar
+                                    </span>
+                                @else
+                                    <i class="ph-bold ph-magnifying-glass-plus text-xs text-white/80"></i>
+                                @endif
                             </div>
 
-                            <!-- Click to Zoom Button -->
+                            <!-- Click to Open Lightbox Modal / Player -->
                             <button type="button"
+                                    id="btn-open-point-{{ $point->urutan }}"
                                     @click="openByPointNo({{ $point->urutan }})"
-                                    class="absolute inset-0 bg-transparent cursor-pointer"
-                                    title="Klik untuk membuka viewer foto">
+                                    class="absolute inset-0 w-full h-full bg-transparent cursor-pointer z-10"
+                                    title="{{ $isVideo ? 'Klik untuk memutar video' : 'Klik untuk membuka viewer foto' }}">
                             </button>
                         @else
                             <div class="text-center p-4">
-                                <i class="ph-bold ph-image text-2xl text-gray-300 mb-1 block"></i>
-                                <span class="text-[10px] font-semibold text-gray-400">Belum diunggah</span>
+                                @if($isVideo)
+                                    <i class="ph-bold ph-video-camera text-2xl text-gray-300 mb-1 block"></i>
+                                    <span class="text-[10px] font-semibold text-gray-400">Video belum diunggah</span>
+                                @else
+                                    <i class="ph-bold ph-image text-2xl text-gray-300 mb-1 block"></i>
+                                    <span class="text-[10px] font-semibold text-gray-400">Belum diunggah</span>
+                                @endif
                             </div>
                         @endif
                     </div>
 
-                    <!-- Photo Details Footer -->
+                    <!-- Photo/Video Details Footer -->
                     <div class="p-2.5 bg-gray-50/70 border-t border-gray-100 mt-auto text-[10px] text-gray-500 flex items-center justify-between">
                         <span class="truncate" title="{{ $point->deskripsi }}">{{ $point->deskripsi }}</span>
                         @if($evidence)
@@ -659,6 +734,10 @@
                 </h3>
                 <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
                     @foreach($shipment->extraPhotos as $extra)
+                        @php
+                            $extraFilePath = $extra->path ?? $extra->stamped_path ?? '';
+                            $isExtraVideo = preg_match('/\.(mp4|mov|webm|3gp|avi|m4v|ogg)$/i', (string)$extraFilePath) || str_starts_with($extra->mime ?? '', 'video/');
+                        @endphp
                         <div class="rounded-xl border border-purple-100 bg-white shadow-sm overflow-hidden flex flex-col transition-all hover:shadow-md">
                             <div class="p-3 border-b border-gray-100 flex items-center justify-between bg-purple-50/30">
                                 <div class="flex items-center gap-2">
@@ -668,16 +747,25 @@
                                 <span class="text-[9px] font-bold text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded">Ekstra</span>
                             </div>
 
-                            <div class="relative aspect-video bg-gray-900 overflow-hidden flex items-center justify-center group">
-                                <img src="{{ $extra->thumbnail_url }}" alt="{{ $extra->point_label }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                            <div class="relative aspect-video bg-gray-950 overflow-hidden flex items-center justify-center group">
+                                @if($isExtraVideo)
+                                    <video src="{{ $extra->stamped_url }}#t=0.001" preload="metadata" muted playsinline class="w-full h-full object-cover pointer-events-none"></video>
+                                    <div class="absolute inset-0 flex items-center justify-center pointer-events-none bg-black/20 group-hover:bg-black/40 transition-colors">
+                                        <div class="w-12 h-12 rounded-full bg-black/60 backdrop-blur-md border border-white/30 text-white flex items-center justify-center shadow-xl group-hover:scale-110 group-hover:bg-rose-600 transition-all">
+                                            <i class="ph-fill ph-play text-xl translate-x-0.5 text-white"></i>
+                                        </div>
+                                    </div>
+                                @else
+                                    <img src="{{ $extra->thumbnail_url }}" alt="{{ $extra->point_label }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                                @endif
                                 <div class="absolute bottom-2 left-2 right-2 bg-black/75 backdrop-blur-sm text-amber-300 px-2 py-1 rounded text-[10px] font-mono font-bold flex items-center justify-between border border-white/10 pointer-events-none">
                                     <span class="truncate">{{ $extra->stamped_at?->format('d/m/Y H:i:s \W\I\B') }}</span>
-                                    <i class="ph-bold ph-magnifying-glass-plus text-xs text-white/80"></i>
+                                    <i class="ph-bold {{ $isExtraVideo ? 'ph-play-circle' : 'ph-magnifying-glass-plus' }} text-xs text-white/80"></i>
                                 </div>
                                 <button type="button"
                                         @click="openByExtraId({{ $extra->id }})"
-                                        class="absolute inset-0 bg-transparent cursor-pointer"
-                                        title="Klik untuk membuka viewer foto">
+                                        class="absolute inset-0 bg-transparent cursor-pointer z-10"
+                                        title="{{ $isExtraVideo ? 'Klik untuk memutar video' : 'Klik untuk membuka viewer foto' }}">
                                 </button>
                             </div>
 
@@ -693,9 +781,9 @@
             </div>
         @endif
 
-        <!-- Lightbox Modal Gallery Viewer with Left/Right Buttons & Interactive Zoom / Pan -->
+        <!-- Lightbox Modal Gallery Viewer with Video Player & Interactive Zoom / Pan for Photos -->
         <template x-teleport="body">
-            <div x-cloak x-show="modalOpen" x-transition.opacity class="fixed inset-0 bg-black/90 backdrop-blur-md z-[9999] flex items-center justify-center p-2 sm:p-4 md:p-6" @click="modalOpen = false">
+            <div x-cloak x-show="modalOpen" x-transition.opacity class="fixed inset-0 bg-black/90 backdrop-blur-md z-[9999] flex items-center justify-center p-2 sm:p-4 md:p-6" @click="closeModal()">
                 <div class="bg-gray-950 border border-gray-800 rounded-2xl max-w-6xl w-full h-[92vh] max-h-[92vh] overflow-hidden shadow-2xl flex flex-col" @click.stop>
                     
                     <!-- Modal Header -->
@@ -705,7 +793,12 @@
                                   x-text="gallery.length > 0 ? (currentIndex + 1) + ' / ' + gallery.length : '0/0'">
                             </span>
                             <div class="truncate">
-                                <h3 class="text-sm font-bold text-white truncate" x-text="currentItem.title"></h3>
+                                <h3 class="text-sm font-bold text-white truncate flex items-center gap-2">
+                                    <template x-if="currentItem.is_video">
+                                        <i class="ph-fill ph-video-camera text-rose-500 text-base shrink-0"></i>
+                                    </template>
+                                    <span x-text="currentItem.title"></span>
+                                </h3>
                                 <p class="text-xs text-amber-400 font-mono mt-0.5 flex items-center gap-1.5 truncate">
                                     <i class="ph-bold ph-clock"></i>
                                     <span>Timestamp: </span>
@@ -714,56 +807,65 @@
                             </div>
                         </div>
 
-                        <!-- Header Controls: Zoom Tools & Close Button -->
+                        <!-- Header Controls: Zoom Tools (khusus foto) & Close Button -->
                         <div class="flex items-center gap-2 shrink-0">
-                            <!-- Quick Zoom Controls in Header -->
-                            <div class="flex items-center bg-gray-800/90 border border-gray-700/80 rounded-xl p-1 shadow-inner">
-                                <button type="button"
-                                        @click="zoomOut()"
-                                        :disabled="zoom <= minZoom"
-                                        class="w-7 h-7 rounded-lg flex items-center justify-center text-gray-300 hover:text-white hover:bg-gray-700 active:scale-95 disabled:opacity-40 disabled:hover:bg-transparent transition-all"
-                                        title="Perkecil Zoom (-)">
-                                    <i class="ph-bold ph-minus text-xs"></i>
-                                </button>
-                                
-                                <button type="button"
-                                        @click="resetZoom()"
-                                        class="px-2 py-0.5 rounded text-xs font-mono font-bold text-amber-300 hover:bg-gray-700/80 transition-colors"
-                                        title="Klik untuk reset zoom (100% Fit)">
-                                    <span x-text="Math.round(zoom * 100) + '%'"></span>
-                                </button>
+                            <template x-if="currentItem.is_video">
+                                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-bold">
+                                    <i class="ph-fill ph-video-camera text-sm"></i>
+                                    <span>Pemutar Video</span>
+                                </span>
+                            </template>
 
-                                <button type="button"
-                                        @click="zoomIn()"
-                                        :disabled="zoom >= maxZoom"
-                                        class="w-7 h-7 rounded-lg flex items-center justify-center text-gray-300 hover:text-white hover:bg-gray-700 active:scale-95 disabled:opacity-40 disabled:hover:bg-transparent transition-all"
-                                        title="Perbesar Zoom (+)">
-                                    <i class="ph-bold ph-plus text-xs"></i>
-                                </button>
+                            <template x-if="!currentItem.is_video">
+                                <!-- Quick Zoom Controls in Header -->
+                                <div class="flex items-center bg-gray-800/90 border border-gray-700/80 rounded-xl p-1 shadow-inner">
+                                    <button type="button"
+                                            @click="zoomOut()"
+                                            :disabled="zoom <= minZoom"
+                                            class="w-7 h-7 rounded-lg flex items-center justify-center text-gray-300 hover:text-white hover:bg-gray-700 active:scale-95 disabled:opacity-40 disabled:hover:bg-transparent transition-all"
+                                            title="Perkecil Zoom (-)">
+                                        <i class="ph-bold ph-minus text-xs"></i>
+                                    </button>
+                                    
+                                    <button type="button"
+                                            @click="resetZoom()"
+                                            class="px-2 py-0.5 rounded text-xs font-mono font-bold text-amber-300 hover:bg-gray-700/80 transition-colors"
+                                            title="Klik untuk reset zoom (100% Fit)">
+                                        <span x-text="Math.round(zoom * 100) + '%'"></span>
+                                    </button>
 
-                                <div class="w-px h-4 bg-gray-700 mx-1"></div>
+                                    <button type="button"
+                                            @click="zoomIn()"
+                                            :disabled="zoom >= maxZoom"
+                                            class="w-7 h-7 rounded-lg flex items-center justify-center text-gray-300 hover:text-white hover:bg-gray-700 active:scale-95 disabled:opacity-40 disabled:hover:bg-transparent transition-all"
+                                            title="Perbesar Zoom (+)">
+                                        <i class="ph-bold ph-plus text-xs"></i>
+                                    </button>
 
-                                <button type="button"
-                                        @click="resetZoom()"
-                                        class="px-2 py-1 rounded-lg text-[11px] font-semibold text-gray-300 hover:text-white hover:bg-gray-700 active:scale-95 transition-all flex items-center gap-1"
-                                        title="Reset Tampilan (Fit)">
-                                    <i class="ph-bold ph-arrows-in text-xs"></i>
-                                    <span class="hidden sm:inline">Fit</span>
-                                </button>
-                            </div>
+                                    <div class="w-px h-4 bg-gray-700 mx-1"></div>
+
+                                    <button type="button"
+                                            @click="resetZoom()"
+                                            class="px-2 py-1 rounded-lg text-[11px] font-semibold text-gray-300 hover:text-white hover:bg-gray-700 active:scale-95 transition-all flex items-center gap-1"
+                                            title="Reset Tampilan (Fit)">
+                                        <i class="ph-bold ph-arrows-in text-xs"></i>
+                                        <span class="hidden sm:inline">Fit</span>
+                                    </button>
+                                </div>
+                            </template>
 
                             <!-- Keyboard shortcut hint -->
                             <span class="hidden lg:inline-flex text-[11px] text-gray-400 font-mono items-center gap-1 bg-gray-800/70 px-2 py-1.5 rounded-lg border border-gray-700/60">
                                 <kbd class="text-gray-300">←</kbd> <kbd class="text-gray-300">→</kbd> panah
                             </span>
 
-                            <button @click="modalOpen = false" class="text-gray-400 hover:text-white p-2 rounded-xl bg-gray-800 hover:bg-gray-700 border border-gray-700 transition-colors" title="Tutup (Esc)">
+                            <button @click="closeModal()" class="text-gray-400 hover:text-white p-2 rounded-xl bg-gray-800 hover:bg-gray-700 border border-gray-700 transition-colors" title="Tutup (Esc)">
                                 <i class="ph-bold ph-x text-lg"></i>
                             </button>
                         </div>
                     </div>
 
-                    <!-- Image Area with Floating Left / Right Buttons & Drag / Zoom Viewport -->
+                    <!-- Image / Video Area with Floating Left / Right Buttons -->
                     <div class="relative bg-black flex-1 min-h-0 min-w-0 overflow-hidden select-none">
                         
                         <!-- Floating Tombol Navigasi KIRI (Prev) -->
@@ -771,32 +873,54 @@
                                 x-show="gallery.length > 1"
                                 @click.stop="prev()"
                                 class="absolute left-3 sm:left-5 top-1/2 -translate-y-1/2 z-30 w-11 h-11 sm:w-13 sm:h-13 rounded-full bg-black/60 hover:bg-black/90 active:scale-90 text-white flex items-center justify-center border border-white/20 shadow-2xl backdrop-blur-md transition-all hover:scale-110 group/btn"
-                                title="Foto Sebelumnya (Panah Kiri)">
+                                title="Sebelumnya (Panah Kiri)">
                             <i class="ph-bold ph-caret-left text-2xl text-white group-hover/btn:-translate-x-0.5 transition-transform"></i>
                         </button>
 
                         <!-- Pan & Zoom Canvas Container (Guaranteed 100% Fit without Crop) -->
                         <div class="absolute inset-0 p-3 sm:p-5 flex items-center justify-center overflow-hidden"
-                             @wheel.prevent="handleWheel($event)"
-                             @mousedown="startDrag($event)"
-                             @mousemove="onDrag($event)"
-                             @mouseup="stopDrag()"
-                             @mouseleave="stopDrag()"
-                             @touchstart="startTouch($event)"
-                             @touchmove="onTouch($event)"
-                             @touchend="stopTouch()"
+                             @wheel.prevent="!currentItem.is_video && handleWheel($event)"
+                             @mousedown="!currentItem.is_video && startDrag($event)"
+                             @mousemove="!currentItem.is_video && onDrag($event)"
+                             @mouseup="!currentItem.is_video && stopDrag()"
+                             @mouseleave="!currentItem.is_video && stopDrag()"
+                             @touchstart="!currentItem.is_video && startTouch($event)"
+                             @touchmove="!currentItem.is_video && onTouch($event)"
+                             @touchend="!currentItem.is_video && stopTouch()"
                              :class="{
-                                 'cursor-grab': zoom > 1 && !isDragging,
-                                 'cursor-grabbing': isDragging,
-                                 'cursor-zoom-in': zoom === 1
+                                 'cursor-grab': !currentItem.is_video && zoom > 1 && !isDragging,
+                                 'cursor-grabbing': !currentItem.is_video && isDragging,
+                                 'cursor-zoom-in': !currentItem.is_video && zoom === 1
                              }">
                             
-                            <img :src="currentItem.src"
-                                 :alt="currentItem.title"
-                                 @dblclick="toggleZoom()"
-                                 draggable="false"
-                                 :style="`transform: translate3d(${panX}px, ${panY}px, 0) scale(${zoom}); transition: ${isDragging ? 'none' : 'transform 0.15s cubic-bezier(0.2, 0, 0, 1)'};`"
-                                 class="max-w-full max-h-full w-auto h-auto object-contain rounded-lg shadow-2xl select-none pointer-events-auto origin-center">
+                            <!-- Video Player (When current item is a video) -->
+                            <template x-if="currentItem.is_video">
+                                <div class="w-full h-full flex flex-col items-center justify-center p-2 sm:p-4 z-20" @click.stop>
+                                    <div class="relative max-w-4xl w-full flex items-center justify-center">
+                                        <video :src="currentItem.src"
+                                               controls
+                                               autoplay
+                                               playsinline
+                                               class="lightbox-video-player max-w-full max-h-[66vh] sm:max-h-[70vh] rounded-2xl shadow-2xl bg-black border border-gray-800 outline-none">
+                                            Browser Anda tidak mendukung pemutar video HTML5.
+                                        </video>
+                                    </div>
+                                    <p class="text-xs text-gray-400 mt-2.5 flex items-center gap-1.5 font-sans">
+                                        <i class="ph-fill ph-video-camera text-rose-500 text-sm"></i>
+                                        <span>Video loading / inspeksi SOP armada PT. South Pacific Viscose.</span>
+                                    </p>
+                                </div>
+                            </template>
+
+                            <!-- Photo Viewer with Pan & Zoom (When current item is a photo) -->
+                            <template x-if="!currentItem.is_video">
+                                <img :src="currentItem.src"
+                                     :alt="currentItem.title"
+                                     @dblclick="toggleZoom()"
+                                     draggable="false"
+                                     :style="`transform: translate3d(${panX}px, ${panY}px, 0) scale(${zoom}); transition: ${isDragging ? 'none' : 'transform 0.15s cubic-bezier(0.2, 0, 0, 1)'};`"
+                                     class="max-w-full max-h-full w-auto h-auto object-contain rounded-lg shadow-2xl select-none pointer-events-auto origin-center">
+                            </template>
                         </div>
 
                         <!-- Floating Tombol Navigasi KANAN (Next) -->
@@ -804,7 +928,7 @@
                                 x-show="gallery.length > 1"
                                 @click.stop="next()"
                                 class="absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 z-30 w-11 h-11 sm:w-13 sm:h-13 rounded-full bg-black/60 hover:bg-black/90 active:scale-90 text-white flex items-center justify-center border border-white/20 shadow-2xl backdrop-blur-md transition-all hover:scale-110 group/btn"
-                                title="Foto Selanjutnya (Panah Kanan)">
+                                title="Selanjutnya (Panah Kanan)">
                             <i class="ph-bold ph-caret-right text-2xl text-white group-hover/btn:translate-x-0.5 transition-transform"></i>
                         </button>
                     </div>
@@ -816,7 +940,7 @@
                                 <a :href="currentItem.orig" target="_blank"
                                    class="text-xs font-semibold text-gray-300 hover:text-white bg-gray-800 hover:bg-gray-700 px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 border border-gray-700 transition-colors">
                                     <i class="ph-bold ph-file-arrow-down text-sm"></i>
-                                    <span>Unduh File Asli</span>
+                                    <span x-text="currentItem.is_video ? 'Unduh Video Asli' : 'Unduh File Asli'"></span>
                                 </a>
                             </template>
 
@@ -827,10 +951,12 @@
                                 <span>Unduh Semua (.ZIP)</span>
                             </a>
 
-                            <span class="hidden md:inline-flex items-center gap-1.5 text-[11px] text-gray-400 bg-gray-800/50 px-2.5 py-1 rounded-md border border-gray-800">
-                                <i class="ph-bold ph-hand-pointing text-xs text-amber-400"></i>
-                                <span>Tip: Dobel-klik atau scroll mouse untuk Zoom, geser kursor untuk inspeksi detail</span>
-                            </span>
+                            <template x-if="!currentItem.is_video">
+                                <span class="hidden md:inline-flex items-center gap-1.5 text-[11px] text-gray-400 bg-gray-800/50 px-2.5 py-1 rounded-md border border-gray-800">
+                                    <i class="ph-bold ph-hand-pointing text-xs text-amber-400"></i>
+                                    <span>Tip: Dobel-klik atau scroll mouse untuk Zoom, geser kursor untuk inspeksi detail</span>
+                                </span>
+                            </template>
                         </div>
 
                         <!-- Center Navigation Controls -->
@@ -855,7 +981,8 @@
                         <div class="flex items-center gap-2">
                             <a :href="currentItem.src" target="_blank"
                                class="text-xs font-semibold text-white bg-spv-blue hover:bg-blue-700 px-3.5 py-1.5 rounded-lg inline-flex items-center gap-1.5 shadow-sm transition-colors">
-                                <i class="ph-bold ph-arrow-square-out text-sm"></i> Buka Gambar Penuh
+                                <i class="ph-bold ph-arrow-square-out text-sm"></i>
+                                <span x-text="currentItem.is_video ? 'Buka Video di Tab Baru' : 'Buka Gambar Penuh'"></span>
                             </a>
                         </div>
                     </div>

@@ -346,9 +346,9 @@
     <!-- MAIN -->
     <div class="flex-1 flex flex-col h-screen overflow-hidden">
 
-        <header class="h-[64px] sm:h-[68px] bg-white flex items-center justify-between px-3 sm:px-4 lg:px-7 shrink-0 gap-2 sm:gap-4"
+        <header class="h-[60px] sm:h-[68px] bg-white flex items-center justify-between px-2.5 sm:px-4 lg:px-7 shrink-0 gap-1.5 sm:gap-4"
                 style="border-bottom: 1px solid #e8edf3; box-shadow: 0 1px 6px rgba(40,84,145,0.06);">
-            <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div class="flex items-center gap-1.5 sm:gap-3 min-w-0">
                 <button type="button" @click="sidebarOpen = true" class="lg:hidden p-1.5 sm:p-2 rounded-xl text-gray-500 hover:text-spv-blue hover:bg-gray-100 transition-all shrink-0" aria-label="Buka Menu">
                     <i class="ph-bold ph-list text-xl sm:text-2xl"></i>
                 </button>
