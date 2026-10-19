@@ -605,13 +605,13 @@
         </div>
 
     </form>
-</div>
 
     <!-- MODAL PRATINJAU BUKTI FOTO & VIDEO (LIGHTBOX OPERATOR) -->
     <div x-cloak
          x-show="previewModal.open"
+         :style="previewModal.open ? 'display: flex !important;' : 'display: none !important;'"
          @keydown.escape.window="closePreview()"
-         style="position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 12px; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px);">
+         style="display: none; position: fixed; inset: 0; z-index: 9999; align-items: center; justify-content: center; padding: 12px; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px);">
 
         <div @click.away="closePreview()"
              style="background: #0f172a; border: 1px solid rgba(255,255,255,0.15); border-radius: 20px; width: 100%; max-width: 820px; max-height: 94vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);">
@@ -695,6 +695,7 @@
 
         </div>
     </div>
+</div>
 
     <script>
         // Upload photo SOP with live preview and timestamp

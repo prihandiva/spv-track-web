@@ -52,6 +52,7 @@
         };
     </script>
     <style>
+        [x-cloak] { display: none !important; }
         ::-webkit-scrollbar { width: 3px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #c8c5c0; border-radius: 3px; }
