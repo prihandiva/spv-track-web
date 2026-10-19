@@ -25,7 +25,7 @@ class ShipmentZipDownloadTest extends TestCase
 
     public function test_user_can_download_shipment_evidence_as_zip_named_by_packing_list(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['role' => 'admin']);
         $karyawan = Karyawan::create(['nomor_induk' => 'KRY001', 'nama' => 'Test Petugas', 'status' => 'aktif']);
 
         $shipment = Shipment::create([
@@ -86,7 +86,7 @@ class ShipmentZipDownloadTest extends TestCase
 
     public function test_shipment_without_container_uses_plate_number_for_image_names(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['role' => 'admin']);
         $karyawan = Karyawan::create(['nomor_induk' => 'KRY002', 'nama' => 'Test Petugas', 'status' => 'aktif']);
 
         $shipment = Shipment::create([
@@ -146,7 +146,7 @@ class ShipmentZipDownloadTest extends TestCase
 
     public function test_shipment_with_no_photos_redirects_back_with_error(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['role' => 'admin']);
         $karyawan = Karyawan::create(['nomor_induk' => 'KRY003', 'nama' => 'Test Petugas', 'status' => 'aktif']);
 
         $shipment = Shipment::create([
@@ -172,7 +172,7 @@ class ShipmentZipDownloadTest extends TestCase
 
     public function test_download_zip_optimizes_large_photos_and_caches_result(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['role' => 'admin']);
         $karyawan = Karyawan::create(['nomor_induk' => 'KRY004', 'nama' => 'Test Petugas', 'status' => 'aktif']);
 
         $shipment = Shipment::create([

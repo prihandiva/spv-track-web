@@ -238,8 +238,13 @@
                         <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Jenis Produk</label>
                         <select name="jenis_produk" class="w-full text-xs bg-gray-50 border border-gray-200 rounded-xl px-2.5 py-1.5 outline-none focus:ring-2 focus:ring-spv-blue">
                             <option value="">Semua Produk</option>
-                            <option value="fiber" {{ request('jenis_produk') === 'fiber' ? 'selected' : '' }}>Fiber</option>
-                            <option value="sodium" {{ request('jenis_produk') === 'sodium' ? 'selected' : '' }}>Sodium</option>
+                            <option value="fiber" {{ strtolower(request('jenis_produk', '')) === 'fiber' ? 'selected' : '' }}>Fiber</option>
+                            <option value="sodium" {{ strtolower(request('jenis_produk', '')) === 'sodium' ? 'selected' : '' }}>Sodium</option>
+                            <option value="sliver" {{ strtolower(request('jenis_produk', '')) === 'sliver' ? 'selected' : '' }}>SLIVER</option>
+                            <option value="yarn" {{ strtolower(request('jenis_produk', '')) === 'yarn' ? 'selected' : '' }}>YARN</option>
+                            @if(request('jenis_produk') && !in_array(strtolower(request('jenis_produk')), ['fiber', 'sodium', 'sliver', 'yarn']))
+                                <option value="{{ request('jenis_produk') }}" selected>{{ strtoupper(request('jenis_produk')) }}</option>
+                            @endif
                         </select>
                     </div>
 
@@ -307,7 +312,13 @@
                     </div>
                 </div>
                 <div class="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-[11px]">
-                    <span class="text-gray-500">Fiber: <strong class="text-gray-800">{{ $summary->total_fiber }}</strong> &bull; Sodium: <strong class="text-gray-800">{{ $summary->total_sodium }}</strong></span>
+                    <span class="text-gray-500">
+                        Fiber: <strong class="text-gray-800">{{ $summary->total_fiber }}</strong> &bull;
+                        Sodium: <strong class="text-gray-800">{{ $summary->total_sodium }}</strong>
+                        @if(($summary->total_sliver ?? 0) > 0) &bull; Sliver: <strong class="text-gray-800">{{ $summary->total_sliver }}</strong> @endif
+                        @if(($summary->total_yarn ?? 0) > 0) &bull; Yarn: <strong class="text-gray-800">{{ $summary->total_yarn }}</strong> @endif
+                        @if(($summary->total_others ?? 0) > 0) &bull; Lainnya: <strong class="text-gray-800">{{ $summary->total_others }}</strong> @endif
+                    </span>
                     <span class="text-spv-blue font-bold">{{ $summary->total_export }} Export</span>
                 </div>
             </div>
@@ -472,8 +483,18 @@
                                         </p>
                                     </td>
                                     <td class="px-2 py-2.5">
-                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider {{ $shipment->jenis_produk === 'fiber' ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700' }}">
-                                            {{ $shipment->jenis_produk }}
+                                        @php
+                                            $pLower = strtolower($shipment->jenis_produk ?? '');
+                                            $pColor = match($pLower) {
+                                                'fiber' => 'bg-blue-50 text-blue-700 border border-blue-200',
+                                                'sodium' => 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+                                                'sliver' => 'bg-amber-50 text-amber-700 border border-amber-200',
+                                                'yarn' => 'bg-purple-50 text-purple-700 border border-purple-200',
+                                                default => 'bg-indigo-50 text-indigo-700 border border-indigo-200',
+                                            };
+                                        @endphp
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider {{ $pColor }}">
+                                            {{ strtoupper((string) $shipment->jenis_produk) }}
                                         </span>
                                         <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider {{ $shipment->jenis_pengiriman === 'export' ? 'bg-purple-50 text-purple-700' : 'bg-gray-100 text-gray-600' }} ml-1">
                                             {{ $shipment->jenis_pengiriman }}

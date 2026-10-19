@@ -32,16 +32,14 @@ Route::middleware('auth')->group(function () {
 
     // 2. Monitoring Shipments (Viewable by all roles)
     Route::get('/shipments', [ShipmentController::class, 'index'])->name('shipments.index');
-    Route::get('/shipments/{shipment}', [ShipmentController::class, 'show'])->name('shipments.show');
-    Route::delete('/shipments/{shipment}', [ShipmentController::class, 'destroy'])->name('shipments.destroy')->middleware('role:superadmin');
 
     // 3. Downloads, Laporan & Petugas (Admin & Superadmin)
     Route::middleware('role:admin,superadmin')->group(function () {
         Route::get('/shipments/download-batch-zip', [ShipmentController::class, 'downloadBatchZip'])->name('shipments.download-batch-zip');
         Route::get('/shipments/batch-zip-preview', [ShipmentController::class, 'previewBatchZip'])->name('shipments.batch-zip-preview');
-        Route::get('/shipments/{shipment}/download-evidence', [ShipmentController::class, 'downloadZip'])->name('shipments.download-evidence');
-        Route::get('/shipments/{shipment}/report', [ShipmentController::class, 'printReport'])->name('shipments.report');
-        Route::get('/shipments/{shipment}/download-pdf', [ShipmentController::class, 'downloadPdf'])->name('shipments.download-pdf');
+        Route::get('/shipments/{shipment}/download-evidence', [ShipmentController::class, 'downloadZip'])->name('shipments.download-evidence')->whereNumber('shipment');
+        Route::get('/shipments/{shipment}/report', [ShipmentController::class, 'printReport'])->name('shipments.report')->whereNumber('shipment');
+        Route::get('/shipments/{shipment}/download-pdf', [ShipmentController::class, 'downloadPdf'])->name('shipments.download-pdf')->whereNumber('shipment');
 
         // Laporan & Audit Staging
         Route::get('/laporan', [LaporanController::class, 'index'])->name('laporan.index');
@@ -53,6 +51,9 @@ Route::middleware('auth')->group(function () {
         Route::patch('/karyawan/{karyawan}/toggle-status', [KaryawanController::class, 'toggleStatus'])->name('karyawan.toggle-status');
         Route::resource('karyawan', KaryawanController::class);
     });
+
+    Route::get('/shipments/{shipment}', [ShipmentController::class, 'show'])->name('shipments.show')->whereNumber('shipment');
+    Route::delete('/shipments/{shipment}', [ShipmentController::class, 'destroy'])->name('shipments.destroy')->whereNumber('shipment')->middleware('role:superadmin');
 
     // 4. Create & Edit Shipment (Form Staging Input)
     Route::middleware('role:operator,superadmin')->group(function () {

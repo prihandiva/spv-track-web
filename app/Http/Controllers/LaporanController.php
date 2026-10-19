@@ -323,7 +323,7 @@ class LaporanController extends Controller
 
         // Filter Jenis Produk
         $product = $request->input('jenis_produk');
-        if ($product && in_array($product, ['fiber', 'sodium'], true)) {
+        if ($product && $product !== 'all') {
             $query->where('jenis_produk', $product);
         }
 
@@ -433,6 +433,9 @@ class LaporanController extends Controller
         $draft = $shipments->where('status', 'draft')->count();
         $fiber = $shipments->where('jenis_produk', 'fiber')->count();
         $sodium = $shipments->where('jenis_produk', 'sodium')->count();
+        $sliver = $shipments->filter(fn($s) => strtolower($s->jenis_produk ?? '') === 'sliver')->count();
+        $yarn = $shipments->filter(fn($s) => strtolower($s->jenis_produk ?? '') === 'yarn')->count();
+        $others = $shipments->filter(fn($s) => !in_array(strtolower($s->jenis_produk ?? ''), ['fiber', 'sodium', 'sliver', 'yarn']))->count();
         $export = $shipments->where('jenis_pengiriman', 'export')->count();
         $lokal = $shipments->where('jenis_pengiriman', 'lokal')->count();
 
@@ -459,6 +462,9 @@ class LaporanController extends Controller
             'total_draft' => $draft,
             'total_fiber' => $fiber,
             'total_sodium' => $sodium,
+            'total_sliver' => $sliver,
+            'total_yarn' => $yarn,
+            'total_others' => $others,
             'total_export' => $export,
             'total_lokal' => $lokal,
             'total_lengkap' => $lengkap,

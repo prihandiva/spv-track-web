@@ -426,7 +426,7 @@ class ShipmentController extends Controller
         $mode = $request->input('mode', 'harian');
         $product = $request->input('jenis_produk', 'all');
 
-        if ($product && in_array($product, ['fiber', 'sodium'])) {
+        if ($product && $product !== 'all') {
             $query->where('jenis_produk', $product);
         }
 
@@ -498,7 +498,10 @@ class ShipmentController extends Controller
         $productLabel = match ($product) {
             'fiber' => '_Fiber',
             'sodium' => '_Sodium',
-            default => '',
+            'sliver' => '_SLIVER',
+            'yarn' => '_YARN',
+            'all', '' => '',
+            default => '_' . preg_replace('/[^A-Za-z0-9_\-]/', '_', ucfirst($product)),
         };
 
         if ($mode === 'harian') {

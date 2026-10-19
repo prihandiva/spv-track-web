@@ -182,7 +182,7 @@ class MobileApiController extends Controller
         }
 
         $validated = $request->validate([
-            'jenis_produk' => 'required|in:fiber,sodium',
+            'jenis_produk' => 'required|string|max:100',
             'jenis_pengiriman' => 'required|in:export,lokal',
             'packing_list_no' => 'required|numeric|digits:9',
             'shipment_group' => 'required|numeric|digits:9',

@@ -237,4 +237,63 @@ class FieldAppFlowTest extends TestCase
         $showResponse->assertSee('Siti Aminah');
         $showResponse->assertSee('NIK-999');
     }
+
+    public function test_field_app_store_supports_sliver_and_yarn(): void
+    {
+        $response = $this->post(route('field-app.store'), [
+            'jenis_produk' => 'sliver',
+            'jenis_pengiriman' => 'export',
+            'packing_list_no' => '800111222',
+            'shipment_group' => '869111222',
+            'shipment_no' => '860111222',
+            'plat_nomor' => 'B 1111 AAA',
+            'nama_sopir' => 'Anto',
+            'nomor_container_atau_plat' => 'MSKU1111222',
+            'cuaca' => 'kering',
+            'waktu' => 'siang',
+            'tanggal_staging' => '2026-10-05',
+            'warehouse_lokasi' => 'atas',
+            'karyawan_id' => $this->karyawan->id,
+        ]);
+
+        $shipment = Shipment::where('packing_list_no', '800111222')->first();
+        $this->assertNotNull($shipment);
+        $this->assertEquals('sliver', $shipment->jenis_produk);
+
+        $showResponse = $this->get(route('shipments.show', $shipment->id));
+        $showResponse->assertStatus(200);
+        $showResponse->assertSee('SLIVER');
+    }
+
+    public function test_field_app_store_supports_others_with_custom_product_input(): void
+    {
+        $response = $this->post(route('field-app.store'), [
+            'jenis_produk' => 'others',
+            'jenis_produk_custom' => 'POLYESTER CHIPS',
+            'jenis_pengiriman' => 'lokal',
+            'packing_list_no' => '800333444',
+            'shipment_group' => '869333444',
+            'shipment_no' => '860333444',
+            'plat_nomor' => 'B 2222 BBB',
+            'nama_sopir' => 'Joko',
+            'nomor_container_atau_plat' => 'TGHU3334445',
+            'cuaca' => 'kering',
+            'waktu' => 'siang',
+            'tanggal_staging' => '2026-10-05',
+            'warehouse_lokasi' => 'bawah',
+            'karyawan_id' => $this->karyawan->id,
+        ]);
+
+        $shipment = Shipment::where('packing_list_no', '800333444')->first();
+        $this->assertNotNull($shipment);
+        $this->assertEquals('POLYESTER CHIPS', $shipment->jenis_produk);
+
+        $showResponse = $this->get(route('shipments.show', $shipment->id));
+        $showResponse->assertStatus(200);
+        $showResponse->assertSee('POLYESTER CHIPS');
+
+        $indexResponse = $this->get(route('shipments.index'));
+        $indexResponse->assertStatus(200);
+        $indexResponse->assertSee('POLYESTER CHIPS');
+    }
 }

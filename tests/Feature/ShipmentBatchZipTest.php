@@ -25,7 +25,7 @@ class ShipmentBatchZipTest extends TestCase
 
     public function test_batch_zip_download_yearly_creates_correct_folder_structure(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['role' => 'admin']);
         $karyawan = Karyawan::create(['nomor_induk' => 'KRY010', 'nama' => 'Petugas Batch', 'status' => 'aktif']);
 
         $point = SopPhotoPoint::create([
@@ -115,7 +115,7 @@ class ShipmentBatchZipTest extends TestCase
 
     public function test_batch_zip_download_filters_by_product_fiber_and_sodium(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['role' => 'admin']);
         $karyawan = Karyawan::create(['nomor_induk' => 'KRY011', 'nama' => 'Petugas Produk', 'status' => 'aktif']);
 
         $point = SopPhotoPoint::create([
@@ -201,7 +201,7 @@ class ShipmentBatchZipTest extends TestCase
 
     public function test_batch_zip_preview_returns_correct_stats_and_sample_path(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['role' => 'admin']);
         $karyawan = Karyawan::create(['nomor_induk' => 'KRY012', 'nama' => 'Petugas Preview', 'status' => 'aktif']);
 
         $point = SopPhotoPoint::create([
@@ -263,7 +263,7 @@ class ShipmentBatchZipTest extends TestCase
 
     public function test_batch_zip_download_redirects_with_error_when_no_shipments_found(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['role' => 'admin']);
 
         $response = $this->actingAs($user)->get(route('shipments.download-batch-zip', [
             'mode' => 'tahunan',
@@ -276,7 +276,7 @@ class ShipmentBatchZipTest extends TestCase
 
     public function test_batch_zip_download_daily_and_range(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['role' => 'admin']);
         $karyawan = Karyawan::create(['nomor_induk' => 'KRY013', 'nama' => 'Petugas Daily Range', 'status' => 'aktif']);
 
         $point = SopPhotoPoint::create([
@@ -335,7 +335,7 @@ class ShipmentBatchZipTest extends TestCase
 
     public function test_shipments_index_renders_batch_zip_button_and_modal(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['role' => 'admin']);
 
         $response = $this->actingAs($user)->get(route('shipments.index'));
 

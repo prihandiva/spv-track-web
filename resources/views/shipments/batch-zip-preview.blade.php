@@ -208,7 +208,7 @@
                 <!-- 3. Filter Jenis Produk -->
                 <div>
                     <label class="block text-xs font-bold text-gray-700 mb-2">Filter Jenis Komoditas Produk</label>
-                    <div class="grid grid-cols-3 gap-2.5">
+                    <div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
                         <button type="button"
                                 @click="product = 'all'; fetchPreview()"
                                 :class="product === 'all' ? 'border-spv-blue bg-blue-50/50 text-spv-blue font-bold ring-1 ring-spv-blue' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 font-medium'"
@@ -222,7 +222,7 @@
                                 :class="product === 'fiber' ? 'border-spv-blue bg-blue-50/50 text-spv-blue font-bold ring-1 ring-spv-blue' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 font-medium'"
                                 class="p-3 rounded-2xl border text-xs text-center transition-all flex flex-col items-center gap-1.5 shadow-2xs">
                             <i class="ph-bold ph-cube text-base"></i>
-                            <span>Fiber Saja</span>
+                            <span>Fiber</span>
                         </button>
 
                         <button type="button"
@@ -230,7 +230,23 @@
                                 :class="product === 'sodium' ? 'border-spv-blue bg-blue-50/50 text-spv-blue font-bold ring-1 ring-spv-blue' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 font-medium'"
                                 class="p-3 rounded-2xl border text-xs text-center transition-all flex flex-col items-center gap-1.5 shadow-2xs">
                             <i class="ph-bold ph-flask text-base"></i>
-                            <span>Sodium Saja</span>
+                            <span>Sodium</span>
+                        </button>
+
+                        <button type="button"
+                                @click="product = 'sliver'; fetchPreview()"
+                                :class="product === 'sliver' ? 'border-spv-blue bg-blue-50/50 text-spv-blue font-bold ring-1 ring-spv-blue' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 font-medium'"
+                                class="p-3 rounded-2xl border text-xs text-center transition-all flex flex-col items-center gap-1.5 shadow-2xs">
+                            <i class="ph-bold ph-yarn text-base"></i>
+                            <span>SLIVER</span>
+                        </button>
+
+                        <button type="button"
+                                @click="product = 'yarn'; fetchPreview()"
+                                :class="product === 'yarn' ? 'border-spv-blue bg-blue-50/50 text-spv-blue font-bold ring-1 ring-spv-blue' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 font-medium'"
+                                class="p-3 rounded-2xl border text-xs text-center transition-all flex flex-col items-center gap-1.5 shadow-2xs">
+                            <i class="ph-bold ph-circles-three text-base"></i>
+                            <span>YARN</span>
                         </button>
                     </div>
                 </div>
@@ -530,7 +546,9 @@
             previewFolderProduct() {
                 if (this.product === 'fiber') return 'FIBER';
                 if (this.product === 'sodium') return 'SODIUM';
-                return 'FIBER|SODIUM';
+                if (this.product === 'sliver') return 'SLIVER';
+                if (this.product === 'yarn') return 'YARN';
+                return 'ALL-PRODUCTS';
             },
 
             previewFolderYear() {

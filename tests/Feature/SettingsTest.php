@@ -48,12 +48,13 @@ class SettingsTest extends TestCase
             ]
         );
 
-        User::create([
+        $superadmin = User::create([
             'nama_warehouse' => 'Warehouse A',
             'email' => 'admin@spvtrack.com',
             'password' => bcrypt('password'),
             'role' => 'superadmin',
         ]);
+        $this->actingAs($superadmin);
 
         SopPhotoPoint::create([
             'urutan' => 1,

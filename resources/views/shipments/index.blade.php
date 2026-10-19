@@ -262,8 +262,21 @@
                                         <p class="text-[10px] text-gray-400 leading-tight">Cont: {{ $shipment->nomor_container_atau_plat ?? '-' }} &bull; Plat: {{ $shipment->plat_nomor ?? ($shipment->shipment_no ?? '—') }}</p>
                                     </div>
                                 </div>
+                            <td class="px-3 py-2.5">
+                                @php
+                                    $pLower = strtolower($shipment->jenis_produk ?? '');
+                                    $pClass = match($pLower) {
+                                        'fiber' => 'bg-blue-50 text-spv-blue border border-blue-200',
+                                        'sodium' => 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+                                        'sliver' => 'bg-amber-50 text-amber-700 border border-amber-200',
+                                        'yarn' => 'bg-purple-50 text-purple-700 border border-purple-200',
+                                        default => 'bg-indigo-50 text-indigo-700 border border-indigo-200',
+                                    };
+                                @endphp
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider {{ $pClass }}">
+                                    {{ strtoupper((string) $shipment->jenis_produk) }}
+                                </span>
                             </td>
-                            <td class="px-3 py-2.5"><p class="text-xs text-gray-600 capitalize font-medium">{{ $shipment->jenis_produk }}</p></td>
                             <td class="px-2.5 py-2.5">
                                 <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold capitalize {{ $shipment->jenis_pengiriman === 'export' ? 'bg-purple-50 text-purple-700' : 'bg-gray-100 text-gray-600' }}">
                                     {{ $shipment->jenis_pengiriman }}
@@ -724,7 +737,7 @@
                 <!-- 3. Filter Jenis Produk (Fiber / Sodium / Semua) -->
                 <div>
                     <label class="block text-xs font-bold text-gray-700 mb-1.5">Filter Jenis Produk</label>
-                    <div class="grid grid-cols-3 gap-2">
+                    <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
                         <button type="button"
                                 @click="product = 'all'; fetchPreview()"
                                 :class="product === 'all' ? 'border-spv-blue bg-blue-50/50 text-spv-blue font-bold ring-1 ring-spv-blue' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 font-medium'"
@@ -747,6 +760,22 @@
                                 class="p-2 rounded-xl border text-xs text-center transition-all flex flex-col items-center gap-1">
                             <i class="ph-bold ph-flask text-sm"></i>
                             <span>Sodium</span>
+                        </button>
+
+                        <button type="button"
+                                @click="product = 'sliver'; fetchPreview()"
+                                :class="product === 'sliver' ? 'border-spv-blue bg-blue-50/50 text-spv-blue font-bold ring-1 ring-spv-blue' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 font-medium'"
+                                class="p-2 rounded-xl border text-xs text-center transition-all flex flex-col items-center gap-1">
+                            <i class="ph-bold ph-spiral text-sm"></i>
+                            <span>SLIVER</span>
+                        </button>
+
+                        <button type="button"
+                                @click="product = 'yarn'; fetchPreview()"
+                                :class="product === 'yarn' ? 'border-spv-blue bg-blue-50/50 text-spv-blue font-bold ring-1 ring-spv-blue' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 font-medium'"
+                                class="p-2 rounded-xl border text-xs text-center transition-all flex flex-col items-center gap-1">
+                            <i class="ph-bold ph-yarn text-sm"></i>
+                            <span>YARN</span>
                         </button>
                     </div>
                 </div>
@@ -1111,9 +1140,8 @@ function batchZipDownloadManager() {
         },
 
         previewFolderProduct() {
-            if (this.product === 'fiber') return 'FIBER';
-            if (this.product === 'sodium') return 'SODIUM';
-            return 'FIBER|SODIUM';
+            if (this.product && this.product !== 'all') return this.product.toUpperCase();
+            return 'PRODUK';
         },
 
         previewFolderYear() {

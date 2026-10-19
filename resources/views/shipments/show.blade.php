@@ -155,8 +155,18 @@
                 </div>
                 <div>
                     <span class="text-gray-400 block text-[11px] mb-0.5">Jenis Produk:</span>
-                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold capitalize {{ $shipment->jenis_produk === 'fiber' ? 'bg-blue-50 text-spv-blue' : 'bg-emerald-50 text-emerald-700' }}">
-                        {{ $shipment->jenis_produk }}
+                    @php
+                        $prodLower = strtolower($shipment->jenis_produk ?? '');
+                        $prodBadgeClass = match($prodLower) {
+                            'fiber' => 'bg-blue-50 text-spv-blue border border-blue-200',
+                            'sodium' => 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+                            'sliver' => 'bg-amber-50 text-amber-700 border border-amber-200',
+                            'yarn' => 'bg-purple-50 text-purple-700 border border-purple-200',
+                            default => 'bg-indigo-50 text-indigo-700 border border-indigo-200',
+                        };
+                    @endphp
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider {{ $prodBadgeClass }}">
+                        {{ strtoupper((string) $shipment->jenis_produk) }}
                     </span>
                 </div>
                 <div class="col-span-2">

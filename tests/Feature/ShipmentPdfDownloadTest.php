@@ -24,7 +24,7 @@ class ShipmentPdfDownloadTest extends TestCase
 
     public function test_user_can_view_shipment_report_preview(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['role' => 'admin']);
         $karyawan = Karyawan::create(['nomor_induk' => 'KRY010', 'nama' => 'Test Petugas', 'status' => 'aktif']);
 
         $shipment = Shipment::create([
@@ -56,7 +56,7 @@ class ShipmentPdfDownloadTest extends TestCase
 
     public function test_user_can_download_shipment_pdf_report(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['role' => 'admin']);
         $karyawan = Karyawan::create(['nomor_induk' => 'KRY011', 'nama' => 'Test Petugas', 'status' => 'aktif']);
 
         $shipment = Shipment::create([

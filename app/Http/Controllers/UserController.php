@@ -116,7 +116,7 @@ class UserController extends Controller
 
         $payload = [
             'nama_warehouse' => $validated['nama_warehouse'],
-            'username' => $validated['username'] ?: $user->username,
+            'username' => !empty($validated['username']) ? $validated['username'] : $user->username,
             'email' => $validated['email'],
             'role' => $validated['role'],
         ];

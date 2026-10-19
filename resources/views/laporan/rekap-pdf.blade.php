@@ -218,6 +218,21 @@
             color: #7e22ce;
         }
 
+        .pill-emerald {
+            background: #d1fae5;
+            color: #047857;
+        }
+
+        .pill-cyan {
+            background: #cffafe;
+            color: #0e7490;
+        }
+
+        .pill-gray {
+            background: #f1f5f9;
+            color: #475569;
+        }
+
         /* Section Title */
         .section-title {
             font-size: 9.5px;
@@ -318,7 +333,7 @@
                     Total Armada/Kontainer: <span class="kpi-badge">{{ $summary->total_shipments }} Unit</span>
                 </td>
                 <td style="width: 25%;">
-                    Breakdown Produk: <span class="kpi-badge">Fiber: {{ $summary->total_fiber }} &bull; Sodium: {{ $summary->total_sodium }}</span>
+                    Breakdown Produk: <span class="kpi-badge">Fiber: {{ $summary->total_fiber }} &bull; Sodium: {{ $summary->total_sodium }} &bull; Sliver: {{ $summary->total_sliver ?? 0 }} &bull; Yarn: {{ $summary->total_yarn ?? 0 }}@if(($summary->total_others ?? 0) > 0) &bull; Lainnya: {{ $summary->total_others }}@endif</span>
                 </td>
                 <td style="width: 25%;">
                     Jenis Pengiriman: <span class="kpi-badge">Export: {{ $summary->total_export }} &bull; Lokal: {{ $summary->total_lokal }}</span>
@@ -374,7 +389,17 @@
                         <td>{{ $s->nomor_container_atau_plat ?: '-' }}</td>
                         <td class="text-center">{{ $s->plat_nomor ?: '-' }}</td>
                         <td class="text-center">
-                            <span class="pill {{ $s->jenis_produk === 'fiber' ? 'pill-blue' : 'pill-purple' }}">
+                            @php
+                                $pLower = strtolower((string) $s->jenis_produk);
+                                $prodClass = match($pLower) {
+                                    'fiber' => 'pill-blue',
+                                    'sodium' => 'pill-purple',
+                                    'sliver' => 'pill-emerald',
+                                    'yarn' => 'pill-cyan',
+                                    default => 'pill-gray',
+                                };
+                            @endphp
+                            <span class="pill {{ $prodClass }}">
                                 {{ strtoupper((string) $s->jenis_produk) }}
                             </span>
                         </td>

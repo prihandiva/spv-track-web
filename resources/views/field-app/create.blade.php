@@ -47,6 +47,19 @@
         </div>
     @endif
 
+    @php
+        $rawProduct = (string) old('jenis_produk', $shipment->jenis_produk ?? 'fiber');
+        $rawProductCustom = (string) old('jenis_produk_custom', '');
+        $standardOptions = ['fiber', 'sodium', 'sliver', 'yarn'];
+        if (in_array(strtolower($rawProduct), $standardOptions, true)) {
+            $initProductSelect = strtolower($rawProduct);
+            $initCustomText = '';
+        } else {
+            $initProductSelect = 'others';
+            $initCustomText = $rawProduct !== 'others' ? $rawProduct : $rawProductCustom;
+        }
+    @endphp
+
     <form action="{{ isset($shipment) ? route('field-app.update', $shipment->id, false) : route('field-app.store', [], false) }}" method="POST" enctype="multipart/form-data"
           x-data="{
               nomorContainer: {{ Js::from((string) old('nomor_container_atau_plat', $shipment->nomor_container_atau_plat ?? '')) }},
@@ -58,6 +71,8 @@
               namaSopir: {{ Js::from((string) old('nama_sopir', $shipment->nama_sopir ?? '')) }},
               selectedKaryawanIds: {{ Js::from(array_map('strval', (array) old('karyawan_ids', isset($shipment) ? ($shipment->karyawans->pluck('id')->map('strval')->all() ?: ($shipment->karyawan_id ? [(string) $shipment->karyawan_id] : [])) : (old('karyawan_id') ? [(string) old('karyawan_id')] : [])))) }},
               packingListNo: {{ Js::from((string) old('packing_list_no', $shipment->packing_list_no ?? '')) }},
+              productChoice: {{ Js::from($initProductSelect) }},
+              customProductText: {{ Js::from($initCustomText) }},
               dropdownOpen: false,
               searchKaryawan: '',
               photoPreviewUrl: '',
@@ -120,13 +135,21 @@
                   return this.shipmentNo.trim().length === 9;
               },
 
+              get isProductValid() {
+                  if (this.productChoice === 'others') {
+                      return this.customProductText.trim().length > 0;
+                  }
+                  return (this.productChoice || '').trim().length > 0;
+              },
+
               get isValid() {
                   return this.isPackingListValid &&
                          this.isShipmentGroupValid &&
                          this.isShipmentNoValid &&
                          this.nomorContainer.trim().length > 0 &&
                          this.platNomor.trim().length > 0 &&
-                         this.selectedKaryawanIds.length > 0;
+                         this.selectedKaryawanIds.length > 0 &&
+                         this.isProductValid;
               },
               get missingFields() {
                   const missing = [];
@@ -151,6 +174,7 @@
                   if (!this.platNomor.trim()) missing.push('Plat Nomor');
                   if (!this.nomorContainer.trim()) missing.push('No. Container');
                   if (this.selectedKaryawanIds.length === 0) missing.push('Petugas Lapangan (minimal 1)');
+                  if (!this.isProductValid) missing.push('Ketik Nama Produk (Others)');
                   return missing;
               },
               handlePhotoChange(event) {
@@ -830,11 +854,28 @@
             <div class="section-card-body" x-show="open" x-collapse style="display: flex; flex-direction: column; gap: 12px;">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                     <div>
-                        <label class="field-label">Produk</label>
-                        <select name="jenis_produk" class="field-input">
-                            <option value="fiber" {{ old('jenis_produk', $shipment->jenis_produk ?? 'fiber') === 'fiber' ? 'selected' : '' }}>Fiber</option>
-                            <option value="sodium" {{ old('jenis_produk', $shipment->jenis_produk ?? 'fiber') === 'sodium' ? 'selected' : '' }}>Sodium</option>
+                        <label class="field-label" style="display: flex; align-items: center; justify-content: space-between;">
+                            <span>Produk <span style="color:#ef4444;">*</span></span>
+                            <span x-show="productChoice === 'others'" style="font-size: 10px; color: #285491; font-weight: 700;">Wajib ketik nama produk</span>
+                        </label>
+                        <select name="product_type_select" x-model="productChoice" class="field-input">
+                            <option value="fiber">Fiber</option>
+                            <option value="sodium">Sodium</option>
+                            <option value="sliver">Sliver</option>
+                            <option value="yarn">Yarn</option>
+                            <option value="others">Others (Lainnya)</option>
                         </select>
+                        <input type="hidden" name="jenis_produk" :value="productChoice === 'others' ? customProductText.trim() : productChoice">
+
+                        <!-- Manual Text Input saat Others dipilih -->
+                        <div x-cloak x-show="productChoice === 'others'" style="margin-top: 8px;">
+                            <input type="text"
+                                   name="jenis_produk_custom"
+                                   x-model="customProductText"
+                                   placeholder="Ketik jenis produk di sini (contoh: Chemical, Cotton)..."
+                                   class="field-input"
+                                   style="border-color: #285491; background: #f0f7ff; font-weight: 600;">
+                        </div>
                     </div>
                     <div>
                         <label class="field-label">Jenis Pengiriman</label>

@@ -43,8 +43,14 @@ class FieldAppController extends Controller
             $request->merge(['karyawan_ids' => [(int) $request->input('karyawan_id')]]);
         }
 
+        if ($request->input('jenis_produk') === 'others' || empty($request->input('jenis_produk'))) {
+            if ($request->filled('jenis_produk_custom')) {
+                $request->merge(['jenis_produk' => trim($request->input('jenis_produk_custom'))]);
+            }
+        }
+
         $validated = $request->validate([
-            'jenis_produk' => 'required|in:fiber,sodium',
+            'jenis_produk' => 'required|string|max:100',
             'jenis_pengiriman' => 'required|in:export,lokal',
             'packing_list_no' => 'required|numeric|digits:9',
             'shipment_group' => 'required|numeric|digits:9',
@@ -178,8 +184,14 @@ class FieldAppController extends Controller
             $request->merge(['karyawan_ids' => [(int) $request->input('karyawan_id')]]);
         }
 
+        if ($request->input('jenis_produk') === 'others' || empty($request->input('jenis_produk'))) {
+            if ($request->filled('jenis_produk_custom')) {
+                $request->merge(['jenis_produk' => trim($request->input('jenis_produk_custom'))]);
+            }
+        }
+
         $validated = $request->validate([
-            'jenis_produk' => 'required|in:fiber,sodium',
+            'jenis_produk' => 'required|string|max:100',
             'jenis_pengiriman' => 'required|in:export,lokal',
             'packing_list_no' => 'required|numeric|digits:9',
             'shipment_group' => 'required|numeric|digits:9',

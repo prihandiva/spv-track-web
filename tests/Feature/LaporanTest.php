@@ -22,7 +22,7 @@ class LaporanTest extends TestCase
     {
         parent::setUp();
 
-        $this->user = User::factory()->create();
+        $this->user = User::factory()->create(['role' => 'admin']);
         $this->karyawan = Karyawan::create([
             'nama' => 'Budi Santoso',
             'nomor_induk' => 'SPV001',
