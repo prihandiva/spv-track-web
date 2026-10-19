@@ -841,7 +841,7 @@
                         <!-- Nomor Seal -->
                         <div>
                             <label class="field-label" style="display:flex; align-items:center; gap:4px;">
-                                <i class="ph-bold ph-lock-key" style="color:#285491; font-size:12px;"></i>Nomor Seal (Opsional)
+                                <i class="ph-bold ph-lock-key" style="color:#285491; font-size:12px;"></i>Nomor Seal 
                             </label>
                             <input type="text" id="nomor_seal" name="nomor_seal" x-model="nomorSeal"
                                    list="history-seal"

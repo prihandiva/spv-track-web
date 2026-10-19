@@ -255,10 +255,10 @@
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(6px); }
-            to { opacity: 1; transform: translateY(0); }
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
-        .animate-in { animation: fadeIn 0.3s ease forwards; }
+        .animate-in { animation: fadeIn 0.25s ease forwards; }
     </style>
     <!-- Phosphor Icons -->
     <script src="{{ asset('vendor/phosphor.min.js') }}"></script>

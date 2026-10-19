@@ -5,9 +5,103 @@
 @endphp
 
 <script>
+    window.openSopPreview = function(pointId, urutan, title, desc) {
+        const modal = document.getElementById('sop-preview-lightbox');
+        if (!modal) return;
+
+        if (modal.parentElement !== document.body) {
+            document.body.appendChild(modal);
+        }
+
+        const wrapper = document.getElementById('preview-wrapper-' + pointId);
+        const img = document.getElementById('preview-' + pointId);
+        const vid = document.getElementById('video-preview-' + pointId);
+        const tsBox = document.getElementById('timestamp-' + pointId);
+        const tsText = tsBox ? tsBox.querySelector('.ts-text')?.textContent?.trim() : '';
+
+        const isVideo = wrapper?.dataset?.isVideo === 'true';
+        let mediaUrl = isVideo ? (vid?.currentSrc || vid?.src || wrapper?.dataset?.mediaUrl) : (img?.currentSrc || img?.src || wrapper?.dataset?.mediaUrl);
+
+        if (!mediaUrl && img && img.src) mediaUrl = img.src;
+        if (!mediaUrl && vid && vid.src) mediaUrl = vid.src;
+
+        const elUrutan = document.getElementById('lightbox-point-urutan');
+        const elTitle = document.getElementById('lightbox-point-title');
+        const elDesc = document.getElementById('lightbox-point-desc');
+        const elTs = document.getElementById('lightbox-timestamp');
+        const modalImg = document.getElementById('lightbox-img');
+        const modalVid = document.getElementById('lightbox-video');
+        const retakeText = document.getElementById('lightbox-btn-retake-text');
+
+        if (elUrutan) elUrutan.textContent = 'Titik ' + (urutan || '-');
+        if (elTitle) elTitle.textContent = title || '';
+        if (elDesc) elDesc.textContent = desc || '';
+        if (elTs) elTs.textContent = tsText || (wrapper?.dataset?.timestamp || 'Tersimpan & Terverifikasi');
+
+        if (isVideo) {
+            if (modalImg) modalImg.style.display = 'none';
+            if (modalVid) {
+                modalVid.src = mediaUrl || '';
+                modalVid.style.display = 'block';
+                modalVid.load();
+                modalVid.play().catch(() => {});
+            }
+            if (retakeText) retakeText.textContent = 'Rekam Ulang';
+        } else {
+            if (modalVid) {
+                modalVid.pause();
+                modalVid.style.display = 'none';
+            }
+            if (modalImg) {
+                modalImg.src = mediaUrl || '';
+                modalImg.style.display = 'block';
+            }
+            if (retakeText) retakeText.textContent = 'Foto Ulang';
+        }
+
+        modal.dataset.currentPointId = pointId;
+        modal.dataset.isVideo = isVideo ? 'true' : 'false';
+
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    };
+
+    window.closeSopPreview = function() {
+        const modal = document.getElementById('sop-preview-lightbox');
+        if (modal) {
+            modal.style.display = 'none';
+            const modalVid = document.getElementById('lightbox-video');
+            if (modalVid) {
+                modalVid.pause();
+            }
+        }
+        document.body.style.overflow = '';
+    };
+
+    window.retakeFromLightbox = function(type) {
+        const modal = document.getElementById('sop-preview-lightbox');
+        const pointId = modal?.dataset?.currentPointId;
+        window.closeSopPreview();
+        if (!pointId) return;
+
+        setTimeout(() => {
+            const input = document.getElementById(type + '-input-' + pointId) || document.getElementById('initial-' + type + '-input-' + pointId);
+            if (input) {
+                input.click();
+            }
+        }, 120);
+    };
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            window.closeSopPreview();
+        }
+    });
+
     function registerTimelineManager() {
         if (!window.Alpine) return;
-        if (Alpine.data('timelineManager')) return;
+        if (window._timelineManagerRegistered) return;
+        window._timelineManagerRegistered = true;
 
         Alpine.data('timelineManager', () => ({
             mandatoryPointIds: @json($mandatoryPointIds),
@@ -18,57 +112,16 @@
             fpKedatangan: null,
             fpKeberangkatan: null,
 
-            // Modal Pratinjau Bukti Foto / Video (Lightbox)
-            previewModal: {
-                open: false,
-                pointId: null,
-                pointUrutan: null,
-                pointTitle: '',
-                pointDesc: '',
-                isVideo: false,
-                mediaUrl: '',
-                timestampText: ''
-            },
-
             openPointPreview(pointId, urutan, title, desc) {
-                const wrapper = document.getElementById('preview-wrapper-' + pointId);
-                const img = document.getElementById('preview-' + pointId);
-                const vid = document.getElementById('video-preview-' + pointId);
-                const tsBox = document.getElementById('timestamp-' + pointId);
-                const tsText = tsBox ? tsBox.querySelector('.ts-text')?.textContent?.trim() : '';
-
-                const isVideo = wrapper?.dataset?.isVideo === 'true';
-                let mediaUrl = isVideo ? (vid?.src || wrapper?.dataset?.mediaUrl) : (img?.src || wrapper?.dataset?.mediaUrl);
-
-                if (!mediaUrl && img && img.src) mediaUrl = img.src;
-                if (!mediaUrl && vid && vid.src) mediaUrl = vid.src;
-
-                if (!mediaUrl) return;
-
-                this.previewModal = {
-                    open: true,
-                    pointId,
-                    pointUrutan: urutan,
-                    pointTitle: title,
-                    pointDesc: desc,
-                    isVideo,
-                    mediaUrl,
-                    timestampText: tsText || (wrapper?.dataset?.timestamp || 'Tersimpan & Terverifikasi')
-                };
+                window.openSopPreview(pointId, urutan, title, desc);
             },
 
             closePreview() {
-                this.previewModal.open = false;
+                window.closeSopPreview();
             },
 
             retakeFromModal(pointId, type = 'camera') {
-                this.closePreview();
-                setTimeout(() => {
-                    const input = document.getElementById(type + '-input-' + pointId) || document.getElementById('initial-' + type + '-input-' + pointId);
-                    if (input) {
-                        input.click();
-                    }
-                }, 150);
+                window.retakeFromLightbox(type);
             },
 
             init() {
@@ -169,8 +222,8 @@
                     const diff = this.totalMandatoryCount - this.mandatoryUploadedCount;
                     missing.push(diff + ' foto wajib belum diunggah');
                 }
-                if (!(this.waktuKedatangan || '').trim()) missing.push('Waktu Mulai Staging (Kedatangan)');
-                if (!(this.waktuKeberangkatan || '').trim()) missing.push('Waktu Akhir Staging (Keberangkatan)');
+                if (!(this.waktuKedatangan || '').trim()) missing.push('Waktu Mulai Staging');
+                if (!(this.waktuKeberangkatan || '').trim()) missing.push('Waktu Akhir Staging');
                 return missing;
             }
         }));
@@ -346,7 +399,7 @@
 
                     <!-- Media Preview Container (Clickable to open inspection modal) -->
                     <div id="preview-wrapper-{{$point->id}}"
-                         @click="openPointPreview({{ $point->id }}, {{ $point->urutan }}, {{ Js::from($point->nama_titik) }}, {{ Js::from($point->deskripsi) }})"
+                         onclick="openSopPreview({{ $point->id }}, {{ $point->urutan }}, {{ Js::from($point->nama_titik) }}, {{ Js::from($point->deskripsi) }})"
                          data-point-id="{{ $point->id }}"
                          data-media-url="{{ $existing ? asset('storage/' . $existing->file_path) : '' }}"
                          data-is-video="{{ $isExistingVideo ? 'true' : 'false' }}"
@@ -380,36 +433,41 @@
                                 {{ $existing && $existing->captured_at ? $existing->captured_at->format('Y-m-d H:i:s') . ' WIB' : '' }}
                             </span>
                         </div>
-                    <!-- Permanent Mobile & Desktop Action Bar (Visible when media exists) -->
-                    <div id="action-bar-{{$point->id}}" style="display: {{ $existing ? 'flex' : 'none' }}; border-top: 1px solid #e8edf3; background: #f8fafc; padding: 6px 10px; align-items: center; justify-content: space-between; gap: 6px;">
+                    </div>
+
+                    <!-- Permanent Mobile & Desktop Action Bar (Visible below the photo when media exists) -->
+                    <div id="action-bar-{{$point->id}}" style="display: {{ $existing ? 'flex' : 'none' }}; border-top: 1.5px solid #e2e8f0; background: #f8fafc; padding: 8px 12px; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
                         <button type="button"
-                                @click="openPointPreview({{$point->id}}, {{$point->urutan}}, {{ Js::from($point->nama_titik) }}, {{ Js::from($point->deskripsi) }})"
-                                style="display:flex; align-items:center; gap:4px; font-size:11px; font-weight:700; color:#285491; background:white; border:1px solid #cbd5e1; border-radius:6px; padding:4px 9px; cursor:pointer; transition:all 0.15s;"
-                                onmouseover="this.style.background='#eff4fc'" onmouseout="this.style.background='white'">
-                            <i class="ph-bold ph-eye" style="font-size:13px;"></i> Periksa
+                                onclick="openSopPreview({{$point->id}}, {{$point->urutan}}, {{ Js::from($point->nama_titik) }}, {{ Js::from($point->deskripsi) }})"
+                                style="display:flex; align-items:center; gap:5px; font-size:11px; font-weight:700; color:#285491; background:white; border:1.5px solid #cbd5e1; border-radius:8px; padding:6px 12px; cursor:pointer; transition:all 0.15s; box-shadow: 0 1px 2px rgba(0,0,0,0.04);"
+                                onmouseover="this.style.background='#eff4fc'; this.style.borderColor='#285491'" onmouseout="this.style.background='white'; this.style.borderColor='#cbd5e1'">
+                            <i class="ph-bold ph-eye" style="font-size:14px; color:#285491;"></i> Periksa Bukti
                         </button>
                         <div style="display:flex; align-items:center; gap:6px;">
                             @if($isVideoPoint)
-                                <label style="display:flex; align-items:center; gap:4px; font-size:11px; font-weight:700; color:#dc2626; background:#fee2e2; border:1px solid #fecaca; border-radius:6px; padding:4px 8px; cursor:pointer;" title="Rekam Ulang Video">
+                                <label style="display:flex; align-items:center; gap:5px; font-size:11px; font-weight:700; color:#dc2626; background:#fee2e2; border:1px solid #fecaca; border-radius:8px; padding:6px 11px; cursor:pointer; transition:background 0.15s;"
+                                       onmouseover="this.style.background='#fca5a5'" onmouseout="this.style.background='#fee2e2'" title="Rekam Ulang Video">
                                     <input type="file" id="camera-input-{{$point->id}}" style="display:none;" accept="video/*" capture="environment" onchange="uploadSopPhoto(this, {{ $point->id }})">
-                                    <i class="ph-fill ph-video-camera"></i> Rekam Ulang
+                                    <i class="ph-fill ph-video-camera" style="font-size:14px;"></i> Rekam Ulang
                                 </label>
-                                <label style="display:flex; align-items:center; gap:4px; font-size:11px; font-weight:600; color:#285491; background:#eff4fc; border:1px solid #bfcfe8; border-radius:6px; padding:4px 8px; cursor:pointer;" title="Pilih File Video Lain">
+                                <label style="display:flex; align-items:center; gap:5px; font-size:11px; font-weight:600; color:#285491; background:#eff4fc; border:1px solid #bfcfe8; border-radius:8px; padding:6px 11px; cursor:pointer; transition:background 0.15s;"
+                                       onmouseover="this.style.background='#dbe7f6'" onmouseout="this.style.background='#eff4fc'" title="Pilih File Video Lain">
                                     <input type="file" id="gallery-input-{{$point->id}}" style="display:none;" accept="video/*" onchange="uploadSopPhoto(this, {{ $point->id }})">
-                                    <i class="ph-bold ph-film-strip"></i> Ganti
+                                    <i class="ph-bold ph-film-strip" style="font-size:14px;"></i> Ganti File
                                 </label>
                             @else
-                                <label style="display:flex; align-items:center; gap:4px; font-size:11px; font-weight:700; color:#285491; background:#eff4fc; border:1px solid #bfcfe8; border-radius:6px; padding:4px 8px; cursor:pointer;" title="Foto Ulang dari Kamera">
+                                <label style="display:flex; align-items:center; gap:5px; font-size:11px; font-weight:700; color:#285491; background:#eff4fc; border:1.5px solid #bfcfe8; border-radius:8px; padding:6px 12px; cursor:pointer; transition:background 0.15s;"
+                                       onmouseover="this.style.background='#dbe7f6'" onmouseout="this.style.background='#eff4fc'" title="Foto Ulang dari Kamera">
                                     <input type="file" id="camera-input-{{$point->id}}" style="display:none;" accept="image/*" capture="environment" onchange="uploadSopPhoto(this, {{ $point->id }})">
-                                    <i class="ph-bold ph-camera"></i> Foto Ulang
+                                    <i class="ph-bold ph-camera" style="font-size:14px;"></i> Foto Ulang
                                 </label>
-                                <label style="display:flex; align-items:center; gap:4px; font-size:11px; font-weight:600; color:#4b5563; background:#f3f4f6; border:1px solid #e5e7eb; border-radius:6px; padding:4px 8px; cursor:pointer;" title="Pilih Foto Lain dari Galeri">
+                                <label style="display:flex; align-items:center; gap:5px; font-size:11px; font-weight:600; color:#4b5563; background:#f3f4f6; border:1px solid #e5e7eb; border-radius:8px; padding:6px 12px; cursor:pointer; transition:background 0.15s;"
+                                       onmouseover="this.style.background='#e5e7eb'" onmouseout="this.style.background='#f3f4f6'" title="Pilih Foto Lain dari Galeri">
                                     <input type="file" id="gallery-input-{{$point->id}}" style="display:none;" accept="image/*" onchange="uploadSopPhoto(this, {{ $point->id }})">
-                                    <i class="ph-bold ph-image"></i> Ganti
+                                    <i class="ph-bold ph-image" style="font-size:14px;"></i> Ganti Galeri
                                 </label>
                             @endif
                         </div>
-                    </div>
                     </div>
                 </div>
             </div>
@@ -493,7 +551,7 @@
                 </div>
                 <div style="flex: 1;">
                     <p style="font-size: 13px; font-weight: 700; color: #1f2937;">Waktu Pelaksanaan Staging Container</p>
-                    <p style="font-size: 10px; color: #64748b;">Hanya perlu mengisi waktu mulai (kedatangan) dan waktu akhir (keberangkatan)</p>
+                    <p style="font-size: 10px; color: #64748b;">Hanya perlu mengisi waktu mulai dan waktu selesai</p>
                 </div>
                 <i class="ph-bold" :class="openStagingSection ? 'ph-caret-up' : 'ph-caret-down'" style="font-size: 14px; color: #9ca3af;"></i>
             </div>
@@ -505,7 +563,7 @@
                         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
                             <label class="field-label" style="margin-bottom:0; display:flex; align-items:center; gap:5px; font-weight:700; color:#1e293b;">
                                 <i class="ph-bold ph-play-circle" style="color:#059e3d; font-size:16px;"></i>
-                                Waktu Mulai (Kedatangan Container) <span style="color:#ef4444;">*</span>
+                                Waktu Mulai Staging <span style="color:#ef4444;">*</span>
                                 <span style="font-size:10px; font-weight:700; color:#285491; background:#e0ecfb; border:1px solid #bfcfe8; border-radius:6px; padding:1px 6px; margin-left:4px;">
                                     Format 24 Jam
                                 </span>
@@ -526,7 +584,7 @@
                                 <i class="ph-bold ph-calendar-blank" style="font-size:17px;"></i>
                             </div>
                         </div>
-                        <p style="font-size:10px; color:#64748b; margin-top:4px;">Waktu saat container pertama kali tiba di warehouse (format 24 jam: 00:00 - 23:59 WIB).</p>
+                        <p style="font-size:10px; color:#64748b; margin-top:4px;">Waktu saat container mulai staging (format 24 jam: 00:00 - 23:59 WIB).</p>
                     </div>
 
                     <!-- Waktu Akhir (Keberangkatan Container) -->
@@ -535,7 +593,7 @@
                         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
                             <label class="field-label" style="margin-bottom:0; display:flex; align-items:center; gap:5px; font-weight:700; color:#1e293b;">
                                 <i class="ph-bold ph-check-circle" style="color:#285491; font-size:16px;"></i>
-                                Waktu Akhir (Keberangkatan Container) <span style="color:#ef4444;">*</span>
+                                Waktu Selesai Staging  <span style="color:#ef4444;">*</span>
                                 <span style="font-size:10px; font-weight:700; color:#285491; background:#e0ecfb; border:1px solid #bfcfe8; border-radius:6px; padding:1px 6px; margin-left:4px;">
                                     Format 24 Jam
                                 </span>
@@ -607,29 +665,24 @@
     </form>
 
     <!-- MODAL PRATINJAU BUKTI FOTO & VIDEO (LIGHTBOX OPERATOR) -->
-    <div x-cloak
-         x-show="previewModal.open"
-         :style="previewModal.open ? 'display: flex !important;' : 'display: none !important;'"
-         @keydown.escape.window="closePreview()"
-         style="display: none; position: fixed; inset: 0; z-index: 9999; align-items: center; justify-content: center; padding: 12px; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px);">
+    <div id="sop-preview-lightbox"
+         onclick="if (event.target === this) closeSopPreview()"
+         style="display: none; position: fixed; inset: 0; z-index: 99999; align-items: center; justify-content: center; padding: 12px; background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(8px);">
 
-        <div @click.away="closePreview()"
-             style="background: #0f172a; border: 1px solid rgba(255,255,255,0.15); border-radius: 20px; width: 100%; max-width: 820px; max-height: 94vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);">
+        <div style="background: #0f172a; border: 1px solid rgba(255,255,255,0.18); border-radius: 20px; width: 100%; max-width: 840px; max-height: 94vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.85);"
+             onclick="event.stopPropagation()">
 
             <!-- Modal Header -->
-            <div style="padding: 12px 16px; background: rgba(30, 41, 59, 0.85); border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+            <div style="padding: 12px 16px; background: rgba(30, 41, 59, 0.95); border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: space-between; gap: 12px;">
                 <div style="min-width: 0;">
                     <div style="display: flex; align-items: center; gap: 8px;">
-                        <span style="font-size: 11px; font-weight: 800; background: #2563eb; color: white; padding: 2px 8px; border-radius: 6px;"
-                              x-text="'Titik ' + (previewModal.pointUrutan || '-')"></span>
-                        <h3 style="font-size: 13px; font-weight: 700; color: white; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
-                            x-text="previewModal.pointTitle"></h3>
+                        <span id="lightbox-point-urutan" style="font-size: 11px; font-weight: 800; background: #2563eb; color: white; padding: 2px 8px; border-radius: 6px;">Titik -</span>
+                        <h3 id="lightbox-point-title" style="font-size: 13px; font-weight: 700; color: white; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</h3>
                     </div>
-                    <p style="font-size: 11px; color: #94a3b8; margin: 2px 0 0 0;"
-                       x-text="previewModal.pointDesc"></p>
+                    <p id="lightbox-point-desc" style="font-size: 11px; color: #94a3b8; margin: 2px 0 0 0;">-</p>
                 </div>
                 <button type="button"
-                        @click="closePreview()"
+                        onclick="closeSopPreview()"
                         style="width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.1); border: none; color: #cbd5e1; font-size: 18px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.2s;"
                         onmouseover="this.style.background='rgba(255,255,255,0.2)'; this.style.color='white'"
                         onmouseout="this.style.background='rgba(255,255,255,0.1)'; this.style.color='#cbd5e1'">
@@ -639,22 +692,21 @@
 
             <!-- Modal Media Content -->
             <div style="flex: 1; min-height: 250px; max-height: 68vh; background: #000; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden;">
-                <template x-if="!previewModal.isVideo">
-                    <img :src="previewModal.mediaUrl"
-                         alt="Bukti Foto Evidence"
-                         style="max-width: 100%; max-height: 68vh; object-fit: contain; display: block; margin: auto;">
-                </template>
-                <template x-if="previewModal.isVideo">
-                    <video :src="previewModal.mediaUrl"
-                           controls playsinline autoplay
-                           style="max-width: 100%; max-height: 68vh; object-fit: contain; display: block; margin: auto; background: black;"></video>
-                </template>
+                <img id="lightbox-img"
+                     src=""
+                     alt="Bukti Foto Evidence"
+                     style="max-width: 100%; max-height: 68vh; object-fit: contain; display: none; margin: auto;">
+
+                <video id="lightbox-video"
+                       src=""
+                       controls playsinline
+                       style="max-width: 100%; max-height: 68vh; object-fit: contain; display: none; margin: auto; background: black;"></video>
 
                 <!-- Watermark Info Pill inside Modal -->
-                <div style="position: absolute; bottom: 12px; left: 12px; right: 12px; background: rgba(0,0,0,0.75); backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 6px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11px; color: #94a3b8;">
+                <div style="position: absolute; bottom: 12px; left: 12px; right: 12px; background: rgba(0,0,0,0.8); backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 6px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11px; color: #94a3b8; pointer-events: none; z-index: 10;">
                     <div style="display: flex; align-items: center; gap: 6px; font-family: monospace; color: #6ee7b7; font-weight: 700;">
                         <i class="ph-bold ph-calendar-check" style="font-size: 14px;"></i>
-                        <span x-text="previewModal.timestampText"></span>
+                        <span id="lightbox-timestamp">-</span>
                     </div>
                     <span style="font-size: 10px; color: #94a3b8;">Stempel Digital SPV-Track</span>
                 </div>
@@ -668,15 +720,15 @@
                 </p>
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <button type="button"
-                            @click="retakeFromModal(previewModal.pointId, 'camera')"
+                            onclick="retakeFromLightbox('camera')"
                             style="display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: white; background: #2563eb; border: none; padding: 7px 14px; border-radius: 8px; cursor: pointer; transition: background 0.2s;"
                             onmouseover="this.style.background='#1d4ed8'"
                             onmouseout="this.style.background='#2563eb'">
                         <i class="ph-bold ph-camera" style="font-size: 15px;"></i>
-                        <span x-text="previewModal.isVideo ? 'Rekam Ulang' : 'Foto Ulang'"></span>
+                        <span id="lightbox-btn-retake-text">Foto Ulang</span>
                     </button>
                     <button type="button"
-                            @click="retakeFromModal(previewModal.pointId, 'gallery')"
+                            onclick="retakeFromLightbox('gallery')"
                             style="display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: #cbd5e1; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 7px 14px; border-radius: 8px; cursor: pointer; transition: all 0.2s;"
                             onmouseover="this.style.background='rgba(255,255,255,0.2)'; this.style.color='white'"
                             onmouseout="this.style.background='rgba(255,255,255,0.1)'; this.style.color='#cbd5e1'">
@@ -684,7 +736,7 @@
                         <span>Pilih Galeri</span>
                     </button>
                     <button type="button"
-                            @click="closePreview()"
+                            onclick="closeSopPreview()"
                             style="font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: 1px solid rgba(255,255,255,0.1); padding: 7px 14px; border-radius: 8px; cursor: pointer; transition: all 0.2s;"
                             onmouseover="this.style.background='rgba(255,255,255,0.05)'; this.style.color='white'"
                             onmouseout="this.style.background='transparent'; this.style.color='#94a3b8'">
