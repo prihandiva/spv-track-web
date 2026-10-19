@@ -18,6 +18,59 @@
             fpKedatangan: null,
             fpKeberangkatan: null,
 
+            // Modal Pratinjau Bukti Foto / Video (Lightbox)
+            previewModal: {
+                open: false,
+                pointId: null,
+                pointUrutan: null,
+                pointTitle: '',
+                pointDesc: '',
+                isVideo: false,
+                mediaUrl: '',
+                timestampText: ''
+            },
+
+            openPointPreview(pointId, urutan, title, desc) {
+                const wrapper = document.getElementById('preview-wrapper-' + pointId);
+                const img = document.getElementById('preview-' + pointId);
+                const vid = document.getElementById('video-preview-' + pointId);
+                const tsBox = document.getElementById('timestamp-' + pointId);
+                const tsText = tsBox ? tsBox.querySelector('.ts-text')?.textContent?.trim() : '';
+
+                const isVideo = wrapper?.dataset?.isVideo === 'true';
+                let mediaUrl = isVideo ? (vid?.src || wrapper?.dataset?.mediaUrl) : (img?.src || wrapper?.dataset?.mediaUrl);
+
+                if (!mediaUrl && img && img.src) mediaUrl = img.src;
+                if (!mediaUrl && vid && vid.src) mediaUrl = vid.src;
+
+                if (!mediaUrl) return;
+
+                this.previewModal = {
+                    open: true,
+                    pointId,
+                    pointUrutan: urutan,
+                    pointTitle: title,
+                    pointDesc: desc,
+                    isVideo,
+                    mediaUrl,
+                    timestampText: tsText || (wrapper?.dataset?.timestamp || 'Tersimpan & Terverifikasi')
+                };
+            },
+
+            closePreview() {
+                this.previewModal.open = false;
+            },
+
+            retakeFromModal(pointId, type = 'camera') {
+                this.closePreview();
+                setTimeout(() => {
+                    const input = document.getElementById(type + '-input-' + pointId) || document.getElementById('initial-' + type + '-input-' + pointId);
+                    if (input) {
+                        input.click();
+                    }
+                }, 150);
+            },
+
             init() {
                 this.initPickers();
             },
@@ -254,7 +307,7 @@
                         <div id="icon-{{$point->id}}" style="display: {{ $existing ? 'none' : 'flex' }}; border-bottom: 1px solid #f0f4f9;">
                             <label style="flex: 1; padding: 12px 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: background 0.2s;"
                                    onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='transparent'">
-                                <input type="file" style="display:none;" accept="video/*" capture="environment" onchange="uploadSopPhoto(this, {{ $point->id }})">
+                                <input type="file" id="initial-camera-input-{{$point->id}}" style="display:none;" accept="video/*" capture="environment" onchange="uploadSopPhoto(this, {{ $point->id }})">
                                 <div style="width:34px; height:34px; border-radius:50%; background:#fee2e2; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
                                     <i class="ph-fill ph-video-camera" style="font-size: 18px; color: #dc2626;"></i>
                                 </div>
@@ -264,7 +317,7 @@
                             <div style="width: 1px; background: #f0f4f9;"></div>
                             <label style="flex: 1; padding: 12px 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: background 0.2s;"
                                    onmouseover="this.style.background='#eff4fc'" onmouseout="this.style.background='transparent'">
-                                <input type="file" style="display:none;" accept="video/*" onchange="uploadSopPhoto(this, {{ $point->id }})">
+                                <input type="file" id="initial-gallery-input-{{$point->id}}" style="display:none;" accept="video/*" onchange="uploadSopPhoto(this, {{ $point->id }})">
                                 <div style="width:34px; height:34px; border-radius:50%; background:#eff4fc; display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
                                     <i class="ph-bold ph-film-strip" style="font-size: 18px; color: #285491;"></i>
                                 </div>
@@ -277,72 +330,86 @@
                         <div id="icon-{{$point->id}}" style="display: {{ $existing ? 'none' : 'flex' }}; border-bottom: 1px solid #f0f4f9;">
                             <label style="flex: 1; padding: 12px 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: background 0.2s;"
                                    onmouseover="this.style.background='#eff4fc'" onmouseout="this.style.background='transparent'">
-                                <input type="file" style="display:none;" accept="image/*" capture="environment" onchange="uploadSopPhoto(this, {{ $point->id }})">
+                                <input type="file" id="initial-camera-input-{{$point->id}}" style="display:none;" accept="image/*" capture="environment" onchange="uploadSopPhoto(this, {{ $point->id }})">
                                 <i class="ph-bold ph-camera" style="font-size: 20px; color: #285491; margin-bottom: 3px; display: block;"></i>
                                 <span style="font-size: 10px; font-weight: 700; color: #285491;">Buka Kamera</span>
                             </label>
                             <div style="width: 1px; background: #f0f4f9;"></div>
                             <label style="flex: 1; padding: 12px 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: background 0.2s;"
                                    onmouseover="this.style.background='#eff4fc'" onmouseout="this.style.background='transparent'">
-                                <input type="file" style="display:none;" accept="image/*" onchange="uploadSopPhoto(this, {{ $point->id }})">
+                                <input type="file" id="initial-gallery-input-{{$point->id}}" style="display:none;" accept="image/*" onchange="uploadSopPhoto(this, {{ $point->id }})">
                                 <i class="ph-bold ph-image" style="font-size: 20px; color: #6b7280; margin-bottom: 3px; display: block;"></i>
                                 <span style="font-size: 10px; font-weight: 600; color: #6b7280;">Pilih Galeri</span>
                             </label>
                         </div>
                     @endif
 
-                    <!-- Media Preview Container (Photo & Video player) -->
-                    <div id="preview-wrapper-{{$point->id}}" style="display: {{ $existing ? 'block' : 'none' }}; position: relative; height: 180px; background: #0f172a;">
+                    <!-- Media Preview Container (Clickable to open inspection modal) -->
+                    <div id="preview-wrapper-{{$point->id}}"
+                         @click="openPointPreview({{ $point->id }}, {{ $point->urutan }}, {{ Js::from($point->nama_titik) }}, {{ Js::from($point->deskripsi) }})"
+                         data-point-id="{{ $point->id }}"
+                         data-media-url="{{ $existing ? asset('storage/' . $existing->file_path) : '' }}"
+                         data-is-video="{{ $isExistingVideo ? 'true' : 'false' }}"
+                         data-timestamp="{{ $existing && $existing->captured_at ? $existing->captured_at->format('Y-m-d H:i:s') . ' WIB' : '' }}"
+                         style="display: {{ $existing ? 'block' : 'none' }}; position: relative; height: 180px; background: #0f172a; cursor: pointer;"
+                         title="Klik untuk melihat pratinjau stempel & kejelasan bukti">
+
                         <img id="preview-{{$point->id}}"
                              src="{{ $existing && !$isExistingVideo ? asset('storage/' . $existing->file_path) : '' }}"
                              style="width:100%; height:100%; object-fit:contain; opacity:0.95; display: {{ $existing && !$isExistingVideo ? 'block' : 'none' }};" />
 
                         <video id="video-preview-{{$point->id}}"
                                src="{{ $existing && $isExistingVideo ? asset('storage/' . $existing->file_path) : '' }}"
-                               controls playsinline
+                               playsinline
                                style="width:100%; height:100%; object-fit:contain; background:#000; display: {{ $existing && $isExistingVideo ? 'block' : 'none' }};"></video>
 
-                        <!-- Replace / Retake Buttons Overlay -->
-                        <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; gap:12px; background:rgba(0,0,0,0); transition:background 0.2s; pointer-events:none;"
-                             onmouseover="this.style.background='rgba(0,0,0,0.6)'; this.querySelectorAll('label').forEach(el=>{el.style.opacity='1'; el.style.pointerEvents='auto';})"
-                             onmouseout="this.style.background='rgba(0,0,0,0)'; this.querySelectorAll('label').forEach(el=>{el.style.opacity='0'; el.style.pointerEvents='none';})">
-                            @if($isVideoPoint)
-                                <label style="width:42px; height:42px; border-radius:50%; background:rgba(220,38,38,0.9); backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center; cursor:pointer; opacity:0; pointer-events:none; transition:opacity 0.2s;"
-                                       onmouseover="this.style.background='#b91c1c'" onmouseout="this.style.background='rgba(220,38,38,0.9)'" title="Rekam Ulang Video">
-                                    <input type="file" style="display:none;" accept="video/*" capture="environment" onchange="uploadSopPhoto(this, {{ $point->id }})">
-                                    <i class="ph-fill ph-video-camera" style="color:white; font-size:20px;"></i>
-                                </label>
-                                <label style="width:42px; height:42px; border-radius:50%; background:rgba(255,255,255,0.3); backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center; cursor:pointer; opacity:0; pointer-events:none; transition:opacity 0.2s;"
-                                       onmouseover="this.style.background='#285491'" onmouseout="this.style.background='rgba(255,255,255,0.3)'" title="Ganti File Video">
-                                    <input type="file" style="display:none;" accept="video/*" onchange="uploadSopPhoto(this, {{ $point->id }})">
-                                    <i class="ph-bold ph-film-strip" style="color:white; font-size:20px;"></i>
-                                </label>
-                            @else
-                                <label style="width:38px; height:38px; border-radius:50%; background:rgba(255,255,255,0.25); backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center; cursor:pointer; opacity:0; pointer-events:none; transition:opacity 0.2s;"
-                                       onmouseover="this.style.background='#285491'" onmouseout="this.style.background='rgba(255,255,255,0.25)'" title="Foto Ulang Kamera">
-                                    <input type="file" style="display:none;" accept="image/*" capture="environment" onchange="uploadSopPhoto(this, {{ $point->id }})">
-                                    <i class="ph-bold ph-camera" style="color:white; font-size:18px;"></i>
-                                </label>
-                                <label style="width:38px; height:38px; border-radius:50%; background:rgba(255,255,255,0.25); backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center; cursor:pointer; opacity:0; pointer-events:none; transition:opacity 0.2s;"
-                                       onmouseover="this.style.background='#285491'" onmouseout="this.style.background='rgba(255,255,255,0.25)'" title="Ganti dari Galeri">
-                                    <input type="file" style="display:none;" accept="image/*" onchange="uploadSopPhoto(this, {{ $point->id }})">
-                                    <i class="ph-bold ph-image" style="color:white; font-size:18px;"></i>
-                                </label>
-                            @endif
+                        <!-- Hint Badge (Top Left) -->
+                        <div style="position:absolute; top:8px; left:8px; background:rgba(15,23,42,0.75); backdrop-filter:blur(4px); color:white; font-size:10px; font-weight:700; padding:3px 8px; border-radius:12px; z-index:10; border:1px solid rgba(255,255,255,0.2); display:flex; align-items:center; gap:4px; pointer-events:none;">
+                            <i class="ph-bold ph-magnifying-glass-plus"></i> Klik untuk Periksa
                         </div>
 
                         <!-- Status Badge (Top Right) -->
-                        <div id="status-{{$point->id}}" style="position:absolute; top:8px; right:8px; background:rgba(0,0,0,0.7); backdrop-filter:blur(4px); font-size:10px; font-weight:700; padding:3px 9px; border-radius:12px; z-index:10; border:1px solid rgba(255,255,255,0.15);">
+                        <div id="status-{{$point->id}}" style="position:absolute; top:8px; right:8px; background:rgba(0,0,0,0.7); backdrop-filter:blur(4px); font-size:10px; font-weight:700; padding:3px 9px; border-radius:12px; z-index:10; border:1px solid rgba(255,255,255,0.15); pointer-events:none;">
                             <span style="color:#63c384;">✓ Tersimpan</span>
                         </div>
 
                         <!-- Live Timestamp Badge (Bottom Left) -->
-                        <div id="timestamp-{{$point->id}}" style="position:absolute; bottom:8px; left:8px; right:8px; background:rgba(0,0,0,0.75); backdrop-filter:blur(4px); color:#63c384; font-size:10px; font-weight:700; padding:4px 8px; border-radius:6px; display:flex; align-items:center; gap:5px; z-index:10; font-family:monospace; border:1px solid rgba(255,255,255,0.15);">
+                        <div id="timestamp-{{$point->id}}" style="position:absolute; bottom:8px; left:8px; right:8px; background:rgba(0,0,0,0.75); backdrop-filter:blur(4px); color:#63c384; font-size:10px; font-weight:700; padding:4px 8px; border-radius:6px; display:flex; align-items:center; gap:5px; z-index:10; font-family:monospace; border:1px solid rgba(255,255,255,0.15); pointer-events:none;">
                             <i class="ph-bold ph-calendar-check" style="font-size:12px; color:#63c384;"></i>
                             <span class="ts-text" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
                                 {{ $existing && $existing->captured_at ? $existing->captured_at->format('Y-m-d H:i:s') . ' WIB' : '' }}
                             </span>
                         </div>
+                    <!-- Permanent Mobile & Desktop Action Bar (Visible when media exists) -->
+                    <div id="action-bar-{{$point->id}}" style="display: {{ $existing ? 'flex' : 'none' }}; border-top: 1px solid #e8edf3; background: #f8fafc; padding: 6px 10px; align-items: center; justify-content: space-between; gap: 6px;">
+                        <button type="button"
+                                @click="openPointPreview({{$point->id}}, {{$point->urutan}}, {{ Js::from($point->nama_titik) }}, {{ Js::from($point->deskripsi) }})"
+                                style="display:flex; align-items:center; gap:4px; font-size:11px; font-weight:700; color:#285491; background:white; border:1px solid #cbd5e1; border-radius:6px; padding:4px 9px; cursor:pointer; transition:all 0.15s;"
+                                onmouseover="this.style.background='#eff4fc'" onmouseout="this.style.background='white'">
+                            <i class="ph-bold ph-eye" style="font-size:13px;"></i> Periksa
+                        </button>
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            @if($isVideoPoint)
+                                <label style="display:flex; align-items:center; gap:4px; font-size:11px; font-weight:700; color:#dc2626; background:#fee2e2; border:1px solid #fecaca; border-radius:6px; padding:4px 8px; cursor:pointer;" title="Rekam Ulang Video">
+                                    <input type="file" id="camera-input-{{$point->id}}" style="display:none;" accept="video/*" capture="environment" onchange="uploadSopPhoto(this, {{ $point->id }})">
+                                    <i class="ph-fill ph-video-camera"></i> Rekam Ulang
+                                </label>
+                                <label style="display:flex; align-items:center; gap:4px; font-size:11px; font-weight:600; color:#285491; background:#eff4fc; border:1px solid #bfcfe8; border-radius:6px; padding:4px 8px; cursor:pointer;" title="Pilih File Video Lain">
+                                    <input type="file" id="gallery-input-{{$point->id}}" style="display:none;" accept="video/*" onchange="uploadSopPhoto(this, {{ $point->id }})">
+                                    <i class="ph-bold ph-film-strip"></i> Ganti
+                                </label>
+                            @else
+                                <label style="display:flex; align-items:center; gap:4px; font-size:11px; font-weight:700; color:#285491; background:#eff4fc; border:1px solid #bfcfe8; border-radius:6px; padding:4px 8px; cursor:pointer;" title="Foto Ulang dari Kamera">
+                                    <input type="file" id="camera-input-{{$point->id}}" style="display:none;" accept="image/*" capture="environment" onchange="uploadSopPhoto(this, {{ $point->id }})">
+                                    <i class="ph-bold ph-camera"></i> Foto Ulang
+                                </label>
+                                <label style="display:flex; align-items:center; gap:4px; font-size:11px; font-weight:600; color:#4b5563; background:#f3f4f6; border:1px solid #e5e7eb; border-radius:6px; padding:4px 8px; cursor:pointer;" title="Pilih Foto Lain dari Galeri">
+                                    <input type="file" id="gallery-input-{{$point->id}}" style="display:none;" accept="image/*" onchange="uploadSopPhoto(this, {{ $point->id }})">
+                                    <i class="ph-bold ph-image"></i> Ganti
+                                </label>
+                            @endif
+                        </div>
+                    </div>
                     </div>
                 </div>
             </div>
@@ -540,6 +607,95 @@
     </form>
 </div>
 
+    <!-- MODAL PRATINJAU BUKTI FOTO & VIDEO (LIGHTBOX OPERATOR) -->
+    <div x-cloak
+         x-show="previewModal.open"
+         @keydown.escape.window="closePreview()"
+         style="position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 12px; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px);">
+
+        <div @click.away="closePreview()"
+             style="background: #0f172a; border: 1px solid rgba(255,255,255,0.15); border-radius: 20px; width: 100%; max-width: 820px; max-height: 94vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);">
+
+            <!-- Modal Header -->
+            <div style="padding: 12px 16px; background: rgba(30, 41, 59, 0.85); border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+                <div style="min-width: 0;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 11px; font-weight: 800; background: #2563eb; color: white; padding: 2px 8px; border-radius: 6px;"
+                              x-text="'Titik ' + (previewModal.pointUrutan || '-')"></span>
+                        <h3 style="font-size: 13px; font-weight: 700; color: white; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
+                            x-text="previewModal.pointTitle"></h3>
+                    </div>
+                    <p style="font-size: 11px; color: #94a3b8; margin: 2px 0 0 0;"
+                       x-text="previewModal.pointDesc"></p>
+                </div>
+                <button type="button"
+                        @click="closePreview()"
+                        style="width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.1); border: none; color: #cbd5e1; font-size: 18px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.2s;"
+                        onmouseover="this.style.background='rgba(255,255,255,0.2)'; this.style.color='white'"
+                        onmouseout="this.style.background='rgba(255,255,255,0.1)'; this.style.color='#cbd5e1'">
+                    <i class="ph-bold ph-x"></i>
+                </button>
+            </div>
+
+            <!-- Modal Media Content -->
+            <div style="flex: 1; min-height: 250px; max-height: 68vh; background: #000; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden;">
+                <template x-if="!previewModal.isVideo">
+                    <img :src="previewModal.mediaUrl"
+                         alt="Bukti Foto Evidence"
+                         style="max-width: 100%; max-height: 68vh; object-fit: contain; display: block; margin: auto;">
+                </template>
+                <template x-if="previewModal.isVideo">
+                    <video :src="previewModal.mediaUrl"
+                           controls playsinline autoplay
+                           style="max-width: 100%; max-height: 68vh; object-fit: contain; display: block; margin: auto; background: black;"></video>
+                </template>
+
+                <!-- Watermark Info Pill inside Modal -->
+                <div style="position: absolute; bottom: 12px; left: 12px; right: 12px; background: rgba(0,0,0,0.75); backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 6px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11px; color: #94a3b8;">
+                    <div style="display: flex; align-items: center; gap: 6px; font-family: monospace; color: #6ee7b7; font-weight: 700;">
+                        <i class="ph-bold ph-calendar-check" style="font-size: 14px;"></i>
+                        <span x-text="previewModal.timestampText"></span>
+                    </div>
+                    <span style="font-size: 10px; color: #94a3b8;">Stempel Digital SPV-Track</span>
+                </div>
+            </div>
+
+            <!-- Modal Footer Controls -->
+            <div style="padding: 12px 16px; background: rgba(30, 41, 59, 0.95); border-top: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+                <p style="font-size: 11px; color: #94a3b8; margin: 0; line-height: 1.3;">
+                    <i class="ph-fill ph-info" style="color: #60a5fa; margin-right: 3px;"></i>
+                    Pastikan foto/video jelas dan stempel waktu terbaca sebelum submit final.
+                </p>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <button type="button"
+                            @click="retakeFromModal(previewModal.pointId, 'camera')"
+                            style="display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: white; background: #2563eb; border: none; padding: 7px 14px; border-radius: 8px; cursor: pointer; transition: background 0.2s;"
+                            onmouseover="this.style.background='#1d4ed8'"
+                            onmouseout="this.style.background='#2563eb'">
+                        <i class="ph-bold ph-camera" style="font-size: 15px;"></i>
+                        <span x-text="previewModal.isVideo ? 'Rekam Ulang' : 'Foto Ulang'"></span>
+                    </button>
+                    <button type="button"
+                            @click="retakeFromModal(previewModal.pointId, 'gallery')"
+                            style="display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: #cbd5e1; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); padding: 7px 14px; border-radius: 8px; cursor: pointer; transition: all 0.2s;"
+                            onmouseover="this.style.background='rgba(255,255,255,0.2)'; this.style.color='white'"
+                            onmouseout="this.style.background='rgba(255,255,255,0.1)'; this.style.color='#cbd5e1'">
+                        <i class="ph-bold ph-image" style="font-size: 15px;"></i>
+                        <span>Pilih Galeri</span>
+                    </button>
+                    <button type="button"
+                            @click="closePreview()"
+                            style="font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: 1px solid rgba(255,255,255,0.1); padding: 7px 14px; border-radius: 8px; cursor: pointer; transition: all 0.2s;"
+                            onmouseover="this.style.background='rgba(255,255,255,0.05)'; this.style.color='white'"
+                            onmouseout="this.style.background='transparent'; this.style.color='#94a3b8'">
+                        Tutup
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
     <script>
         // Upload photo SOP with live preview and timestamp
         function uploadSopPhoto(input, pointId) {
@@ -548,6 +704,7 @@
                 const preview = document.getElementById('preview-' + pointId);
                 const videoPreview = document.getElementById('video-preview-' + pointId);
                 const wrapper = document.getElementById('preview-wrapper-' + pointId);
+                const actionBar = document.getElementById('action-bar-' + pointId);
                 const iconBox = document.getElementById('icon-' + pointId);
                 const statusBox = document.getElementById('status-' + pointId);
                 const tsBox = document.getElementById('timestamp-' + pointId);
@@ -573,6 +730,7 @@
                 }
                 wrapper.style.display = 'block';
                 if (iconBox) iconBox.style.display = 'none';
+                if (actionBar) actionBar.style.display = 'flex';
 
                 // 2. Format Timestamp tahun-bulan-hari jam:menit:detik
                 const now = new Date();
@@ -590,7 +748,14 @@
 
                 // 3. Status saving
                 if (statusBox) {
-                    statusBox.innerHTML = '<span style="color:#fbbf24;"><i class="ph-bold ph-spinner animate-spin"></i> Menyimpan...</span>';
+                    statusBox.innerHTML = '<span style="color:#fbbf24;"><i class="ph-bold ph-spinner animate-spin"></i> Memproses stempel...</span>';
+                }
+
+                // Temporary dataset for lightbox
+                if (wrapper) {
+                    wrapper.dataset.mediaUrl = blobUrl;
+                    wrapper.dataset.isVideo = isVideo ? 'true' : 'false';
+                    wrapper.dataset.timestamp = `${formattedTimestamp} WIB`;
                 }
 
                 // 4. Send FormData to backend
@@ -625,6 +790,26 @@
                             countEl.textContent = data.uploaded_count;
                         }
 
+                        // Update preview with watermarked image from server (cache buster prevents stale browser cache)
+                        if (data.file_url) {
+                            if (isVideo) {
+                                if (videoPreview) videoPreview.src = data.file_url;
+                            } else {
+                                if (preview) {
+                                    preview.src = data.file_url + (data.file_url.includes('?') ? '&' : '?') + 't=' + Date.now();
+                                }
+                            }
+                        }
+
+                        if (wrapper) {
+                            wrapper.dataset.mediaUrl = data.file_url || blobUrl;
+                            wrapper.dataset.isVideo = isVideo ? 'true' : 'false';
+                            wrapper.dataset.timestamp = data.captured_at || `${formattedTimestamp} WIB`;
+                        }
+
+                        // Reset input so selecting the same filename again still fires onchange
+                        input.value = '';
+
                         // Dispatch event to Alpine reactive manager
                         window.dispatchEvent(new CustomEvent('photo-uploaded', { detail: { pointId: pointId } }));
                     } else {
@@ -639,7 +824,6 @@
                 });
             }
         }
-
     </script>
 
 </x-field-layout>

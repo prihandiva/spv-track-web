@@ -364,14 +364,17 @@
             <tr>
                 <th>Nama Sopir</th>
                 <td>{{ $shipment->nama_sopir ?? '-' }}</td>
+                <th>Nomor Seal</th>
+                <td><strong style="color: #0f172a;">{{ $shipment->nomor_seal ?? '-' }}</strong></td>
+            </tr>
+            <tr>
                 <th>Petugas Pelaksana</th>
                 <td>
                     {{ $shipment->allKaryawans()->pluck('nama')->join(', ') ?: ($shipment->karyawan?->nama ?? '-') }}
                 </td>
-            </tr>
-            <tr>
                 <th>Kondisi Cuaca</th>
                 <td style="text-transform: capitalize;">{{ $shipment->cuaca ?? '-' }}</td>
+            </tr>
                 <th>Status Dokumen</th>
                 <td>
                     <span class="badge-status {{ $shipment->status === 'submitted' ? 'badge-submitted' : 'badge-draft' }}">

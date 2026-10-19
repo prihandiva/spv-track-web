@@ -32,6 +32,7 @@ class FieldAppController extends Controller
             'nama_sopir' => Shipment::whereNotNull('nama_sopir')->where('nama_sopir', '!=', '')->distinct()->pluck('nama_sopir')->filter()->values(),
             'plat_nomor' => Shipment::whereNotNull('plat_nomor')->where('plat_nomor', '!=', '')->distinct()->pluck('plat_nomor')->filter()->values(),
             'nomor_container' => Shipment::whereNotNull('nomor_container_atau_plat')->where('nomor_container_atau_plat', '!=', '')->distinct()->pluck('nomor_container_atau_plat')->filter()->values(),
+            'nomor_seal' => Shipment::whereNotNull('nomor_seal')->where('nomor_seal', '!=', '')->distinct()->pluck('nomor_seal')->filter()->values(),
         ];
 
         return view('field-app.create', compact('karyawans', 'history'));
@@ -59,6 +60,7 @@ class FieldAppController extends Controller
             'tujuan_pengiriman' => 'nullable|string',
             'plat_nomor' => 'required|string|max:255',
             'nama_sopir' => 'nullable|string|max:255',
+            'nomor_seal' => 'nullable|string|max:255',
             'nomor_container_atau_plat' => 'required|string|max:255',
             'cuaca' => 'required|in:kering,mendung,hujan,gerimis',
             'waktu' => 'required|in:siang,sore,malam',
@@ -167,6 +169,7 @@ class FieldAppController extends Controller
             'nama_sopir' => Shipment::whereNotNull('nama_sopir')->where('nama_sopir', '!=', '')->distinct()->pluck('nama_sopir')->filter()->values(),
             'plat_nomor' => Shipment::whereNotNull('plat_nomor')->where('plat_nomor', '!=', '')->distinct()->pluck('plat_nomor')->filter()->values(),
             'nomor_container' => Shipment::whereNotNull('nomor_container_atau_plat')->where('nomor_container_atau_plat', '!=', '')->distinct()->pluck('nomor_container_atau_plat')->filter()->values(),
+            'nomor_seal' => Shipment::whereNotNull('nomor_seal')->where('nomor_seal', '!=', '')->distinct()->pluck('nomor_seal')->filter()->values(),
         ];
 
         return view('field-app.create', compact('shipment', 'karyawans', 'history'));
@@ -200,6 +203,7 @@ class FieldAppController extends Controller
             'tujuan_pengiriman' => 'nullable|string',
             'plat_nomor' => 'required|string|max:255',
             'nama_sopir' => 'nullable|string|max:255',
+            'nomor_seal' => 'nullable|string|max:255',
             'nomor_container_atau_plat' => 'required|string|max:255',
             'cuaca' => 'required|in:kering,mendung,hujan,gerimis',
             'waktu' => 'required|in:siang,sore,malam',
@@ -544,6 +548,7 @@ class FieldAppController extends Controller
             'tujuan_pengiriman' => '',
             'plat_nomor' => '',
             'nama_sopir' => '',
+            'nomor_seal' => '',
             'container_no' => '',
             'raw_text' => $text,
         ];
@@ -660,6 +665,11 @@ class FieldAppController extends Controller
                     $data['tujuan_pengiriman'] = $cleanTujuan;
                 }
             }
+
+            // 9. Nomor Seal
+            if (preg_match('/(?:Seal\s*No|Seal\s*Number|Nomor\s*Seal|No\.?\s*Seal|Segel)[\s\.:]*([A-Z0-9-]{4,25})/i', $text, $matches)) {
+                $data['nomor_seal'] = strtoupper(trim($matches[1]));
+            }
         }
 
         $data['extracted_count'] = count(array_filter([
@@ -671,6 +681,7 @@ class FieldAppController extends Controller
             $data['plat_nomor'],
             $data['container_no'],
             $data['nama_sopir'],
+            $data['nomor_seal'],
         ]));
 
         return response()->json($data);

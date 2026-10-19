@@ -243,6 +243,10 @@
                     <span class="font-bold text-gray-800">{{ $shipment->nama_sopir ?? '—' }}</span>
                 </div>
                 <div>
+                    <span class="text-gray-400 block text-[11px] mb-0.5">Nomor Seal (Segel):</span>
+                    <span class="font-bold text-gray-800 font-mono">{{ $shipment->nomor_seal ?? '—' }}</span>
+                </div>
+                <div>
                     <span class="text-gray-400 block text-[11px] mb-0.5">No. Packing List:</span>
                     <span class="font-bold text-spv-blue">{{ $shipment->packing_list_no ?? '—' }}</span>
                 </div>

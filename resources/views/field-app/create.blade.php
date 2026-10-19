@@ -69,6 +69,7 @@
               tujuanPengiriman: {{ Js::from((string) old('tujuan_pengiriman', $shipment->tujuan_pengiriman ?? '')) }},
               platNomor: {{ Js::from((string) old('plat_nomor', $shipment->plat_nomor ?? '')) }},
               namaSopir: {{ Js::from((string) old('nama_sopir', $shipment->nama_sopir ?? '')) }},
+              nomorSeal: {{ Js::from((string) old('nomor_seal', $shipment->nomor_seal ?? '')) }},
               selectedKaryawanIds: {{ Js::from(array_map('strval', (array) old('karyawan_ids', isset($shipment) ? ($shipment->karyawans->pluck('id')->map('strval')->all() ?: ($shipment->karyawan_id ? [(string) $shipment->karyawan_id] : [])) : (old('karyawan_id') ? [(string) old('karyawan_id')] : [])))) }},
               packingListNo: {{ Js::from((string) old('packing_list_no', $shipment->packing_list_no ?? '')) }},
               productChoice: {{ Js::from($initProductSelect) }},
@@ -241,6 +242,10 @@
                           if (data.nama_sopir) {
                               this.namaSopir = data.nama_sopir;
                               extractedItems.push('Sopir: ' + data.nama_sopir);
+                          }
+                          if (data.nomor_seal) {
+                              this.nomorSeal = data.nomor_seal;
+                              extractedItems.push('Seal: ' + data.nomor_seal);
                           }
                           if (data.agen_forwarding) {
                               this.agenForwarding = data.agen_forwarding;
@@ -800,37 +805,69 @@
                                 @endif
                             </div>
                         </div>
-                    </div>
-
-                    <!-- 6. Nama Sopir (Pendukung) -->
-                    <div>
-                        <label class="field-label" style="display:flex; align-items:center; gap:4px;">
-                            <i class="ph-bold ph-user" style="color:#285491; font-size:12px;"></i>Nama Sopir (Opsional)
-                        </label>
-                        <input type="text" id="nama_sopir" name="nama_sopir" x-model="namaSopir"
-                               list="history-sopir"
-                               placeholder="Nama sopir kendaraan" class="field-input" style="font-size:12px; font-weight: 600; text-transform:capitalize;">
-                        <datalist id="history-sopir">
-                            @foreach($history['nama_sopir'] ?? [] as $item)
-                                <option value="{{ $item }}">
-                            @endforeach
-                        </datalist>
-                        @if(count($history['nama_sopir'] ?? []) > 0)
-                            <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;">
-                                <span style="font-size:9px; color:#9ca3af; align-self:center;">Riwayat:</span>
-                                @foreach(($history['nama_sopir'] ?? collect())->take(3) as $rec)
-                                    <button type="button" 
-                                            @click="namaSopir = $el.dataset.val"
-                                            data-val="{{ $rec }}"
-                                            title="Klik untuk mengisi: {{ $rec }}"
-                                            style="font-size:10px; font-weight: 600; padding:2px 7px; border-radius:10px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer;"
-                                            onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#93c5fd'"
-                                            onmouseout="this.style.background='#eff4fc'; this.style.borderColor='#d0e0f5'">
-                                        {{ $rec }}
-                                    </button>
+                    </div>                    <!-- 6 & 7. Nama Sopir & Nomor Seal -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <!-- Nama Sopir -->
+                        <div>
+                            <label class="field-label" style="display:flex; align-items:center; gap:4px;">
+                                <i class="ph-bold ph-user" style="color:#285491; font-size:12px;"></i>Nama Sopir (Opsional)
+                            </label>
+                            <input type="text" id="nama_sopir" name="nama_sopir" x-model="namaSopir"
+                                   list="history-sopir"
+                                   placeholder="Nama sopir kendaraan" class="field-input" style="font-size:12px; font-weight: 600; text-transform:capitalize;">
+                            <datalist id="history-sopir">
+                                @foreach($history['nama_sopir'] ?? [] as $item)
+                                    <option value="{{ $item }}">
                                 @endforeach
-                            </div>
-                        @endif
+                            </datalist>
+                            @if(count($history['nama_sopir'] ?? []) > 0)
+                                <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;">
+                                    <span style="font-size:9px; color:#9ca3af; align-self:center;">Riwayat:</span>
+                                    @foreach(($history['nama_sopir'] ?? collect())->take(3) as $rec)
+                                        <button type="button" 
+                                                @click="namaSopir = $el.dataset.val"
+                                                data-val="{{ $rec }}"
+                                                title="Klik untuk mengisi: {{ $rec }}"
+                                                style="font-size:10px; font-weight: 600; padding:2px 7px; border-radius:10px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer;"
+                                                onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#93c5fd'"
+                                                onmouseout="this.style.background='#eff4fc'; this.style.borderColor='#d0e0f5'">
+                                            {{ $rec }}
+                                        </button>
+                                    @endforeach
+                                </div>
+                            @endif
+                        </div>
+
+                        <!-- Nomor Seal -->
+                        <div>
+                            <label class="field-label" style="display:flex; align-items:center; gap:4px;">
+                                <i class="ph-bold ph-lock-key" style="color:#285491; font-size:12px;"></i>Nomor Seal (Opsional)
+                            </label>
+                            <input type="text" id="nomor_seal" name="nomor_seal" x-model="nomorSeal"
+                                   list="history-seal"
+                                   placeholder="Contoh: ML-ID12345 / Segel" class="field-input" style="font-size:12px; font-weight: 600; text-transform:uppercase;">
+                            <datalist id="history-seal">
+                                @foreach($history['nomor_seal'] ?? [] as $item)
+                                    <option value="{{ $item }}">
+                                @endforeach
+                            </datalist>
+                            @if(count($history['nomor_seal'] ?? []) > 0)
+                                <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;">
+                                    <span style="font-size:9px; color:#9ca3af; align-self:center;">Riwayat:</span>
+                                    @foreach(($history['nomor_seal'] ?? collect())->take(3) as $rec)
+                                        <button type="button" 
+                                                @click="nomorSeal = $el.dataset.val"
+                                                data-val="{{ $rec }}"
+                                                title="Klik untuk mengisi: {{ $rec }}"
+                                                style="font-size:10px; font-weight: 600; padding:2px 7px; border-radius:10px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer;"
+                                                onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#93c5fd'"
+                                                onmouseout="this.style.background='#eff4fc'; this.style.borderColor='#d0e0f5'">
+                                            {{ $rec }}
+                                        </button>
+                                    @endforeach
+                                </div>
+                            @endif
+                        </div>
                     </div>
 
                 </div>

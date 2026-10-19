@@ -24,6 +24,7 @@ class ShipmentController extends Controller
                     ->orWhere('shipment_no', 'like', "%{$search}%")
                     ->orWhere('shipment_group', 'like', "%{$search}%")
                     ->orWhere('nama_sopir', 'like', "%{$search}%")
+                    ->orWhere('nomor_seal', 'like', "%{$search}%")
                     ->orWhere('agen_forwarding', 'like', "%{$search}%")
                     ->orWhere('tujuan_pengiriman', 'like', "%{$search}%");
             });

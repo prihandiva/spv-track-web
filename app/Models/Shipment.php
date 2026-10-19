@@ -17,6 +17,7 @@ class Shipment extends Model
         'shipment_no',
         'plat_nomor',
         'nama_sopir',
+        'nomor_seal',
         'packing_list_no',
         'tujuan_pengiriman',
         'agen_forwarding',

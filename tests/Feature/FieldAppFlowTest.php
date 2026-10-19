@@ -296,4 +296,109 @@ class FieldAppFlowTest extends TestCase
         $indexResponse->assertStatus(200);
         $indexResponse->assertSee('POLYESTER CHIPS');
     }
+
+    public function test_field_app_store_supports_nomor_seal_and_tracks_in_views(): void
+    {
+        $response = $this->post(route('field-app.store'), [
+            'jenis_produk' => 'fiber',
+            'jenis_pengiriman' => 'export',
+            'packing_list_no' => '800777888',
+            'shipment_group' => '869777888',
+            'shipment_no' => '860777888',
+            'plat_nomor' => 'D 1234 KLM',
+            'nama_sopir' => 'Sopir Agus',
+            'nomor_seal' => 'SEAL-SPV-999',
+            'nomor_container_atau_plat' => 'TGHU9998887',
+            'cuaca' => 'kering',
+            'waktu' => 'siang',
+            'tanggal_staging' => '2026-10-05',
+            'warehouse_lokasi' => 'atas',
+            'karyawan_id' => $this->karyawan->id,
+        ]);
+
+        $shipment = Shipment::where('packing_list_no', '800777888')->first();
+        $this->assertNotNull($shipment);
+        $this->assertEquals('SEAL-SPV-999', $shipment->nomor_seal);
+
+        $showResponse = $this->get(route('shipments.show', $shipment->id));
+        $showResponse->assertStatus(200);
+        $showResponse->assertSee('SEAL-SPV-999');
+
+        $indexResponse = $this->get(route('shipments.index'));
+        $indexResponse->assertStatus(200);
+        $indexResponse->assertSee('SEAL-SPV-999');
+
+        $pdfResponse = $this->actingAs(User::factory()->create(['role' => 'admin']))->get(route('shipments.report', $shipment->id));
+        $pdfResponse->assertStatus(200);
+        $pdfResponse->assertSee('SEAL-SPV-999');
+    }
+
+    public function test_timeline_supports_clickable_preview_and_retake_action_bar(): void
+    {
+        $shipment = Shipment::create([
+            'user_id' => $this->user->id,
+            'karyawan_id' => $this->karyawan->id,
+            'jenis_produk' => 'fiber',
+            'jenis_pengiriman' => 'export',
+            'packing_list_no' => '800999000',
+            'shipment_group' => '869999000',
+            'shipment_no' => '860999000',
+            'plat_nomor' => 'B 9999 XYZ',
+            'nama_sopir' => 'Budi Santoso',
+            'nomor_seal' => 'SEAL-888-JKT',
+            'nomor_container_atau_plat' => 'TGHU1112223',
+            'cuaca' => 'kering',
+            'waktu' => 'siang',
+            'tanggal_staging' => '2026-10-05',
+            'warehouse_lokasi' => 'atas',
+            'status' => 'draft',
+        ]);
+
+        $point = SopPhotoPoint::create([
+            'jenis_pengiriman' => 'both',
+            'tipe_item' => 'foto',
+            'urutan' => 1,
+            'nama_titik' => 'Foto Kontainer Kosong Tampak Depan',
+            'wajib' => true,
+        ]);
+
+        $response = $this->get(route('field-app.timeline', $shipment->id));
+        $response->assertStatus(200);
+        $response->assertSee('openPointPreview');
+        $response->assertSee('Klik untuk Periksa');
+        $response->assertSee('action-bar-' . $point->id);
+        $response->assertSee('camera-input-' . $point->id);
+        $response->assertSee('Stempel Digital SPV-Track');
+        $response->assertSee('Pastikan foto/video jelas dan stempel waktu terbaca');
+
+        // Test uploading photo 1
+        $file1 = \Illuminate\Http\UploadedFile::fake()->image('point1_first.jpg', 640, 480);
+        $uploadResp1 = $this->post(route('field-app.upload-photo', $shipment->id), [
+            'sop_photo_point_id' => $point->id,
+            'file' => $file1,
+            'captured_at' => '2026-10-19 09:30:00',
+        ]);
+        $uploadResp1->assertStatus(200);
+        $uploadResp1->assertJson(['success' => true]);
+
+        $photo1 = \App\Models\EvidenceItem::where('shipment_id', $shipment->id)
+            ->where('sop_photo_point_id', $point->id)
+            ->first();
+        $this->assertNotNull($photo1);
+
+        // Test retake (re-uploading photo for the same point replaces/updates existing)
+        $file2 = \Illuminate\Http\UploadedFile::fake()->image('point1_retake.jpg', 640, 480);
+        $uploadResp2 = $this->post(route('field-app.upload-photo', $shipment->id), [
+            'sop_photo_point_id' => $point->id,
+            'file' => $file2,
+            'captured_at' => '2026-10-19 09:35:00',
+        ]);
+        $uploadResp2->assertStatus(200);
+        $uploadResp2->assertJson(['success' => true]);
+
+        $photo1->refresh();
+        $this->assertEquals('2026-10-19 09:35:00', $photo1->captured_at->format('Y-m-d H:i:s'));
+        $this->assertStringContainsString('_p' . $point->id . '_2.jpg', $photo1->file_path);
+    }
 }
+

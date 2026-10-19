@@ -131,6 +131,7 @@ class LaporanController extends Controller
                 'Jenis Produk',
                 'Jenis Pengiriman',
                 'Nama Sopir',
+                'Nomor Seal',
                 'Forwarding Agent',
                 'Tujuan Pengiriman',
                 'Petugas Staging',
@@ -162,6 +163,7 @@ class LaporanController extends Controller
                     strtoupper((string) $s->jenis_produk),
                     strtoupper((string) $s->jenis_pengiriman),
                     $s->nama_sopir ?? '-',
+                    $s->nomor_seal ?? '-',
                     $s->agen_forwarding ?? '-',
                     $s->tujuan_pengiriman ?? '-',
                     $petugasNames,
@@ -355,6 +357,7 @@ class LaporanController extends Controller
                     ->orWhere('nomor_container_atau_plat', 'like', "%{$search}%")
                     ->orWhere('plat_nomor', 'like', "%{$search}%")
                     ->orWhere('nama_sopir', 'like', "%{$search}%")
+                    ->orWhere('nomor_seal', 'like', "%{$search}%")
                     ->orWhere('shipment_no', 'like', "%{$search}%")
                     ->orWhere('agen_forwarding', 'like', "%{$search}%");
             });

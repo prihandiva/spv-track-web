@@ -408,7 +408,12 @@
                                 {{ strtoupper((string) $s->jenis_pengiriman) }}
                             </span>
                         </td>
-                        <td>{{ $s->nama_sopir ?: '-' }}</td>
+                        <td>
+                            {{ $s->nama_sopir ?: '-' }}
+                            @if($s->nomor_seal)
+                                <br><span style="font-size:7px; color:#64748b; font-weight: bold;">Seal: {{ $s->nomor_seal }}</span>
+                            @endif
+                        </td>
                         <td>{{ $s->agen_forwarding ?: '-' }}</td>
                         <td>{{ $s->allKaryawans()->pluck('nama')->join(', ') ?: ($s->karyawan?->nama ?? '-') }}</td>
                         <td class="text-center">

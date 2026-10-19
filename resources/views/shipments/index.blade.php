@@ -259,7 +259,7 @@
                                         <a href="{{ route('shipments.show', $shipment->id) }}" class="text-xs font-bold text-gray-800 hover:text-spv-blue transition-colors">
                                             {{ $shipment->packing_list_no ?: ($shipment->nomor_container_atau_plat ?? 'SPV-' . $shipment->id) }}
                                         </a>
-                                        <p class="text-[10px] text-gray-400 leading-tight">Cont: {{ $shipment->nomor_container_atau_plat ?? '-' }} &bull; Plat: {{ $shipment->plat_nomor ?? ($shipment->shipment_no ?? '—') }}</p>
+                                        <p class="text-[10px] text-gray-400 leading-tight">Cont: {{ $shipment->nomor_container_atau_plat ?? '-' }} &bull; Plat: {{ $shipment->plat_nomor ?? ($shipment->shipment_no ?? '—') }}@if($shipment->nomor_seal) &bull; Seal: {{ $shipment->nomor_seal }}@endif</p>
                                     </div>
                                 </div>
                             <td class="px-3 py-2.5">
@@ -384,7 +384,7 @@
                                     {{ $identifier }}
                                 </a>
                                 <p class="text-[10px] text-gray-400 leading-tight truncate">
-                                    Cont: {{ $shipment->nomor_container_atau_plat ?? '-' }} &bull; Plat: {{ $shipment->plat_nomor ?? ($shipment->shipment_no ?? '—') }}
+                                    Cont: {{ $shipment->nomor_container_atau_plat ?? '-' }} &bull; Plat: {{ $shipment->plat_nomor ?? ($shipment->shipment_no ?? '—') }}@if($shipment->nomor_seal) &bull; Seal: {{ $shipment->nomor_seal }}@endif
                                 </p>
                             </div>
                         </div>
