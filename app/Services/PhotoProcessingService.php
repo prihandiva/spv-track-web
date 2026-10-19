@@ -417,6 +417,188 @@ class PhotoProcessingService
     }
 
     /**
+     * Cari lokasi binary ffmpeg yang dapat dieksekusi di server.
+     */
+    public function getFfmpegBinary(): ?string
+    {
+        $candidates = [
+            'd:/laragon/bin/ffmpeg/bin/ffmpeg.exe',
+            'D:/laragon/bin/ffmpeg/bin/ffmpeg.exe',
+            'C:/Users/FITRIA RAMADHANI/AppData/Local/Microsoft/WinGet/Packages/Gyan.FFmpeg.Essentials_Microsoft.Winget.Source_8wekyb3d8bbwe/ffmpeg-9.0.1-essentials_build/bin/ffmpeg.exe',
+            'ffmpeg',
+            'ffmpeg.exe',
+        ];
+
+        foreach ($candidates as $bin) {
+            if ($bin === 'ffmpeg' || $bin === 'ffmpeg.exe') {
+                $check = @shell_exec("where {$bin} 2>&1");
+                if ($check && ! str_contains($check, 'Could not find') && ! str_contains($check, 'not recognized')) {
+                    return $bin;
+                }
+            } elseif (file_exists($bin)) {
+                return $bin;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Cari lokasi binary ffprobe yang dapat dieksekusi di server.
+     */
+    public function getFfprobeBinary(): ?string
+    {
+        $candidates = [
+            'd:/laragon/bin/ffmpeg/bin/ffprobe.exe',
+            'D:/laragon/bin/ffmpeg/bin/ffprobe.exe',
+            'C:/Users/FITRIA RAMADHANI/AppData/Local/Microsoft/WinGet/Packages/Gyan.FFmpeg.Essentials_Microsoft.Winget.Source_8wekyb3d8bbwe/ffmpeg-9.0.1-essentials_build/bin/ffprobe.exe',
+            'ffprobe',
+            'ffprobe.exe',
+        ];
+
+        foreach ($candidates as $bin) {
+            if ($bin === 'ffprobe' || $bin === 'ffprobe.exe') {
+                $check = @shell_exec("where {$bin} 2>&1");
+                if ($check && ! str_contains($check, 'Could not find') && ! str_contains($check, 'not recognized')) {
+                    return $bin;
+                }
+            } elseif (file_exists($bin)) {
+                return $bin;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Stempel hardcode burn-in permanen pada video menggunakan FFmpeg dan banner GD transparan.
+     */
+    public function watermarkVideoSingleFile(
+        string $sourcePath,
+        string $targetPath,
+        string $stampText,
+        ?string $title = null,
+        ?string $subText = null
+    ): void {
+        $ffmpeg = $this->getFfmpegBinary();
+        $ffprobe = $this->getFfprobeBinary();
+
+        if (! $ffmpeg || ! file_exists($sourcePath)) {
+            copy($sourcePath, $targetPath);
+            return;
+        }
+
+        // 1. Deteksi resolusi video menggunakan ffprobe
+        $w = 1280;
+        $h = 720;
+        if ($ffprobe) {
+            $cmdProbe = "\"{$ffprobe}\" -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 " . escapeshellarg($sourcePath);
+            $probeOutput = @shell_exec($cmdProbe);
+            if ($probeOutput && preg_match('/(\d+)x(\d+)/', trim($probeOutput), $m)) {
+                $w = (int) $m[1];
+                $h = (int) $m[2];
+            }
+        }
+
+        $minDim = min($w, $h);
+        $isPortrait = $h > $w;
+
+        // 2. Banner proporsional sesuai rasio video
+        $barHeight = $isPortrait ? (int) max(72, $minDim * 0.14) : (int) max(64, $minDim * 0.125);
+        $accentHeight = (int) max(3, $minDim * 0.006);
+        $paddingX = (int) max(16, $w * 0.03);
+        $maxWidth = $w - (2 * $paddingX);
+
+        $fontSizeTime = max(13, (int) ($minDim * 0.034));
+        $fontSizeTitle = max(10, (int) ($fontSizeTime * 0.70));
+
+        $canvas = imagecreatetruecolor($w, $barHeight);
+        imagealphablending($canvas, false);
+        imagesavealpha($canvas, true);
+        $transparent = imagecolorallocatealpha($canvas, 0, 0, 0, 127);
+        imagefill($canvas, 0, 0, $transparent);
+        imagealphablending($canvas, true);
+
+        // Dark bar transparan & aksen biru SPV
+        $darkBar = imagecolorallocatealpha($canvas, 10, 15, 26, 25);
+        imagefilledrectangle($canvas, 0, 0, $w, $barHeight, $darkBar);
+        $accentColor = imagecolorallocate($canvas, 37, 99, 235);
+        imagefilledrectangle($canvas, 0, 0, $w, $accentHeight, $accentColor);
+
+        // Warna teks
+        $white = imagecolorallocate($canvas, 255, 255, 255);
+        $gold = imagecolorallocate($canvas, 250, 204, 21);
+        $lightGray = imagecolorallocate($canvas, 229, 231, 235);
+        $blackShadow = imagecolorallocate($canvas, 0, 0, 0);
+
+        $line1 = $title ? 'SPV-TRACK EVIDENCE  |  '.mb_strtoupper($title) : 'SPV-TRACK EVIDENCE';
+        if ($subText) {
+            $line1 .= '  |  '.$subText;
+        }
+        $line2 = str_starts_with($stampText, 'JAM') || str_starts_with($stampText, 'DIAMBIL') ? $stampText : 'JAM SERVER : '.$stampText;
+
+        $fontFile = null;
+        $candidateFonts = [
+            resource_path('fonts/bold.ttf'),
+            resource_path('fonts/regular.ttf'),
+            'C:/Windows/Fonts/arialbd.ttf',
+            'C:/Windows/Fonts/arial.ttf',
+            'C:/Windows/Fonts/calibrib.ttf',
+            '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+        ];
+
+        foreach ($candidateFonts as $f) {
+            if (file_exists($f)) {
+                $fontFile = $f;
+                break;
+            }
+        }
+
+        if ($fontFile && function_exists('imagettftext')) {
+            $fontSizeTitle = $this->fitFontSize($line1, $fontSizeTitle, $maxWidth, $fontFile, 10);
+            $fontSizeTime = $this->fitFontSize($line2, $fontSizeTime, $maxWidth, $fontFile, 12);
+
+            $yLine1 = $accentHeight + (int) ($barHeight * 0.40);
+            $yLine2 = $accentHeight + (int) ($barHeight * 0.80);
+            $shadowOffset = max(1, (int) ($fontSizeTime * 0.05));
+
+            imagettftext($canvas, $fontSizeTitle, 0, $paddingX + $shadowOffset, $yLine1 + $shadowOffset, $blackShadow, $fontFile, $line1);
+            imagettftext($canvas, $fontSizeTitle, 0, $paddingX, $yLine1, $lightGray, $fontFile, $line1);
+
+            imagettftext($canvas, $fontSizeTime, 0, $paddingX + $shadowOffset, $yLine2 + $shadowOffset, $blackShadow, $fontFile, $line2);
+            imagettftext($canvas, $fontSizeTime, 0, $paddingX, $yLine2, $gold, $fontFile, $line2);
+        } else {
+            $paddingX = 16;
+            $yLine1 = 12;
+            $yLine2 = 36;
+            imagestring($canvas, 4, $paddingX, $yLine1, $line1, $white);
+            imagestring($canvas, 5, $paddingX, $yLine2, $line2, $gold);
+        }
+
+        $overlayPng = tempnam(sys_get_temp_dir(), 'ovr_') . '.png';
+        imagepng($canvas, $overlayPng);
+        imagedestroy($canvas);
+
+        // 3. Proses burning ke video dengan FFmpeg
+        $tempOutput = tempnam(sys_get_temp_dir(), 'vid_') . '.mp4';
+        $cmdFfmpeg = escapeshellcmd($ffmpeg) .
+            ' -y -i ' . escapeshellarg($sourcePath) .
+            ' -i ' . escapeshellarg($overlayPng) .
+            ' -filter_complex "[0:v][1:v]overlay=0:H-h" -c:v libx264 -preset veryfast -crf 23 -c:a aac -movflags +faststart ' .
+            escapeshellarg($tempOutput) . ' 2>&1';
+
+        @shell_exec($cmdFfmpeg);
+        @unlink($overlayPng);
+
+        if (file_exists($tempOutput) && filesize($tempOutput) > 1000) {
+            @rename($tempOutput, $targetPath);
+        } else {
+            @unlink($tempOutput);
+            copy($sourcePath, $targetPath);
+        }
+    }
+
+    /**
      * Menempelkan (burn-in) banner stempel jam server dan metadata titik ke gambar.
      */
     protected function applyBurnInStamp(

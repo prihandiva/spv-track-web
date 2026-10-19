@@ -366,8 +366,16 @@ class FieldAppController extends Controller
 
         $isVideo = in_array($ext, ['mp4', 'mov', 'webm', '3gp', 'avi', 'm4v']) || str_starts_with($file->getMimeType(), 'video/');
 
-        // Watermark timestamp dengan font TrueType proporsional resolusi kamera & koreksi EXIF rotasi (hanya foto)
-        if (! $isVideo && in_array($ext, ['jpg', 'jpeg', 'png']) && extension_loaded('gd')) {
+        // Watermark timestamp dengan font TrueType proporsional resolusi kamera & koreksi EXIF rotasi
+        if ($isVideo) {
+            app(PhotoProcessingService::class)->watermarkVideoSingleFile(
+                sourcePath: $file->getPathname(),
+                targetPath: $targetPath,
+                stampText: $timestampText,
+                title: $pointTitle,
+                subText: $shipment->nomor_container_atau_plat
+            );
+        } elseif (in_array($ext, ['jpg', 'jpeg', 'png']) && extension_loaded('gd')) {
             app(PhotoProcessingService::class)->watermarkSingleFile(
                 sourcePath: $file->getPathname(),
                 targetPath: $targetPath,

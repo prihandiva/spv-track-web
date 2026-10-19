@@ -259,7 +259,7 @@
                     <span class="font-medium text-gray-800 bg-gray-50 p-2 rounded-lg block">{{ $shipment->tujuan_pengiriman ?? '—' }}</span>
                 </div>
                 <div>
-                    <span class="text-gray-400 block text-[11px] mb-0.5">Waktu Mulai Stagging:</span>
+                    <span class="text-gray-400 block text-[11px] mb-0.5">Waktu Mulai Staging:</span>
                     <span class="font-semibold text-gray-700">{{ $shipment->waktu_kedatangan_container ? $shipment->waktu_kedatangan_container->format('d M Y, H:i') : '—' }}</span>
                 </div>
                 <div>
