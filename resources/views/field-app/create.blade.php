@@ -68,7 +68,7 @@
               ocrRawText: '',
               showRawText: false,
               zoomModalOpen: false,
-              karyawans: {{ Js::from($karyawans->map(fn($k) => ['id' => (string) $k->id, 'nama' => $k->nama, 'nomor_induk' => $k->nomor_induk])) }},
+              karyawans: {{ Js::from($karyawans->map(fn($k) => ['id' => (string) $k->id, 'nama' => $k->nama, 'nomor_induk' => $k->nomor_induk, 'position' => $k->position_label ?? ucfirst($k->position ?? 'Operator')])) }},
 
               sanitizeDigits(val) {
                   return String(val || '').replace(/\D/g, '').slice(0, 9);
@@ -106,7 +106,7 @@
               get filteredKaryawans() {
                   if (!this.searchKaryawan.trim()) return this.karyawans;
                   const q = this.searchKaryawan.toLowerCase();
-                  return this.karyawans.filter(k => k.nama.toLowerCase().includes(q) || k.nomor_induk.toLowerCase().includes(q));
+                  return this.karyawans.filter(k => k.nama.toLowerCase().includes(q) || k.nomor_induk.toLowerCase().includes(q) || (k.position && k.position.toLowerCase().includes(q)));
               },
 
               // Validasi 9 digit angka
@@ -925,7 +925,7 @@
                                 Cari &amp; pilih petugas...
                             </span>
                             <span x-cloak x-show="selectedKaryawanIds.length > 0" style="color: #1f2937; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
-                                  x-text="selectedKaryawanIds.length + ' Petugas Dipilih: ' + selectedKaryawans.map(k => k.nama).join(', ')">
+                                  x-text="selectedKaryawanIds.length + ' Petugas Dipilih: ' + selectedKaryawans.map(k => k.nama + ' (' + (k.position || 'Operator') + ')').join(', ')">
                             </span>
                         </div>
                         <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-left: 8px;">
@@ -939,6 +939,7 @@
                             <span style="display: inline-flex; align-items: center; gap: 6px; background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; padding: 3px 8px; border-radius: 6px; font-size: 12px; font-weight: 500;">
                                 <span x-text="k.nama"></span>
                                 <span style="font-size: 11px; color: #60a5fa;" x-text="'(' + k.nomor_induk + ')'"></span>
+                                <span style="font-size: 9px; font-weight: 700; text-transform: uppercase; background: #dbeafe; color: #1e40af; padding: 1px 5px; border-radius: 4px;" x-text="k.position || 'Operator'"></span>
                                 <button type="button"
                                         @click.stop="removeKaryawan(k.id)"
                                         style="background: none; border: none; padding: 0; margin-left: 2px; color: #93c5fd; cursor: pointer; font-size: 14px; line-height: 1; font-weight: 700; display: inline-flex; align-items: center;"
@@ -968,7 +969,7 @@
                                 <input type="text"
                                        x-ref="karyawanSearchInput"
                                        x-model="searchKaryawan"
-                                       placeholder="Cari nama atau NIK..."
+                                       placeholder="Cari nama, NIK, atau posisi..."
                                        style="width: 100%; box-sizing: border-box; padding: 6px 26px 6px 28px; font-size: 12px; font-family: inherit; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; background: white; color: #1e293b;"
                                        @keydown.escape="dropdownOpen = false">
                                 <button type="button" x-show="searchKaryawan" @click="searchKaryawan = ''"
@@ -999,8 +1000,15 @@
                                            :checked="isKaryawanSelected(item.id)"
                                            @change="toggleKaryawan(item.id)"
                                            style="width: 15px; height: 15px; accent-color: #285491; cursor: pointer; margin: 0; flex-shrink: 0;">
-                                    <span style="font-weight: 500; font-size: 13px;" x-text="item.nama"></span>
-                                    <span style="font-size: 11px; color: #64748b;" x-text="'(NIK: ' + item.nomor_induk + ')'"></span>
+                                    <div style="flex: 1; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                                        <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
+                                            <span style="font-weight: 500; font-size: 13px; color: #1e293b;" x-text="item.nama"></span>
+                                            <span style="font-size: 11px; color: #64748b;" x-text="'(' + item.nomor_induk + ')'"></span>
+                                        </div>
+                                        <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 2px 7px; border-radius: 6px; flex-shrink: 0;"
+                                              :style="(item.position || '').toLowerCase() === 'checker' ? 'background:#f3e8ff; color:#7e22ce;' : ((item.position || '').toLowerCase() === 'helper' ? 'background:#ccfbf1; color:#0f766e;' : 'background:#dbeafe; color:#1e40af;')"
+                                              x-text="item.position || 'Operator'"></span>
+                                    </div>
                                 </label>
                             </template>
 

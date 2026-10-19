@@ -12,6 +12,13 @@ class KaryawanCrudTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $admin = User::factory()->create(['role' => 'admin']);
+        $this->actingAs($admin);
+    }
+
     public function test_it_can_render_karyawan_index_page(): void
     {
         Karyawan::factory()->create([
@@ -239,5 +246,41 @@ class KaryawanCrudTest extends TestCase
 
         $response->assertSessionHas('error');
         $this->assertDatabaseHas('karyawans', ['id' => $karyawan->id]);
+    }
+
+    public function test_it_can_store_karyawan_with_position(): void
+    {
+        $payload = [
+            'nama' => 'Siti Nurhaliza',
+            'nomor_induk' => 'CHK001',
+            'position' => 'checker',
+            'status' => 'aktif',
+        ];
+
+        $response = $this->post(route('karyawan.store'), $payload);
+
+        $response->assertRedirect(route('karyawan.index'));
+        $this->assertDatabaseHas('karyawans', [
+            'nama' => 'Siti Nurhaliza',
+            'nomor_induk' => 'CHK001',
+            'position' => 'checker',
+        ]);
+    }
+
+    public function test_it_displays_position_on_karyawan_index_and_show(): void
+    {
+        $karyawan = Karyawan::factory()->create([
+            'nama' => 'Agus Helper',
+            'nomor_induk' => 'HLP002',
+            'position' => 'helper',
+        ]);
+
+        $indexResponse = $this->get(route('karyawan.index'));
+        $indexResponse->assertStatus(200);
+        $indexResponse->assertSee('Helper');
+
+        $showResponse = $this->get(route('karyawan.show', $karyawan->id));
+        $showResponse->assertStatus(200);
+        $showResponse->assertSee('Helper');
     }
 }

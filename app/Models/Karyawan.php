@@ -14,8 +14,18 @@ class Karyawan extends Model
     protected $fillable = [
         'nama',
         'nomor_induk',
+        'position',
         'status',
     ];
+
+    public function getPositionLabelAttribute(): string
+    {
+        return match (strtolower($this->position ?? 'operator')) {
+            'checker' => 'Checker',
+            'helper' => 'Helper',
+            default => 'Operator',
+        };
+    }
 
     public function shipments(): HasMany
     {

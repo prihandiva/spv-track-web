@@ -27,13 +27,16 @@ class FieldAppFlowTest extends TestCase
                 'email' => 'admin@test.com',
                 'nama_warehouse' => 'Main Warehouse',
                 'password' => bcrypt('secret'),
-                'role' => 'admin',
+                'role' => 'superadmin',
             ]
         );
+
+        $this->actingAs($this->user);
 
         $this->karyawan = Karyawan::create([
             'nama' => 'Budi Santoso',
             'nomor_induk' => 'NIK-888',
+            'position' => 'operator',
             'status' => 'aktif',
         ]);
     }

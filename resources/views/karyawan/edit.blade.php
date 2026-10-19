@@ -82,6 +82,39 @@
                         @enderror
                     </div>
 
+                    <!-- Posisi / Peran -->
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-1.5">
+                            Posisi / Peran Petugas <span class="text-rose-500">*</span>
+                        </label>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-blue-50/40 hover:border-blue-300 transition-all">
+                                <input type="radio" name="position" value="operator" {{ old('position', $karyawan->position ?? 'operator') === 'operator' ? 'checked' : '' }} class="text-spv-blue focus:ring-spv-blue">
+                                <div>
+                                    <p class="text-xs font-bold text-blue-900">Operator</p>
+                                    <p class="text-[10px] text-gray-400 mt-0.5">Petugas utama staging</p>
+                                </div>
+                            </label>
+                            <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-teal-50/40 hover:border-teal-300 transition-all">
+                                <input type="radio" name="position" value="helper" {{ old('position', $karyawan->position) === 'helper' ? 'checked' : '' }} class="text-spv-blue focus:ring-spv-blue">
+                                <div>
+                                    <p class="text-xs font-bold text-teal-900">Helper</p>
+                                    <p class="text-[10px] text-gray-400 mt-0.5">Petugas pembantu / tim</p>
+                                </div>
+                            </label>
+                            <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-purple-50/40 hover:border-purple-300 transition-all">
+                                <input type="radio" name="position" value="checker" {{ old('position', $karyawan->position) === 'checker' ? 'checked' : '' }} class="text-spv-blue focus:ring-spv-blue">
+                                <div>
+                                    <p class="text-xs font-bold text-purple-900">Checker</p>
+                                    <p class="text-[10px] text-gray-400 mt-0.5">Petugas pemeriksa / QC</p>
+                                </div>
+                            </label>
+                        </div>
+                        @error('position')
+                            <p class="text-[11px] text-rose-500 mt-1 font-medium">{{ $message }}</p>
+                        @enderror
+                    </div>
+
                     <!-- Status -->
                     <div>
                         <label class="block text-xs font-bold text-gray-700 mb-1.5">
@@ -145,7 +178,13 @@
                     {{ strtoupper($initials) }}
                 </div>
                 <h3 class="text-sm font-bold text-gray-800">{{ $karyawan->nama }}</h3>
-                <p class="text-xs font-mono text-gray-400 mt-0.5">{{ $karyawan->nomor_induk }}</p>
+                <div class="flex items-center justify-center gap-1.5 mt-1">
+                    <span class="text-xs font-mono text-gray-400">{{ $karyawan->nomor_induk }}</span>
+                    <span>&bull;</span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase {{ $karyawan->position === 'checker' ? 'bg-purple-100 text-purple-700' : ($karyawan->position === 'helper' ? 'bg-teal-100 text-teal-700' : 'bg-blue-100 text-blue-700') }}">
+                        {{ $karyawan->position_label }}
+                    </span>
+                </div>
 
                 <div class="mt-4 pt-4 border-t border-gray-100 grid grid-cols-2 gap-2 text-left">
                     <div>

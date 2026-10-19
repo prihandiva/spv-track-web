@@ -31,6 +31,12 @@ class KaryawanController extends Controller
             }
         }
 
+        if ($position = $request->input('position')) {
+            if (in_array($position, ['operator', 'helper', 'checker'], true)) {
+                $query->where('position', $position);
+            }
+        }
+
         $karyawans = $query->paginate(10)->withQueryString();
 
         $totalPetugas = Karyawan::count();
@@ -63,18 +69,22 @@ class KaryawanController extends Controller
         $validated = $request->validate([
             'nama' => ['required', 'string', 'max:255'],
             'nomor_induk' => ['required', 'string', 'max:50', 'unique:karyawans,nomor_induk'],
+            'position' => ['nullable', 'string', 'in:operator,helper,checker'],
             'status' => ['required', 'in:aktif,nonaktif'],
         ], [
             'nama.required' => 'Nama petugas wajib diisi.',
             'nomor_induk.required' => 'Nomor induk / NIK wajib diisi.',
             'nomor_induk.unique' => 'Nomor induk / NIK ini sudah terdaftar.',
+            'position.in' => 'Posisi harus berupa operator, helper, atau checker.',
             'status.required' => 'Status petugas wajib dipilih.',
         ]);
+
+        $validated['position'] = !empty($validated['position']) ? $validated['position'] : 'operator';
 
         $karyawan = Karyawan::create($validated);
 
         return redirect()->route('karyawan.index')
-            ->with('success', "Petugas {$karyawan->nama} ({$karyawan->nomor_induk}) berhasil ditambahkan.");
+            ->with('success', "Petugas {$karyawan->nama} ({$karyawan->nomor_induk} - {$karyawan->position_label}) berhasil ditambahkan.");
     }
 
     /**
@@ -116,13 +126,17 @@ class KaryawanController extends Controller
                 'max:50',
                 Rule::unique('karyawans', 'nomor_induk')->ignore($karyawan->id),
             ],
+            'position' => ['nullable', 'string', 'in:operator,helper,checker'],
             'status' => ['required', 'in:aktif,nonaktif'],
         ], [
             'nama.required' => 'Nama petugas wajib diisi.',
             'nomor_induk.required' => 'Nomor induk / NIK wajib diisi.',
             'nomor_induk.unique' => 'Nomor induk / NIK ini sudah digunakan oleh petugas lain.',
+            'position.in' => 'Posisi harus berupa operator, helper, atau checker.',
             'status.required' => 'Status petugas wajib dipilih.',
         ]);
+
+        $validated['position'] = !empty($validated['position']) ? $validated['position'] : ($karyawan->position ?? 'operator');
 
         $karyawan->update($validated);
 

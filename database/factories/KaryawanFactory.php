@@ -22,6 +22,7 @@ class KaryawanFactory extends Factory
         return [
             'nama' => fake()->name(),
             'nomor_induk' => 'KRY'.fake()->unique()->numerify('###'),
+            'position' => fake()->randomElement(['operator', 'helper', 'checker']),
             'status' => 'aktif',
         ];
     }

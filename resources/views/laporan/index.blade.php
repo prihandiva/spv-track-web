@@ -260,7 +260,7 @@
                             <option value="">Semua Petugas</option>
                             @foreach($allPetugas as $p)
                                 <option value="{{ $p->id }}" {{ (string)request('karyawan_id') === (string)$p->id ? 'selected' : '' }}>
-                                    {{ $p->nama }} ({{ $p->nomor_induk }})
+                                    {{ $p->nama }} ({{ $p->position_label ?? ucfirst($p->position ?? 'Operator') }})
                                 </option>
                             @endforeach
                         </select>

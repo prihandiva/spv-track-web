@@ -171,6 +171,9 @@
                                     <i class="ph-bold ph-user text-[11px]"></i>
                                     <span>{{ $petugas->nama }}</span>
                                     <span class="text-[10px] text-blue-500/80 font-mono font-normal">({{ $petugas->nomor_induk }})</span>
+                                    <span class="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded {{ ($petugas->position ?? '') === 'checker' ? 'bg-purple-100 text-purple-700' : (($petugas->position ?? '') === 'helper' ? 'bg-teal-100 text-teal-700' : 'bg-blue-100 text-blue-800') }}">
+                                        {{ $petugas->position_label ?? ucfirst($petugas->position ?? 'Operator') }}
+                                    </span>
                                 </span>
                             @endforeach
                         </div>

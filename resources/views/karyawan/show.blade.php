@@ -47,6 +47,10 @@
                 <div>
                     <div class="flex items-center gap-2.5 flex-wrap">
                         <h2 class="text-lg font-bold text-gray-800">{{ $karyawan->nama }}</h2>
+                        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider {{ $karyawan->position === 'checker' ? 'bg-purple-100 text-purple-700 border border-purple-200' : ($karyawan->position === 'helper' ? 'bg-teal-100 text-teal-700 border border-teal-200' : 'bg-blue-100 text-blue-700 border border-blue-200') }}">
+                            <i class="ph-bold ph-briefcase text-xs"></i>
+                            {{ $karyawan->position_label }}
+                        </span>
                         @if($karyawan->status === 'aktif')
                             <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>

@@ -4,10 +4,10 @@
         createModalOpen: false,
         editModalOpen: false,
         deleteModalOpen: false,
-        editPetugas: { id: '', nama: '', nomor_induk: '', status: 'aktif', url: '' },
+        editPetugas: { id: '', nama: '', nomor_induk: '', position: 'operator', status: 'aktif', url: '' },
         deletePetugas: { id: '', nama: '', nomor_induk: '', url: '', shipments_count: 0 },
-        openEdit(id, nama, nomor_induk, status, url) {
-            this.editPetugas = { id, nama, nomor_induk, status, url };
+        openEdit(id, nama, nomor_induk, position, status, url) {
+            this.editPetugas = { id, nama, nomor_induk, position: position || 'operator', status, url };
             this.editModalOpen = true;
         },
         openDelete(id, nama, nomor_induk, url, shipments_count) {
@@ -114,6 +114,7 @@
                         <tr>
                             <th class="px-3.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Petugas Lapangan</th>
                             <th class="px-3 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Nomor Induk / NIK</th>
+                            <th class="px-2.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Posisi</th>
                             <th class="px-2.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Status Akun</th>
                             <th class="px-2.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-center">Staging Ditangani</th>
                             <th class="px-3 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Terdaftar Sejak</th>
@@ -150,6 +151,13 @@
                                     <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-mono font-semibold bg-gray-100 text-gray-700 border border-gray-200">
                                         <i class="ph-bold ph-identification-badge text-xs text-gray-400"></i>
                                         {{ $karyawan->nomor_induk }}
+                                    </span>
+                                </td>
+
+                                <!-- Posisi -->
+                                <td class="px-2.5 py-2.5">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider {{ $karyawan->position === 'checker' ? 'bg-purple-50 text-purple-700 border border-purple-200' : ($karyawan->position === 'helper' ? 'bg-teal-50 text-teal-700 border border-teal-200' : 'bg-blue-50 text-blue-700 border border-blue-200') }}">
+                                        {{ $karyawan->position_label }}
                                     </span>
                                 </td>
 
@@ -205,7 +213,7 @@
 
                                         <!-- Edit Modal Trigger -->
                                         <button type="button"
-                                                @click="openEdit('{{ $karyawan->id }}', '{{ addslashes($karyawan->nama) }}', '{{ addslashes($karyawan->nomor_induk) }}', '{{ $karyawan->status }}', '{{ route('karyawan.update', $karyawan->id) }}')"
+                                                @click="openEdit('{{ $karyawan->id }}', '{{ addslashes($karyawan->nama) }}', '{{ addslashes($karyawan->nomor_induk) }}', '{{ $karyawan->position ?? 'operator' }}', '{{ $karyawan->status }}', '{{ route('karyawan.update', $karyawan->id) }}')"
                                                 title="Edit Petugas"
                                                 class="p-1 rounded-lg transition-all text-gray-400 hover:text-amber-600 hover:bg-amber-50">
                                             <i class="ph-bold ph-pencil-simple text-sm"></i>
@@ -223,7 +231,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="text-center py-12">
+                                <td colspan="7" class="text-center py-12">
                                     <div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3 text-gray-400">
                                         <i class="ph-bold ph-users text-2xl"></i>
                                     </div>
@@ -342,6 +350,27 @@
                                 <p class="text-[10px] text-gray-400 mt-1">Harus unik dan belum pernah digunakan petugas lain.</p>
                             </div>
 
+                            <!-- Posisi -->
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 mb-1.5">
+                                    Posisi / Peran Petugas <span class="text-rose-500">*</span>
+                                </label>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <label class="flex items-center gap-2 p-2.5 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
+                                        <input type="radio" name="position" value="operator" checked class="text-spv-blue focus:ring-spv-blue">
+                                        <span class="text-xs font-bold text-blue-900">Operator</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 p-2.5 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
+                                        <input type="radio" name="position" value="helper" class="text-spv-blue focus:ring-spv-blue">
+                                        <span class="text-xs font-bold text-teal-900">Helper</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 p-2.5 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
+                                        <input type="radio" name="position" value="checker" class="text-spv-blue focus:ring-spv-blue">
+                                        <span class="text-xs font-bold text-purple-900">Checker</span>
+                                    </label>
+                                </div>
+                            </div>
+
                             <!-- Status -->
                             <div>
                                 <label class="block text-xs font-bold text-gray-700 mb-1.5">
@@ -450,6 +479,27 @@
                                     <i class="ph-bold ph-identification-card absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
                                     <input type="text" id="edit_nomor_induk" name="nomor_induk" x-model="editPetugas.nomor_induk" required
                                            class="w-full pl-9 pr-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-spv-blue focus:border-spv-blue outline-none transition-all">
+                                </div>
+                            </div>
+
+                            <!-- Posisi -->
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 mb-1.5">
+                                    Posisi / Peran Petugas <span class="text-rose-500">*</span>
+                                </label>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <label class="flex items-center gap-2 p-2.5 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
+                                        <input type="radio" name="position" value="operator" x-model="editPetugas.position" class="text-spv-blue focus:ring-spv-blue">
+                                        <span class="text-xs font-bold text-blue-900">Operator</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 p-2.5 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
+                                        <input type="radio" name="position" value="helper" x-model="editPetugas.position" class="text-spv-blue focus:ring-spv-blue">
+                                        <span class="text-xs font-bold text-teal-900">Helper</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 p-2.5 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
+                                        <input type="radio" name="position" value="checker" x-model="editPetugas.position" class="text-spv-blue focus:ring-spv-blue">
+                                        <span class="text-xs font-bold text-purple-900">Checker</span>
+                                    </label>
                                 </div>
                             </div>
 
