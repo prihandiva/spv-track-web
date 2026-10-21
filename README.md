@@ -4,6 +4,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Laravel-11.x-FF2D20?style=for-the-badge&logo=laravel&logoColor=white" alt="Laravel 11">
   <img src="https://img.shields.io/badge/PHP-8.2%2B-777BB4?style=for-the-badge&logo=php&logoColor=white" alt="PHP 8.2+">
+  <img src="https://img.shields.io/badge/PostgreSQL-14%2B-316192?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL">
   <img src="https://img.shields.io/badge/TailwindCSS-v3-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white" alt="Tailwind CSS">
   <img src="https://img.shields.io/badge/Alpine.js-3.x-8BC0D0?style=for-the-badge&logo=alpinedotjs&logoColor=white" alt="Alpine.js">
   <img src="https://img.shields.io/badge/DomPDF-Enabled-00994D?style=for-the-badge&logo=adobeacrobatreader&logoColor=white" alt="DomPDF">
@@ -99,7 +100,7 @@ Format cetak resmi terstruktur 4 bagian sesuai kebutuhan audit logistik:
 | Komponen | Teknologi yang Digunakan |
 |---|---|
 | **Framework Backend** | [Laravel 11.x](https://laravel.com/) (PHP 8.2+) |
-| **Database** | MySQL / MariaDB (Laragon Environment) |
+| **Database** | [PostgreSQL](https://www.postgresql.org/) (Port 5432, Driver `pgsql`) |
 | **Styling & UI** | [Tailwind CSS](https://tailwindcss.com/) + Custom Glassmorphism & Lenzing Palette |
 | **Interaktivitas Frontend** | [Alpine.js 3.x](https://alpinejs.dev/) |
 | **Iconography** | [Phosphor Icons](https://phosphoricons.com/) |
@@ -112,9 +113,9 @@ Format cetak resmi terstruktur 4 bagian sesuai kebutuhan audit logistik:
 ## 🚀 Panduan Instalasi Lokal
 
 ### 1. Prasyarat Sistem
-* PHP >= 8.2 (dengan ekstensi `pdo_mysql`, `mbstring`, `gd`, `openssl`, `fileinfo`)
+* PHP >= 8.2 (dengan ekstensi `pdo_pgsql`, `pgsql`, `mbstring`, `gd`, `openssl`, `fileinfo`)
 * Composer >= 2.5
-* MySQL >= 8.0 atau MariaDB >= 10.4 (misal: Laragon / XAMPP)
+* PostgreSQL >= 14+ (Port 5432)
 * Node.js & NPM (opsional untuk asset bundling)
 
 ### 2. Kloning Repositori
@@ -134,14 +135,14 @@ Salin berkas konfigurasi `.env.example`:
 cp .env.example .env
 php artisan key:generate
 ```
-Sesuaikan koneksi database pada `.env`:
+Sesuaikan koneksi database PostgreSQL pada `.env`:
 ```env
-DB_CONNECTION=mysql
+DB_CONNECTION=pgsql
 DB_HOST=127.0.0.1
-DB_PORT=3306
+DB_PORT=5432
 DB_DATABASE=spv_track
-DB_USERNAME=root
-DB_PASSWORD=
+DB_USERNAME=postgres
+DB_PASSWORD=root
 ```
 
 ### 5. Migrasi & Seeder Database
