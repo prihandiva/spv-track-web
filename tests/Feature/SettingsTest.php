@@ -275,6 +275,43 @@ class SettingsTest extends TestCase
         $this->assertGreaterThanOrEqual(27, SopPhotoPoint::count());
     }
 
+    public function test_sop_page_has_simplified_modal_and_media_types_jpg_mp4(): void
+    {
+        $response = $this->get(route('settings.sop.index'));
+        $response->assertStatus(200);
+
+        // Asserts media types are only Foto (JPG) and Video (MP4)
+        $response->assertSee('Foto (JPG)');
+        $response->assertSee('Video (MP4)');
+        $response->assertDontSee('Dokumen Checklist');
+
+        // Asserts OCR and AI deteksi checkboxes are removed from the form view
+        $response->assertDontSee('Jalankan OCR Validasi Nomor Container');
+        $response->assertDontSee('Jalankan AI Deteksi Keberadaan Orang');
+        $response->assertDontSee('Jalankan AI Deteksi Area & Barcode Bale');
+
+        // Asserts Wajib / Opsional checklist exists
+        $response->assertSee('Wajib Diisi oleh Petugas Lapangan');
+
+        // Can store a new optional video point
+        $createResponse = $this->post(route('settings.sop.store'), [
+            'urutan' => 29,
+            'nama_titik' => 'Video Walkaround Container',
+            'deskripsi' => 'Rekaman video keliling kontainer',
+            'jenis_pengiriman' => 'both',
+            'tipe_item' => 'video',
+            'wajib' => 0,
+        ]);
+
+        $createResponse->assertRedirect(route('settings.sop.index'));
+        $this->assertDatabaseHas('sop_photo_points', [
+            'urutan' => 29,
+            'nama_titik' => 'Video Walkaround Container',
+            'tipe_item' => 'video',
+            'wajib' => false,
+        ]);
+    }
+
     public function test_system_settings_page_is_accessible_and_can_be_updated(): void
     {
         SystemSetting::set('app_name', 'Old Name');

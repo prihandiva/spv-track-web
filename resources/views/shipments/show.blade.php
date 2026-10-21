@@ -122,7 +122,7 @@
         </div>
         <div class="bg-white rounded-2xl p-4 border border-gray-100 shadow-[0_1px_6px_rgba(40,84,145,0.05)]">
             <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Lokasi Staging</p>
-            <p class="text-sm font-bold text-gray-800 mt-1 capitalize">Warehouse {{ $shipment->warehouse_lokasi }}</p>
+            <p class="text-sm font-bold text-gray-800 mt-1">{{ $shipment->warehouse_label }}</p>
         </div>
         <div class="bg-white rounded-2xl p-4 border border-gray-100 shadow-[0_1px_6px_rgba(40,84,145,0.05)]">
             <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Foto SOP Terunggah</p>
@@ -211,7 +211,7 @@
                 </div>
                 <div>
                     <span class="text-gray-400 block text-[11px] mb-0.5">Lokasi Gudang:</span>
-                    <span class="font-semibold text-gray-700 capitalize">Gudang {{ $shipment->warehouse_lokasi }}</span>
+                    <span class="font-semibold text-gray-700">{{ $shipment->warehouse_label }}</span>
                 </div>
             </div>
         </div>
@@ -269,6 +269,239 @@
             </div>
         </div>
 
+    </div>
+
+    <!-- Section: 2 Formulir Inspeksi Fisik (Lenzing Standards - Halaman 2 & 3 PDF) -->
+    <div class="mb-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-2 mb-4 gap-2">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-base">
+                    <i class="ph-bold ph-clipboard-text"></i>
+                </div>
+                <div>
+                    <h2 class="text-sm font-bold text-gray-800">Formulir Inspeksi Fisik (Lenzing Standards)</h2>
+                    <p class="text-[11px] text-gray-400">Dicetak resmi di <strong>Halaman 2 (Kontainer)</strong> dan <strong>Halaman 3 (Bale)</strong> pada berkas Laporan PDF.</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                    2 Dokumen Inspeksi
+                </span>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- 1. Card Form Inspeksi Kontainer -->
+            @php $cInsp = $shipment->containerInspection; @endphp
+            <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-[0_1px_6px_rgba(40,84,145,0.05)] flex flex-col justify-between">
+                <div>
+                    <div class="flex items-start justify-between gap-3 pb-3 border-b border-gray-100 mb-4">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black text-sm shadow-xs">
+                                L
+                            </div>
+                            <div>
+                                <h3 class="text-xs font-extrabold text-gray-800 uppercase tracking-tight">Form Inspeksi Kondisi Kontainer</h3>
+                                <p class="text-[10px] text-gray-400">Pemeriksaan 6 Titik &amp; Swab Test Kebersihan</p>
+                            </div>
+                        </div>
+                        @if($cInsp)
+                            @php
+                                $cBadge = match($cInsp->kesimpulan) {
+                                    'layak' => 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                                    'layak_dengan_catatan' => 'bg-amber-50 text-amber-700 border-amber-200',
+                                    default => 'bg-red-50 text-red-700 border-red-200',
+                                };
+                            @endphp
+                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border {{ $cBadge }}">
+                                <i class="ph-bold ph-check-circle"></i>
+                                {{ strtoupper($cInsp->kesimpulan_label) }}
+                            </span>
+                        @else
+                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                <i class="ph-bold ph-warning"></i>
+                                BELUM DIISI
+                            </span>
+                        @endif
+                    </div>
+
+                    @if($cInsp)
+                    <div class="grid grid-cols-2 gap-3 text-xs mb-4">
+                        <div>
+                            <span class="text-gray-400 block text-[10px]">No. Kontainer:</span>
+                            <span class="font-bold text-gray-800 font-mono">{{ $cInsp->nomor_kontainer ?: '-' }}</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-400 block text-[10px]">Nomor Seal:</span>
+                            <span class="font-bold text-gray-800 font-mono">{{ $cInsp->nomor_seal ?: '-' }}</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-400 block text-[10px]">Petugas Inspeksi:</span>
+                            <span class="font-semibold text-gray-800">{{ $cInsp->nama_petugas_inspeksi ?: '-' }}</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-400 block text-[10px]">Waktu Loading:</span>
+                            <span class="font-semibold text-gray-700">{{ ($shipment->waktu_kedatangan_container ? $shipment->waktu_kedatangan_container->format('H:i') : ($cInsp->loading_start_time ?: '-')) }} s/d {{ ($shipment->waktu_keberangkatan_container ? $shipment->waktu_keberangkatan_container->format('H:i') : ($cInsp->loading_finish_time ?: '-')) }}</span>
+                        </div>
+                    </div>
+
+                    <!-- 6 Titik Status Pills -->
+                    <div class="mb-4">
+                        <span class="text-gray-400 block text-[10px] mb-1.5 uppercase font-bold tracking-wider">Hasil 6 Titik Pemeriksaan:</span>
+                        <div class="grid grid-cols-3 gap-1.5 text-[10px]">
+                            @foreach([
+                                'Pintu' => $cInsp->pintu_status,
+                                'Dinding Kanan' => $cInsp->dinding_kanan_status,
+                                'Dinding Kiri' => $cInsp->dinding_kiri_status,
+                                'Dinding Depan' => $cInsp->dinding_depan_status,
+                                'Atap' => $cInsp->atap_status,
+                                'Lantai' => $cInsp->lantai_status,
+                            ] as $pName => $pStatus)
+                            <div class="px-2 py-1 rounded-md border flex items-center justify-between {{ $pStatus ? 'bg-emerald-50/60 border-emerald-200 text-emerald-800 font-semibold' : 'bg-red-50 border-red-200 text-red-800 font-bold' }}">
+                                <span class="truncate">{{ $pName }}</span>
+                                <span>{{ $pStatus ? '✓' : '✗' }}</span>
+                            </div>
+                            @endforeach
+                        </div>
+                    </div>
+
+                    @if($cInsp->catatan)
+                    <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-gray-600 mb-4">
+                        <strong class="text-gray-700">Catatan Inspektor:</strong> {{ $cInsp->catatan }}
+                    </div>
+                    @endif
+                    @else
+                    <div class="p-4 rounded-xl bg-slate-50 border border-dashed border-gray-200 text-center text-xs text-gray-400 mb-4">
+                        Formulir Inspeksi Kontainer belum dilengkapi oleh operator.
+                    </div>
+                    @endif
+                </div>
+
+                <div class="flex items-center gap-2 pt-3 border-t border-gray-100 flex-wrap">
+                    @if($cInsp)
+                        <a href="{{ route('shipments.container-inspection.print', $shipment->id) }}" target="_blank"
+                           class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold transition-all">
+                            <i class="ph-bold ph-printer"></i>
+                            <span>Cetak Form</span>
+                        </a>
+                        <a href="{{ route('shipments.container-inspection.pdf', $shipment->id) }}"
+                           class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold transition-all">
+                            <i class="ph-bold ph-download-simple"></i>
+                            <span>PDF Form</span>
+                        </a>
+                    @endif
+
+                    @if(auth()->user()?->canEditShipment($shipment))
+                        <a href="{{ route('field-app.container-inspection', $shipment->id) }}"
+                           class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-spv-blue hover:bg-blue-800 text-white text-xs font-bold transition-all ml-auto">
+                            <i class="ph-bold ph-pencil-simple"></i>
+                            <span>{{ $cInsp ? 'Edit Form' : 'Isi Form Sekarang' }}</span>
+                        </a>
+                    @endif
+                </div>
+            </div>
+
+            <!-- 2. Card Form Inspeksi Bale (Loading) -->
+            @php $bInsp = $shipment->baleInspection; @endphp
+            <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-[0_1px_6px_rgba(40,84,145,0.05)] flex flex-col justify-between">
+                <div>
+                    <div class="flex items-start justify-between gap-3 pb-3 border-b border-gray-100 mb-4">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-9 h-9 rounded-xl bg-spv-blue text-white flex items-center justify-center font-black text-sm shadow-xs">
+                                B
+                            </div>
+                            <div>
+                                <h3 class="text-xs font-extrabold text-gray-800 uppercase tracking-tight">Form Inspeksi Kondisi Bale (Loading)</h3>
+                                <p class="text-[10px] text-gray-400">8 Cek Ketidaksesuaian &amp; Verifikasi 4-Eyes Principle</p>
+                            </div>
+                        </div>
+                        @if($bInsp)
+                            @php
+                                $bBadge = match($bInsp->kesimpulan_akhir) {
+                                    'layak' => 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                                    'layak_dengan_catatan' => 'bg-amber-50 text-amber-700 border-amber-200',
+                                    default => 'bg-red-50 text-red-700 border-red-200',
+                                };
+                            @endphp
+                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold border {{ $bBadge }}">
+                                <i class="ph-bold ph-seal-check"></i>
+                                {{ strtoupper($bInsp->kesimpulan_label) }}
+                            </span>
+                        @else
+                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                <i class="ph-bold ph-warning"></i>
+                                BELUM DIISI
+                            </span>
+                        @endif
+                    </div>
+
+                    @if($bInsp)
+                    <div class="grid grid-cols-2 gap-3 text-xs mb-4">
+                        <div>
+                            <span class="text-gray-400 block text-[10px]">No. Surat Jalan:</span>
+                            <span class="font-bold text-spv-blue font-mono">{{ $bInsp->nomor_surat_jalan ?: '-' }}</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-400 block text-[10px]">Jumlah Bale:</span>
+                            <span class="font-bold text-gray-800">{{ $bInsp->jumlah_bale ? $bInsp->jumlah_bale . ' Bale' : '-' }}</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-400 block text-[10px]">Pemeriksa 1 (First Eye):</span>
+                            <span class="font-semibold text-gray-800">{{ $bInsp->first_eye_nama ?: '-' }}</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-400 block text-[10px]">Verifikator (Second Eye):</span>
+                            <span class="font-semibold text-gray-800">{{ $bInsp->second_eye_nama ?: '-' }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Ketidaksesuaian summary -->
+                    @php $defectCount = $bInsp->countIssues(); @endphp
+                    <div class="mb-4">
+                        <div class="flex items-center justify-between text-xs p-2.5 rounded-xl border {{ $defectCount > 0 ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-emerald-50 border-emerald-200 text-emerald-800' }}">
+                            <span class="font-semibold">Temuan Cacat / Ketidaksesuaian:</span>
+                            <span class="font-bold">{{ $defectCount > 0 ? "{$defectCount} Masalah Ditemukan" : "0 Temuan (Bale Mulus & Bersih)" }}</span>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2 text-[11px] text-gray-500 mb-4 flex-wrap">
+                        <span>2 Rubber Cone: <strong class="text-gray-700">{{ $bInsp->stagging_2_rubber_cone ? 'Ya' : 'Tidak' }}</strong></span>
+                        <span>&bull;</span>
+                        <span>Sumber: <strong class="text-gray-700">{{ ucfirst(str_replace('_', ' ', $bInsp->sumber_bale ?? '-')) }}</strong></span>
+                        <span>&bull;</span>
+                        <span>Lokasi: <strong class="text-gray-700">{{ $bInsp->lokasi_stagging ?: '-' }}</strong></span>
+                    </div>
+                    @else
+                    <div class="p-4 rounded-xl bg-slate-50 border border-dashed border-gray-200 text-center text-xs text-gray-400 mb-4">
+                        Formulir Inspeksi Kondisi Bale belum dilengkapi oleh operator.
+                    </div>
+                    @endif
+                </div>
+
+                <div class="flex items-center gap-2 pt-3 border-t border-gray-100 flex-wrap">
+                    @if($bInsp)
+                        <a href="{{ route('shipments.bale-inspection.print', $shipment->id) }}" target="_blank"
+                           class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold transition-all">
+                            <i class="ph-bold ph-printer"></i>
+                            <span>Cetak Form</span>
+                        </a>
+                        <a href="{{ route('shipments.bale-inspection.pdf', $shipment->id) }}"
+                           class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-spv-blue border border-blue-200 text-xs font-bold transition-all">
+                            <i class="ph-bold ph-download-simple"></i>
+                            <span>PDF Form</span>
+                        </a>
+                    @endif
+
+                    @if(auth()->user()?->canEditShipment($shipment))
+                        <a href="{{ route('field-app.bale-inspection', $shipment->id) }}"
+                           class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-spv-blue hover:bg-blue-800 text-white text-xs font-bold transition-all ml-auto">
+                            <i class="ph-bold ph-pencil-simple"></i>
+                            <span>{{ $bInsp ? 'Edit Form' : 'Isi Form Sekarang' }}</span>
+                        </a>
+                    @endif
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Section: Timeline Riwayat Aktivitas & Perubahan Dokumen (Audit Trail) -->

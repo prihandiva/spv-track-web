@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FieldAppController;
+use App\Http\Controllers\InspectionController;
 use App\Http\Controllers\KaryawanController;
 use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\RoleController;
@@ -71,6 +72,18 @@ Route::middleware('auth')->group(function () {
     Route::post('/field-app/{shipment}/submit', [FieldAppController::class, 'submit'])->name('field-app.submit');
     Route::post('/field-app/ocr/shipment-order', [FieldAppController::class, 'ocrShipmentOrder'])->name('field-app.ocr.shipment-order');
     Route::post('/field-app/ocr/surat-jalan', [FieldAppController::class, 'ocrSuratJalan'])->name('field-app.ocr.surat-jalan');
+
+    // 5b. Form Tambahan: Inspeksi Kontainer & Inspeksi Bale
+    Route::get('/field-app/{shipment}/container-inspection', [InspectionController::class, 'editContainer'])->name('field-app.container-inspection');
+    Route::post('/field-app/{shipment}/container-inspection', [InspectionController::class, 'saveContainer'])->name('field-app.container-inspection.save');
+    Route::get('/field-app/{shipment}/bale-inspection', [InspectionController::class, 'editBale'])->name('field-app.bale-inspection');
+    Route::post('/field-app/{shipment}/bale-inspection', [InspectionController::class, 'saveBale'])->name('field-app.bale-inspection.save');
+
+    // Cetak & Download PDF Form Satuan (Container & Bale)
+    Route::get('/shipments/{shipment}/container-inspection/print', [InspectionController::class, 'printContainer'])->name('shipments.container-inspection.print');
+    Route::get('/shipments/{shipment}/container-inspection/pdf', [InspectionController::class, 'downloadContainerPdf'])->name('shipments.container-inspection.pdf');
+    Route::get('/shipments/{shipment}/bale-inspection/print', [InspectionController::class, 'printBale'])->name('shipments.bale-inspection.print');
+    Route::get('/shipments/{shipment}/bale-inspection/pdf', [InspectionController::class, 'downloadBalePdf'])->name('shipments.bale-inspection.pdf');
 
     // 6. Pengaturan & Master Data (HANYA SUPERADMIN)
     Route::prefix('pengaturan')->name('settings.')->middleware('role:superadmin')->group(function () {

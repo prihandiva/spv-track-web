@@ -162,8 +162,8 @@
                                     </div>
                                     <div class="flex items-center justify-between gap-2">
                                         <span class="text-gray-400 shrink-0">Lokasi &amp; Shift:</span>
-                                        <span class="font-medium text-gray-700 capitalize text-right truncate max-w-[150px]">
-                                            {{ $staging->warehouse_lokasi ? 'Gudang ' . ucfirst($staging->warehouse_lokasi) : 'Gudang Atas' }} &bull; {{ ucfirst($staging->waktu ?? 'Siang') }}
+                                        <span class="font-medium text-gray-700 text-right truncate max-w-[150px]">
+                                            {{ $staging->warehouse_label }} &bull; {{ ucfirst($staging->waktu ?? 'Siang') }}
                                         </span>
                                     </div>
                                     <div class="flex items-center justify-between gap-2">

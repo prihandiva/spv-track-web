@@ -213,14 +213,26 @@
                 return (this.waktuKedatangan || '').trim().length > 0 &&
                        (this.waktuKeberangkatan || '').trim().length > 0;
             },
+            get isContainerComplete() {
+                return {{ $shipment->containerInspection ? 'true' : 'false' }};
+            },
+            get isBaleComplete() {
+                return {{ $shipment->baleInspection ? 'true' : 'false' }};
+            },
             get canSubmit() {
-                return this.isPhotosComplete && this.isFormComplete;
+                return this.isPhotosComplete && this.isFormComplete && this.isContainerComplete && this.isBaleComplete;
             },
             get missingSummary() {
                 const missing = [];
+                if (!this.isContainerComplete) {
+                    missing.push('Form Inspeksi Kontainer');
+                }
+                if (!this.isBaleComplete) {
+                    missing.push('Form Inspeksi Bale');
+                }
                 if (!this.isPhotosComplete) {
                     const diff = this.totalMandatoryCount - this.mandatoryUploadedCount;
-                    missing.push(diff + ' foto wajib belum diunggah');
+                    missing.push(diff + ' foto wajib');
                 }
                 if (!(this.waktuKedatangan || '').trim()) missing.push('Waktu Mulai Staging');
                 if (!(this.waktuKeberangkatan || '').trim()) missing.push('Waktu Akhir Staging');
@@ -304,8 +316,82 @@
         </div>
     </div>
 
+    <!-- 2 Form Inspeksi Wajib (Lenzing Standards) -->
+    <div style="background: white; border-radius: 16px; padding: 14px 16px; border: 1.5px solid #dbeafe; box-shadow: 0 2px 10px rgba(40,84,145,0.06); margin-top: 4px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="width: 28px; height: 28px; border-radius: 8px; background: #285491; color: white; display: flex; align-items: center; justify-content: center; font-size: 14px;">
+                    <i class="ph-bold ph-clipboard-text"></i>
+                </div>
+                <div>
+                    <h3 style="font-size: 12px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.04em;">Formulir Inspeksi Wajib</h3>
+                    <p style="font-size: 10px; color: #64748b; margin-top: 1px;">Standar Mutu & Audit Fisik Lenzing (Wajib dilengkapi sebelum submit)</p>
+                </div>
+            </div>
+            <span style="font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;">
+                2 Formulir
+            </span>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+            <!-- 1. Form Inspeksi Kontainer -->
+            @php $cInsp = $shipment->containerInspection; @endphp
+            <div style="border-radius: 12px; padding: 12px; border: 1.5px solid {{ $cInsp ? '#86efac' : '#fed7aa' }}; background: {{ $cInsp ? '#f0fdf4' : '#fffbeb' }}; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 32px; height: 32px; border-radius: 50%; background: {{ $cInsp ? '#059e3d' : '#f59e0b' }}; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; shrink: 0;">
+                        {{ $cInsp ? '✓' : '1' }}
+                    </div>
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                            <span style="font-size: 12px; font-weight: 800; color: #1f2937;">Form Inspeksi Kontainer</span>
+                            <span style="font-size: 9px; font-weight: 700; padding: 1px 6px; border-radius: 4px; background: {{ $cInsp ? '#dcfce7' : '#fee2e2' }}; color: {{ $cInsp ? '#15803d' : '#b91c1c' }};">
+                                {{ $cInsp ? 'SELESAI: ' . strtoupper($cInsp->kesimpulan_label) : 'BELUM DIISI' }}
+                            </span>
+                        </div>
+                        <p style="font-size: 10px; color: #64748b; margin-top: 2px;">
+                            Pemeriksaan 6 titik fisik: Pintu, Dinding Kiri/Kanan/Depan, Atap & Lantai
+                        </p>
+                    </div>
+                </div>
+
+                <a href="{{ route('field-app.container-inspection', $shipment->id) }}"
+                   style="display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; padding: 7px 14px; border-radius: 8px; text-decoration: none; transition: all 0.2s; background: {{ $cInsp ? '#ffffff' : '#f59e0b' }}; color: {{ $cInsp ? '#15803d' : '#ffffff' }}; border: 1px solid {{ $cInsp ? '#86efac' : '#d97706' }}; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                    <i class="ph-bold {{ $cInsp ? 'ph-pencil-simple' : 'ph-plus-circle' }}"></i>
+                    <span>{{ $cInsp ? 'Edit / Tinjau' : 'Isi Form Kontainer' }}</span>
+                </a>
+            </div>
+
+            <!-- 2. Form Inspeksi Bale -->
+            @php $bInsp = $shipment->baleInspection; @endphp
+            <div style="border-radius: 12px; padding: 12px; border: 1.5px solid {{ $bInsp ? '#86efac' : '#fed7aa' }}; background: {{ $bInsp ? '#f0fdf4' : '#fffbeb' }}; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 32px; height: 32px; border-radius: 50%; background: {{ $bInsp ? '#059e3d' : '#f59e0b' }}; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; shrink: 0;">
+                        {{ $bInsp ? '✓' : '2' }}
+                    </div>
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                            <span style="font-size: 12px; font-weight: 800; color: #1f2937;">Form Inspeksi Kondisi Bale (Loading)</span>
+                            <span style="font-size: 9px; font-weight: 700; padding: 1px 6px; border-radius: 4px; background: {{ $bInsp ? '#dcfce7' : '#fee2e2' }}; color: {{ $bInsp ? '#15803d' : '#b91c1c' }};">
+                                {{ $bInsp ? 'SELESAI: ' . strtoupper($bInsp->kesimpulan_label) : 'BELUM DIISI' }}
+                            </span>
+                        </div>
+                        <p style="font-size: 10px; color: #64748b; margin-top: 2px;">
+                            8 Cek ketidaksesuaian bale, perbaikan, & verifikasi 4-Eyes Principle
+                        </p>
+                    </div>
+                </div>
+
+                <a href="{{ route('field-app.bale-inspection', $shipment->id) }}"
+                   style="display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; padding: 7px 14px; border-radius: 8px; text-decoration: none; transition: all 0.2s; background: {{ $bInsp ? '#ffffff' : '#285491' }}; color: {{ $bInsp ? '#15803d' : '#ffffff' }}; border: 1px solid {{ $bInsp ? '#86efac' : '#1e3a8a' }}; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                    <i class="ph-bold {{ $bInsp ? 'ph-pencil-simple' : 'ph-plus-circle' }}"></i>
+                    <span>{{ $bInsp ? 'Edit / Tinjau' : 'Isi Form Bale' }}</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
     <!-- Titik Loading Evidence (27 Titik SOP) -->
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px; margin-bottom: -2px;">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; margin-bottom: -2px;">
         <p style="font-size: 12px; font-weight: 700; color: #1f2937;">Daftar Loading Evidence</p>
         <span style="font-size: 10px; font-weight: 600; color: #6b7280; background: #e5e7eb; padding: 2px 8px; border-radius: 10px;">27 Titik SOP</span>
     </div>

@@ -101,10 +101,10 @@
         }
 
         @keyframes fadeSlideIn {
-            from { opacity: 0; transform: translateY(8px); }
-            to { opacity: 1; transform: none; }
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
-        .animate-fade-in { animation: fadeSlideIn 0.35s ease forwards; }
+        .animate-fade-in { animation: fadeSlideIn 0.25s ease forwards; }
         
         @keyframes pulseGlow {
             0%, 100% { box-shadow: 0 0 0 0 rgba(5,158,61,0.35); }

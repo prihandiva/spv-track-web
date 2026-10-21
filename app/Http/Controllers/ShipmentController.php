@@ -59,6 +59,8 @@ class ShipmentController extends Controller
             'user',
             'evidenceItems.sopPhotoPoint',
             'photos',
+            'containerInspection',
+            'baleInspection.items',
             'activities' => fn ($q) => $q->latest(),
         ]);
         $points = SopPhotoPoint::orderBy('urutan')->get();
@@ -617,7 +619,7 @@ class ShipmentController extends Controller
      */
     public function printReport(Shipment $shipment)
     {
-        $shipment->load(['karyawan', 'karyawans', 'user', 'evidenceItems.sopPhotoPoint', 'photos', 'extraPhotos']);
+        $shipment->load(['karyawan', 'karyawans', 'user', 'evidenceItems.sopPhotoPoint', 'photos', 'extraPhotos', 'containerInspection', 'baleInspection.items']);
 
         $photoItems = collect();
 
@@ -675,7 +677,7 @@ class ShipmentController extends Controller
         @ini_set('memory_limit', '512M');
         @set_time_limit(180);
 
-        $shipment->load(['karyawan', 'karyawans', 'user', 'evidenceItems.sopPhotoPoint', 'photos', 'extraPhotos']);
+        $shipment->load(['karyawan', 'karyawans', 'user', 'evidenceItems.sopPhotoPoint', 'photos', 'extraPhotos', 'containerInspection', 'baleInspection.items']);
 
         $packingList = trim((string) ($shipment->packing_list_no ?? ''));
         $pdfBase = $packingList !== '' ? $packingList : ($shipment->shipment_no ?: ('shipment-'.$shipment->id));

@@ -180,6 +180,22 @@ class FieldAppFlowTest extends TestCase
             ]);
         }
 
+        // Create required container & bale inspection forms
+        $shipment->containerInspection()->create([
+            'nomor_kontainer' => 'B 1234 SPV',
+            'nama_petugas_inspeksi' => 'Budi Santoso',
+            'kesimpulan' => 'layak',
+            'nama_inspektor' => 'Budi Santoso',
+            'tanggal_inspeksi' => now(),
+        ]);
+        $shipment->baleInspection()->create([
+            'nomor_surat_jalan' => '900000001',
+            'first_eye_nama' => 'Budi Santoso',
+            'first_eye_tanggal' => now(),
+            'kesimpulan_akhir' => 'layak',
+            'stagging_2_rubber_cone' => true,
+        ]);
+
         $response = $this->post(route('field-app.submit', $shipment->id), [
             'waktu_kedatangan_container' => '2026-10-05T08:00',
             'waktu_keberangkatan_container' => '2026-10-05T12:00',
@@ -190,6 +206,10 @@ class FieldAppFlowTest extends TestCase
         $this->assertEquals('submitted', $shipment->status);
         $this->assertNotNull($shipment->waktu_kedatangan_container);
         $this->assertNotNull($shipment->waktu_keberangkatan_container);
+        $this->assertEquals('08:00', $shipment->containerInspection->fresh()->loading_start_time);
+        $this->assertEquals('12:00', $shipment->containerInspection->fresh()->loading_finish_time);
+        $this->assertEquals('08:00', $shipment->baleInspection->fresh()->loading_start_time);
+        $this->assertEquals('12:00', $shipment->baleInspection->fresh()->loading_finish_time);
     }
 
     public function test_field_app_store_supports_multiple_karyawan_and_displays_on_show_page(): void
@@ -400,5 +420,99 @@ class FieldAppFlowTest extends TestCase
         $this->assertEquals('2026-10-19 09:35:00', $photo1->captured_at->format('Y-m-d H:i:s'));
         $this->assertStringContainsString('_p' . $point->id . '_2.jpg', $photo1->file_path);
     }
+
+    public function test_field_app_store_succeeds_with_external_warehouse(): void
+    {
+        $response = $this->post(route('field-app.store'), [
+            'jenis_produk' => 'fiber',
+            'jenis_pengiriman' => 'export',
+            'packing_list_no' => '800555666',
+            'shipment_group' => '869026487',
+            'shipment_no' => '860110918',
+            'plat_nomor' => 'B 9999 EXT',
+            'nama_sopir' => 'Bambang',
+            'nomor_container_atau_plat' => 'EXTU1234567',
+            'cuaca' => 'kering',
+            'waktu' => 'siang',
+            'tanggal_staging' => '2026-10-05',
+            'warehouse_type' => 'external',
+            'warehouse_lokasi_external' => 'PT Kamadjaja Logistics',
+            'karyawan_id' => $this->karyawan->id,
+        ]);
+
+        $this->assertDatabaseHas('shipments', [
+            'packing_list_no' => '800555666',
+            'warehouse_type' => 'external',
+            'warehouse_lokasi' => 'PT Kamadjaja Logistics',
+        ]);
+    }
+
+    public function test_field_app_store_fails_with_empty_external_warehouse(): void
+    {
+        $response = $this->post(route('field-app.store'), [
+            'jenis_produk' => 'fiber',
+            'jenis_pengiriman' => 'export',
+            'packing_list_no' => '800555667',
+            'shipment_group' => '869026487',
+            'shipment_no' => '860110918',
+            'plat_nomor' => 'B 9999 EXT',
+            'nama_sopir' => 'Bambang',
+            'nomor_container_atau_plat' => 'EXTU1234567',
+            'cuaca' => 'kering',
+            'waktu' => 'siang',
+            'tanggal_staging' => '2026-10-05',
+            'warehouse_type' => 'external',
+            'warehouse_lokasi_external' => '', // Empty
+            'karyawan_id' => $this->karyawan->id,
+        ]);
+
+        $response->assertSessionHasErrors(['warehouse_lokasi']);
+    }
+
+    public function test_field_app_update_switches_between_internal_and_external_warehouse(): void
+    {
+        $shipment = \App\Models\Shipment::create([
+            'user_id' => $this->user->id,
+            'karyawan_id' => $this->karyawan->id,
+            'jenis_produk' => 'fiber',
+            'jenis_pengiriman' => 'export',
+            'shipment_group' => '869026487',
+            'shipment_no' => '860110918',
+            'packing_list_no' => '800111222',
+            'plat_nomor' => 'B 1111 INT',
+            'nama_sopir' => 'Supri',
+            'nomor_container_atau_plat' => 'INTU1111111',
+            'cuaca' => 'kering',
+            'waktu' => 'siang',
+            'tanggal_staging' => '2026-10-05',
+            'warehouse_type' => 'internal',
+            'warehouse_lokasi' => 'atas',
+            'status' => 'draft',
+        ]);
+        $shipment->karyawans()->sync([$this->karyawan->id]);
+
+        $response = $this->put(route('field-app.update', $shipment->id), [
+            'jenis_produk' => 'fiber',
+            'jenis_pengiriman' => 'export',
+            'packing_list_no' => '800111222',
+            'shipment_group' => '869026487',
+            'shipment_no' => '860110918',
+            'plat_nomor' => 'B 1111 INT',
+            'nama_sopir' => 'Supri',
+            'nomor_container_atau_plat' => 'INTU1111111',
+            'cuaca' => 'kering',
+            'waktu' => 'siang',
+            'tanggal_staging' => '2026-10-05',
+            'warehouse_type' => 'external',
+            'warehouse_lokasi_external' => 'PT Dunia Express Transindo',
+            'karyawan_ids' => [$this->karyawan->id],
+        ]);
+
+        $shipment->refresh();
+        $this->assertEquals('external', $shipment->warehouse_type);
+        $this->assertEquals('PT Dunia Express Transindo', $shipment->warehouse_lokasi);
+        $this->assertEquals('PT Dunia Express Transindo (Eksternal)', $shipment->warehouse_label);
+    }
 }
+
 

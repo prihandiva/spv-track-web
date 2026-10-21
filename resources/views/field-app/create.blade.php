@@ -58,6 +58,12 @@
             $initProductSelect = 'others';
             $initCustomText = $rawProduct !== 'others' ? $rawProduct : $rawProductCustom;
         }
+
+        // Warehouse Type & Location Initialization
+        $existingWhType = (string) old('warehouse_type', isset($shipment) ? ($shipment->warehouse_type ?? (in_array(strtolower($shipment->warehouse_lokasi ?? ''), ['atas', 'tengah', 'bawah']) ? 'internal' : ($shipment->warehouse_lokasi ? 'external' : 'internal'))) : 'internal');
+        $existingWhLoc = (string) old('warehouse_lokasi', $shipment->warehouse_lokasi ?? 'atas');
+        $initWhInternal = in_array(strtolower($existingWhLoc), ['atas', 'tengah', 'bawah']) ? strtolower($existingWhLoc) : (string) old('warehouse_lokasi_internal', 'atas');
+        $initWhExternal = !in_array(strtolower($existingWhLoc), ['atas', 'tengah', 'bawah']) ? $existingWhLoc : (string) old('warehouse_lokasi_external', '');
     @endphp
 
     <form action="{{ isset($shipment) ? route('field-app.update', $shipment->id, false) : route('field-app.store', [], false) }}" method="POST" enctype="multipart/form-data"
@@ -74,6 +80,9 @@
               packingListNo: {{ Js::from((string) old('packing_list_no', $shipment->packing_list_no ?? '')) }},
               productChoice: {{ Js::from($initProductSelect) }},
               customProductText: {{ Js::from($initCustomText) }},
+              whType: {{ Js::from($existingWhType) }},
+              whInternal: {{ Js::from($initWhInternal) }},
+              whExternal: {{ Js::from($initWhExternal) }},
               dropdownOpen: false,
               searchKaryawan: '',
               photoPreviewUrl: '',
@@ -143,6 +152,13 @@
                   return (this.productChoice || '').trim().length > 0;
               },
 
+              get isWarehouseValid() {
+                  if (this.whType === 'external') {
+                      return this.whExternal.trim().length > 0;
+                  }
+                  return ['atas', 'tengah', 'bawah'].includes(this.whInternal);
+              },
+
               get isValid() {
                   return this.isPackingListValid &&
                          this.isShipmentGroupValid &&
@@ -150,7 +166,8 @@
                          this.nomorContainer.trim().length > 0 &&
                          this.platNomor.trim().length > 0 &&
                          this.selectedKaryawanIds.length > 0 &&
-                         this.isProductValid;
+                         this.isProductValid &&
+                         this.isWarehouseValid;
               },
               get missingFields() {
                   const missing = [];
@@ -176,6 +193,13 @@
                   if (!this.nomorContainer.trim()) missing.push('No. Container');
                   if (this.selectedKaryawanIds.length === 0) missing.push('Petugas Lapangan (minimal 1)');
                   if (!this.isProductValid) missing.push('Ketik Nama Produk (Others)');
+                  if (!this.isWarehouseValid) {
+                      if (this.whType === 'external') {
+                          missing.push('Nama PT Pemilik Warehouse Eksternal');
+                      } else {
+                          missing.push('Pilih Lokasi Warehouse Internal (Atas/Tengah/Bawah)');
+                      }
+                  }
                   return missing;
               },
               handlePhotoChange(event) {
@@ -941,19 +965,82 @@
                         </select>
                     </div>
                 </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 2px;">
                     <div>
-                        <label class="field-label">Tanggal Staging</label>
+                        <label class="field-label">Tanggal Staging <span style="color:#ef4444;">*</span></label>
                         <input type="date" name="tanggal_staging" required value="{{ old('tanggal_staging', isset($shipment) && $shipment->tanggal_staging ? $shipment->tanggal_staging->format('Y-m-d') : date('Y-m-d')) }}" class="field-input">
                     </div>
                     <div>
-                        <label class="field-label">Lokasi Warehouse</label>
-                        <select name="warehouse_lokasi" class="field-input">
-                            <option value="atas" {{ old('warehouse_lokasi', $shipment->warehouse_lokasi ?? 'atas') === 'atas' ? 'selected' : '' }}>Atas</option>
-                            <option value="tengah" {{ old('warehouse_lokasi', $shipment->warehouse_lokasi ?? 'atas') === 'tengah' ? 'selected' : '' }}>Tengah</option>
-                            <option value="bawah" {{ old('warehouse_lokasi', $shipment->warehouse_lokasi ?? 'atas') === 'bawah' ? 'selected' : '' }}>Bawah</option>
-                        </select>
+                        <label class="field-label">Kategori Warehouse <span style="color:#ef4444;">*</span></label>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                            <button type="button" 
+                                    @click="whType = 'internal'"
+                                    :style="whType === 'internal' ? 'border: 2px solid #00994d; background: #f0fdf4; color: #166534; font-weight: 700;' : 'border: 1px solid #cbd5e1; background: #fff; color: #475569; font-weight: 500;'"
+                                    style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 10px; border-radius: 10px; cursor: pointer; font-size: 11px; transition: all 0.15s;">
+                                <i class="ph-bold ph-buildings" style="font-size: 14px;"></i>
+                                <span>Internal SPV</span>
+                            </button>
+                            <button type="button" 
+                                    @click="whType = 'external'"
+                                    :style="whType === 'external' ? 'border: 2px solid #285491; background: #eff6ff; color: #1e40af; font-weight: 700;' : 'border: 1px solid #cbd5e1; background: #fff; color: #475569; font-weight: 500;'"
+                                    style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 10px; border-radius: 10px; cursor: pointer; font-size: 11px; transition: all 0.15s;">
+                                <i class="ph-bold ph-truck" style="font-size: 14px;"></i>
+                                <span>Eksternal</span>
+                            </button>
+                        </div>
                     </div>
+                </div>
+
+                <!-- Hidden inputs to submit unified warehouse data -->
+                <input type="hidden" name="warehouse_type" :value="whType">
+                <input type="hidden" name="warehouse_lokasi" :value="whType === 'internal' ? whInternal : whExternal">
+
+                <!-- 1. Dropdown Lokasi Warehouse Internal (HANYA MUNCUL KETIKA WAREHOUSE INTERNAL SPV DIPILIH) -->
+                <div x-show="whType === 'internal'" x-transition style="margin-top: 2px;">
+                    <label class="field-label">Lokasi Warehouse Internal SPV <span style="color:#ef4444;">*</span></label>
+                    <select name="warehouse_lokasi_internal" x-model="whInternal" class="field-input">
+                        <option value="atas">Gudang Atas</option>
+                        <option value="tengah">Gudang Tengah</option>
+                        <option value="bawah">Gudang Bawah</option>
+                    </select>
+                    <p style="font-size: 10px; color: #64748b; margin-top: 4px;">Pilih salah satu zona gudang internal PT SPV (Atas, Tengah, atau Bawah).</p>
+                </div>
+
+                <!-- 2. Input Teks Warehouse Eksternal (HANYA MUNCUL KETIKA WAREHOUSE EKSTERNAL DIPILIH) + RIWAYAT -->
+                <div x-cloak x-show="whType === 'external'" x-transition style="margin-top: 2px;">
+                    <label class="field-label" style="display: flex; align-items: center; justify-content: space-between;">
+                        <span>Nama PT / Pemilik Warehouse Eksternal <span style="color:#ef4444;">*</span></span>
+                        <span style="font-size: 10px; color: #285491; font-weight: 700;">Wajib ketik nama PT / gudang</span>
+                    </label>
+                    <input type="text"
+                           name="warehouse_lokasi_external"
+                           x-model="whExternal"
+                           list="history-warehouse-external"
+                           placeholder="Ketik nama PT pemilik warehouse eksternal..."
+                           class="field-input"
+                           style="border-color: #285491; background: #f8fafc; font-weight: 600;">
+
+                    <datalist id="history-warehouse-external">
+                        @foreach($history['external_warehouse'] ?? [] as $item)
+                            <option value="{{ $item }}">
+                        @endforeach
+                    </datalist>
+
+                    @if(count($history['external_warehouse'] ?? []) > 0)
+                        <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:6px;">
+                            <span style="font-size:9px; color:#9ca3af; align-self:center;">Riwayat:</span>
+                            @foreach(($history['external_warehouse'] ?? collect())->take(4) as $rec)
+                                <button type="button" 
+                                        @click="whExternal = '{{ addslashes($rec) }}'"
+                                        title="Klik untuk memilih: {{ $rec }}"
+                                        style="font-size:10px; font-weight: 600; padding:2px 7px; border-radius:10px; background:#fff; color:#285491; border:1px solid #bfcfe8; cursor:pointer;"
+                                        onmouseover="this.style.background='#eff4fc'" onmouseout="this.style.background='#fff'">
+                                    {{ $rec }}
+                                </button>
+                            @endforeach
+                        </div>
+                    @endif
+                    <p style="font-size: 10px; color: #64748b; margin-top: 4px;">Tuliskan nama PT atau vendor pemilik gudang eksternal (contoh: PT Kamadjaja Logistics, PT Dunia Express Transindo).</p>
                 </div>
             </div>
         </div>

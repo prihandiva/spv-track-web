@@ -29,6 +29,7 @@ class Shipment extends Model
         'cuaca',
         'waktu',
         'tanggal_staging',
+        'warehouse_type',
         'warehouse_lokasi',
         'status',
         'submitted_at',
@@ -42,6 +43,19 @@ class Shipment extends Model
             'waktu_kedatangan_container' => 'datetime',
             'waktu_keberangkatan_container' => 'datetime',
         ];
+    }
+
+    public function getWarehouseLabelAttribute(): string
+    {
+        if (($this->warehouse_type ?? 'internal') === 'external') {
+            return $this->warehouse_lokasi ? ($this->warehouse_lokasi . ' (Eksternal)') : 'Warehouse Eksternal';
+        }
+        return 'Gudang ' . ucfirst($this->warehouse_lokasi ?: 'Atas');
+    }
+
+    public function getIsWarehouseInternalAttribute(): bool
+    {
+        return ($this->warehouse_type ?? 'internal') === 'internal';
     }
 
     public function user(): BelongsTo
@@ -74,6 +88,16 @@ class Shipment extends Model
         }
 
         return $this->karyawan ? collect([$this->karyawan]) : collect();
+    }
+
+    public function containerInspection(): HasOne
+    {
+        return $this->hasOne(ContainerInspection::class);
+    }
+
+    public function baleInspection(): HasOne
+    {
+        return $this->hasOne(BaleInspection::class);
     }
 
     public function shipmentOrder(): HasOne

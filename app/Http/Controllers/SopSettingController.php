@@ -46,6 +46,8 @@ class SopSettingController extends Controller
         $totalPoints = SopPhotoPoint::count();
         $totalWajib = SopPhotoPoint::where('wajib', true)->count();
         $totalOpsional = SopPhotoPoint::where('wajib', false)->count();
+        $totalFoto = SopPhotoPoint::where('tipe_item', 'foto')->count();
+        $totalVideo = SopPhotoPoint::where('tipe_item', 'video')->count();
         $totalOcr = SopPhotoPoint::where('perlu_ocr_container', true)->count();
         $totalAiPerson = SopPhotoPoint::where('perlu_deteksi_orang', true)->count();
         $totalAiBarcode = SopPhotoPoint::where('perlu_deteksi_barcode', true)->count();
@@ -57,6 +59,8 @@ class SopSettingController extends Controller
             'totalPoints',
             'totalWajib',
             'totalOpsional',
+            'totalFoto',
+            'totalVideo',
             'totalOcr',
             'totalAiPerson',
             'totalAiBarcode',
