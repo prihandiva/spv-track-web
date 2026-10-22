@@ -1,27 +1,43 @@
+@php
+    $lenzingLogoBase64 = '';
+    $logoCandidates = [
+        public_path('images/Logo-lenzing.png'),
+        public_path('Logo-lenzing.png'),
+        base_path('Logo-lenzing.png'),
+    ];
+    foreach ($logoCandidates as $lp) {
+        if (file_exists($lp)) {
+            $lenzingLogoBase64 = 'data:image/png;base64,' . base64_encode(file_get_contents($lp));
+            break;
+        }
+    }
+@endphp
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Form Inspeksi Kondisi Bale (Loading) - {{ $shipment->packing_list_no ?: $shipment->nomor_container_atau_plat }}</title>
     <style>
         @page {
             size: A4 portrait;
-            margin: 7mm 8mm 7mm 8mm;
+            margin: 6mm 7mm 6mm 7mm;
         }
         * {
             box-sizing: border-box;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
         }
+        body, table, td, th, div, span, p, h1, h2, h3 {
+            font-family: 'DejaVu Sans', Arial, Helvetica, sans-serif;
+        }
         body {
-            font-family: Arial, Helvetica, sans-serif;
-            font-size: 8pt;
+            font-size: 7.5pt;
             color: #111827;
             background: #ffffff;
             margin: 0;
             padding: 0;
-            line-height: 1.2;
+            line-height: 1.15;
         }
         .header-table {
             width: 100%;
@@ -220,9 +236,13 @@
                         </tr>
                     </table>
                 </td>
-                <td style="width: 50%; vertical-align: top;">
-                    <div class="lenzing-title">Lenzing</div>
-                    <div class="lenzing-sub">Innovative by nature</div>
+                <td style="width: 50%; vertical-align: top; text-align: right;">
+                    @if($lenzingLogoBase64)
+                        <img src="{{ $lenzingLogoBase64 }}" style="height: 40px; width: auto;" alt="Lenzing">
+                    @else
+                        <div class="lenzing-title">Lenzing</div>
+                        <div class="lenzing-sub">Innovative by nature</div>
+                    @endif
                 </td>
             </tr>
         </table>
@@ -245,17 +265,17 @@
                 </td>
                 <td style="width: 50%;">
                     &bull; Nomor Kontainer / Truk Lokal : <strong>{{ $inspection?->nomor_kontainer_truk ?: ($shipment->nomor_container_atau_plat ?: ($shipment->plat_nomor ?? '-')) }}</strong><br>
-                    &bull; Jenis Bale (✓) : 
-                    <span class="check-box">{{ in_array('tx_ecovero', $jBale) ? '✓' : '' }}</span> TX ECOVERO™ &nbsp;
-                    <span class="check-box">{{ in_array('tx_non_ecovero', $jBale) ? '✓' : '' }}</span> TX Non-ECOVERO™ &nbsp;
-                    <span class="check-box">{{ in_array('nw', $jBale) ? '✓' : '' }}</span> NW<br>
-                    &bull; Jenis Sticker (✓) : 
-                    <span class="check-box">{{ in_array('tanpa_label', $jLabel) ? '✓' : '' }}</span> Tanpa Sticker &nbsp;
-                    <span class="check-box">{{ in_array('fsc', $jLabel) ? '✓' : '' }}</span> FSC &nbsp;
-                    <span class="check-box">{{ in_array('isi', $jLabel) ? '✓' : '' }}</span> ISI &nbsp;
-                    <span class="check-box">{{ in_array('n', $jLabel) ? '✓' : '' }}</span> N &nbsp;
-                    <span class="check-box">{{ in_array('o', $jLabel) ? '✓' : '' }}</span> O &nbsp;
-                    <span class="check-box">{{ in_array('a', $jLabel) ? '✓' : '' }}</span> A
+                    &bull; Jenis Bale (&#10003;) : 
+                    <span class="check-box">{!! in_array('tx_ecovero', $jBale) ? '&#10003;' : '&nbsp;' !!}</span> TX ECOVERO™ &nbsp;
+                    <span class="check-box">{!! in_array('tx_non_ecovero', $jBale) ? '&#10003;' : '&nbsp;' !!}</span> TX Non-ECOVERO™ &nbsp;
+                    <span class="check-box">{!! in_array('nw', $jBale) ? '&#10003;' : '&nbsp;' !!}</span> NW<br>
+                    &bull; Jenis Sticker (&#10003;) : 
+                    <span class="check-box">{!! in_array('tanpa_label', $jLabel) ? '&#10003;' : '&nbsp;' !!}</span> Tanpa Sticker &nbsp;
+                    <span class="check-box">{!! in_array('fsc', $jLabel) ? '&#10003;' : '&nbsp;' !!}</span> FSC &nbsp;
+                    <span class="check-box">{!! in_array('isi', $jLabel) ? '&#10003;' : '&nbsp;' !!}</span> ISI &nbsp;
+                    <span class="check-box">{!! in_array('n', $jLabel) ? '&#10003;' : '&nbsp;' !!}</span> N &nbsp;
+                    <span class="check-box">{!! in_array('o', $jLabel) ? '&#10003;' : '&nbsp;' !!}</span> O &nbsp;
+                    <span class="check-box">{!! in_array('a', $jLabel) ? '&#10003;' : '&nbsp;' !!}</span> A
                 </td>
             </tr>
         </table>
@@ -271,10 +291,10 @@
                 <tr>
                     <th style="width: 20px;">No</th>
                     <th style="width: 140px; text-align: left;">Jenis Ketidaksesuaian</th>
-                    <th style="width: 25px;">Ada (✓)</th>
-                    <th style="width: 25px;">Tidak (✓)</th>
+                    <th style="width: 25px;">Ada (&#10003;)</th>
+                    <th style="width: 25px;">Tidak (&#10003;)</th>
                     <th style="width: 45px;">Jumlah Bale</th>
-                    <th style="width: 160px; text-align: left;">Tindakan Perbaikan (✓)</th>
+                    <th style="width: 160px; text-align: left;">Tindakan Perbaikan (&#10003;)</th>
                     <th style="width: 75px;">Nomor Bale Awal</th>
                     <th style="width: 75px;">Nomor Bale Pengganti</th>
                 </tr>
@@ -303,14 +323,14 @@
                 <tr>
                     <td style="text-align: center; font-weight: bold;">{{ $idx }}</td>
                     <td><strong>{{ $label }}</strong></td>
-                    <td style="text-align: center;"><span class="check-box">{{ $ada ? '✓' : '' }}</span></td>
-                    <td style="text-align: center;"><span class="check-box">{{ !$ada ? '✓' : '' }}</span></td>
+                    <td style="text-align: center;"><span class="check-box">{!! $ada ? '&#10003;' : '&nbsp;' !!}</span></td>
+                    <td style="text-align: center;"><span class="check-box">{!! !$ada ? '&#10003;' : '&nbsp;' !!}</span></td>
                     <td style="text-align: center; font-weight: bold;">{{ $ada && $it?->jumlah_bale ? $it->jumlah_bale : '-' }}</td>
                     <td style="font-size: 6.5pt;">
-                        <span class="check-box">{{ $ada && $tind === 'diganti' ? '✓' : '' }}</span> Diganti &nbsp;
-                        <span class="check-box">{{ $ada && $tind === 'diperbaiki' ? '✓' : '' }}</span> Diperbaiki/ditambal/dibersihkan<br>
-                        <span class="check-box">{{ $ada && $tind === 'ganti_label' ? '✓' : '' }}</span> Ganti label (EV / Non-EV) &nbsp;
-                        <span class="check-box">{{ $ada && $tind === 'lainnya' ? '✓' : '' }}</span> Lainnya: {{ $ada && $tind === 'lainnya' ? ($it?->tindakan_lainnya ?: '-') : '' }}
+                        <span class="check-box">{!! ($ada && $tind === 'diganti') ? '&#10003;' : '&nbsp;' !!}</span> Diganti &nbsp;
+                        <span class="check-box">{!! ($ada && $tind === 'diperbaiki') ? '&#10003;' : '&nbsp;' !!}</span> Diperbaiki/ditambal/dibersihkan<br>
+                        <span class="check-box">{!! ($ada && $tind === 'ganti_label') ? '&#10003;' : '&nbsp;' !!}</span> Ganti label (EV / Non-EV) &nbsp;
+                        <span class="check-box">{!! ($ada && $tind === 'lainnya') ? '&#10003;' : '&nbsp;' !!}</span> Lainnya: {{ $ada && $tind === 'lainnya' ? ($it?->tindakan_lainnya ?: '-') : '' }}
                     </td>
                     <td style="text-align: center; font-family: monospace;">{{ $ada ? ($it?->nomor_bale_awal ?: '-') : '-' }}</td>
                     <td style="text-align: center; font-family: monospace;">{{ $ada ? ($it?->nomor_bale_pengganti ?: '-') : '-' }}</td>
@@ -348,10 +368,10 @@
                         $secStat = $inspection?->second_eye_status ?? 'disetujui';
                     @endphp
                     <div style="margin-top: 2px;">
-                        Status Verifikasi (✓):<br>
-                        <span class="check-box">{{ $secStat === 'disetujui' ? '✓' : '' }}</span> <strong>Disetujui</strong> &nbsp;
-                        <span class="check-box">{{ $secStat === 'perlu_perbaikan' ? '✓' : '' }}</span> <strong>Perlu Perbaikan Tambahan</strong> &nbsp;
-                        <span class="check-box">{{ $secStat === 'tidak_disetujui' ? '✓' : '' }}</span> <strong>Tidak Disetujui</strong>
+                        Status Verifikasi (&#10003;):<br>
+                        <span class="check-box">{!! $secStat === 'disetujui' ? '&#10003;' : '&nbsp;' !!}</span> <strong>Disetujui</strong> &nbsp;
+                        <span class="check-box">{!! $secStat === 'perlu_perbaikan' ? '&#10003;' : '&nbsp;' !!}</span> <strong>Perlu Perbaikan Tambahan</strong> &nbsp;
+                        <span class="check-box">{!! $secStat === 'tidak_disetujui' ? '&#10003;' : '&nbsp;' !!}</span> <strong>Tidak Disetujui</strong>
                     </div>
                     <div style="margin-top: 2px;">
                         &bull; Catatan Verifikator : <span class="sign-line">{{ $inspection?->second_eye_catatan ?: '-' }}</span><br>
@@ -364,52 +384,52 @@
                 <!-- Column Right: D, E, F -->
                 <td style="width: 50%;">
                     <!-- D. Sumber Bale -->
-                    <div style="font-weight: bold; text-transform: uppercase;">D. Sumber Bale (✓)</div>
+                    <div style="font-weight: bold; text-transform: uppercase;">D. Sumber Bale (&#10003;)</div>
                     @php $sb = $inspection?->sumber_bale ?? 'inspeksi_join_checking'; @endphp
                     <div style="margin-top: 1px;">
-                        <span class="check-box">{{ $sb === 'inspeksi_join_checking' ? '✓' : '' }}</span> Bale hasil inspeksi & join checking (FGW-TCS – QPD – PDP)<br>
-                        <span class="check-box">{{ $sb === 'produksi_baru' ? '✓' : '' }}</span> Bale produksi baru<br>
-                        <span class="check-box">{{ $sb === 'lainnya' ? '✓' : '' }}</span> Lainnya: {{ $sb === 'lainnya' ? ($inspection?->sumber_bale_lainnya ?: '-') : '' }}
+                        <span class="check-box">{!! $sb === 'inspeksi_join_checking' ? '&#10003;' : '&nbsp;' !!}</span> Bale hasil inspeksi & join checking (FGW-TCS – QPD – PDP)<br>
+                        <span class="check-box">{!! $sb === 'produksi_baru' ? '&#10003;' : '&nbsp;' !!}</span> Bale produksi baru<br>
+                        <span class="check-box">{!! $sb === 'lainnya' ? '&#10003;' : '&nbsp;' !!}</span> Lainnya: {{ $sb === 'lainnya' ? ($inspection?->sumber_bale_lainnya ?: '-') : '' }}
                     </div>
 
                     <!-- E. Lokasi Stagging -->
-                    <div style="font-weight: bold; text-transform: uppercase; margin-top: 4px;">E. Lokasi Stagging (✓)</div>
+                    <div style="font-weight: bold; text-transform: uppercase; margin-top: 4px;">E. Lokasi Stagging (&#10003;)</div>
                     <div>
                         Pastikan Bale dikumpulkan dalam satu lokasi stagging dengan 2 Rubber Cone:<br>
-                        <span class="check-box">{{ ($inspection?->stagging_2_rubber_cone ?? true) ? '✓' : '' }}</span> Ya &nbsp;&nbsp;
-                        <span class="check-box">{{ !($inspection?->stagging_2_rubber_cone ?? true) ? '✓' : '' }}</span> Tidak<br>
+                        <span class="check-box">{!! ($inspection?->stagging_2_rubber_cone ?? true) ? '&#10003;' : '&nbsp;' !!}</span> Ya &nbsp;&nbsp;
+                        <span class="check-box">{!! !($inspection?->stagging_2_rubber_cone ?? true) ? '&#10003;' : '&nbsp;' !!}</span> Tidak<br>
                         Lokasi Stagging : <span class="sign-line">{{ $inspection?->lokasi_stagging ?: $shipment->warehouse_label }}</span>
                     </div>
 
                     <!-- F. Kondisi Loading -->
-                    <div style="font-weight: bold; text-transform: uppercase; margin-top: 4px;">F. Kondisi Proses Pemuatan / Loading (✓)</div>
+                    <div style="font-weight: bold; text-transform: uppercase; margin-top: 4px;">F. Kondisi Proses Pemuatan / Loading (&#10003;)</div>
                     @php
                         $cuaca = $inspection?->cuaca ?: ($shipment->cuaca ?: 'kering');
                         $waktu = $inspection?->waktu ?: ($shipment->waktu ?: 'siang');
                     @endphp
                     <div>
                         &bull; Cuaca : 
-                        <span class="check-box">{{ $cuaca === 'kering' ? '✓' : '' }}</span> Kering &nbsp;
-                        <span class="check-box">{{ $cuaca === 'mendung' ? '✓' : '' }}</span> Mendung &nbsp;
-                        <span class="check-box">{{ $cuaca === 'gerimis' ? '✓' : '' }}</span> Gerimis &nbsp;
-                        <span class="check-box">{{ $cuaca === 'hujan' ? '✓' : '' }}</span> Hujan<br>
+                        <span class="check-box">{!! $cuaca === 'kering' ? '&#10003;' : '&nbsp;' !!}</span> Kering &nbsp;
+                        <span class="check-box">{!! $cuaca === 'mendung' ? '&#10003;' : '&nbsp;' !!}</span> Mendung &nbsp;
+                        <span class="check-box">{!! $cuaca === 'gerimis' ? '&#10003;' : '&nbsp;' !!}</span> Gerimis &nbsp;
+                        <span class="check-box">{!! $cuaca === 'hujan' ? '&#10003;' : '&nbsp;' !!}</span> Hujan<br>
                         &bull; Waktu : 
-                        <span class="check-box">{{ $waktu === 'siang' ? '✓' : '' }}</span> Siang &nbsp;
-                        <span class="check-box">{{ $waktu === 'sore' ? '✓' : '' }}</span> Sore &nbsp;
-                        <span class="check-box">{{ $waktu === 'malam' ? '✓' : '' }}</span> Malam
+                        <span class="check-box">{!! $waktu === 'siang' ? '&#10003;' : '&nbsp;' !!}</span> Siang &nbsp;
+                        <span class="check-box">{!! $waktu === 'sore' ? '&#10003;' : '&nbsp;' !!}</span> Sore &nbsp;
+                        <span class="check-box">{!! $waktu === 'malam' ? '&#10003;' : '&nbsp;' !!}</span> Malam
                     </div>
 
                     <!-- Kesimpulan Akhir -->
                     <div class="conclusion-box">
                         <div style="font-weight: bold; text-transform: uppercase; margin-bottom: 2px;">Kesimpulan Akhir</div>
                         <div style="font-size: 6.5pt; color: #374151; margin-bottom: 3px;">
-                            Berdasarkan hasil inspeksi dan verifikasi 4 eyes, seluruh bale yang tercantum dalam surat jalan dinyatakan (✓):
+                            Berdasarkan hasil inspeksi dan verifikasi 4 eyes, seluruh bale yang tercantum dalam surat jalan dinyatakan (&#10003;):
                         </div>
                         @php $fin = $inspection?->kesimpulan_akhir ?? 'layak'; @endphp
                         <div>
-                            <span class="check-box">{{ $fin === 'layak' ? '✓' : '' }}</span> <strong>Layak untuk proses loading / stuffing</strong><br>
-                            <span class="check-box">{{ $fin === 'layak_dengan_catatan' ? '✓' : '' }}</span> <strong>Layak dengan catatan (lihat bagian C.2)</strong><br>
-                            <span class="check-box">{{ $fin === 'tidak_layak' ? '✓' : '' }}</span> <strong>Tidak layak (ditunda / diganti)</strong>
+                            <span class="check-box">{!! $fin === 'layak' ? '&#10003;' : '&nbsp;' !!}</span> <strong>Layak untuk proses loading / stuffing</strong><br>
+                            <span class="check-box">{!! $fin === 'layak_dengan_catatan' ? '&#10003;' : '&nbsp;' !!}</span> <strong>Layak dengan catatan (lihat bagian C.2)</strong><br>
+                            <span class="check-box">{!! $fin === 'tidak_layak' ? '&#10003;' : '&nbsp;' !!}</span> <strong>Tidak layak (ditunda / diganti)</strong>
                         </div>
                     </div>
                 </td>

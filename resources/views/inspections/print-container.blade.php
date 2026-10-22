@@ -1,21 +1,37 @@
+@php
+    $lenzingLogoBase64 = '';
+    $logoCandidates = [
+        public_path('images/Logo-lenzing.png'),
+        public_path('Logo-lenzing.png'),
+        base_path('Logo-lenzing.png'),
+    ];
+    foreach ($logoCandidates as $lp) {
+        if (file_exists($lp)) {
+            $lenzingLogoBase64 = 'data:image/png;base64,' . base64_encode(file_get_contents($lp));
+            break;
+        }
+    }
+@endphp
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Form Inspeksi Kondisi Kontainer - {{ $shipment->packing_list_no ?: $shipment->nomor_container_atau_plat }}</title>
     <style>
         @page {
             size: A4 portrait;
-            margin: 8mm 9mm 9mm 9mm;
+            margin: 7mm 8mm 7mm 8mm;
         }
         * {
             box-sizing: border-box;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
         }
+        body, table, td, th, div, span, p, h1, h2, h3 {
+            font-family: 'DejaVu Sans', Arial, Helvetica, sans-serif;
+        }
         body {
-            font-family: Arial, Helvetica, sans-serif;
             font-size: 8.5pt;
             color: #111827;
             background: #ffffff;
@@ -271,8 +287,12 @@
                     </table>
                 </td>
                 <td class="brand-logo" style="width: 50%;">
-                    <div class="lenzing-title">Lenzing</div>
-                    <div class="lenzing-sub">Innovative by nature</div>
+                    @if($lenzingLogoBase64)
+                        <img src="{{ $lenzingLogoBase64 }}" style="height: 42px; width: auto;" alt="Lenzing">
+                    @else
+                        <div class="lenzing-title">Lenzing</div>
+                        <div class="lenzing-sub">Innovative by nature</div>
+                    @endif
                 </td>
             </tr>
         </table>
@@ -369,10 +389,10 @@
                     </td>
                     <td class="result-cell">
                         <div style="margin-bottom: 3px;">
-                            <span class="check-box">{{ $p['status'] ? '✓' : '' }}</span> Ya
+                            <span class="check-box">{!! $p['status'] ? '&#10003;' : '&nbsp;' !!}</span> Ya
                         </div>
                         <div>
-                            <span class="check-box">{{ !$p['status'] ? '✓' : '' }}</span> Tidak
+                            <span class="check-box">{!! !$p['status'] ? '&#10003;' : '&nbsp;' !!}</span> Tidak
                         </div>
                     </td>
                     <td style="font-size: 7.5pt; color: {{ $p['status'] ? '#15803d' : '#dc2626' }}; {{ !$p['status'] ? 'font-weight: bold;' : '' }}">
@@ -391,9 +411,9 @@
             <div class="conclusion-status">
                 <strong>KESIMPULAN:</strong><br>
                 Saya telah memastikan bahwa kontainer tersebut dalam keadaan
-                <span class="status-badge" style="{{ $kes === 'layak' ? 'background:#dcfce7; color:#15803d;' : '' }}">{{ $kes === 'layak' ? '[✓] ' : '' }}LAYAK</span> / 
-                <span class="status-badge" style="{{ $kes === 'tidak_layak' ? 'background:#fee2e2; color:#b91c1c;' : '' }}">{{ $kes === 'tidak_layak' ? '[✓] ' : '' }}TIDAK LAYAK</span> / 
-                <span class="status-badge" style="{{ $kes === 'layak_dengan_catatan' ? 'background:#fef3c7; color:#b45309;' : '' }}">{{ $kes === 'layak_dengan_catatan' ? '[✓] ' : '' }}LAYAK DENGAN CATATAN</span>** 
+                <span class="status-badge" style="{{ $kes === 'layak' ? 'background:#dcfce7; color:#15803d;' : '' }}">{!! $kes === 'layak' ? '[&#10003;] ' : '' !!}LAYAK</span> / 
+                <span class="status-badge" style="{{ $kes === 'tidak_layak' ? 'background:#fee2e2; color:#b91c1c;' : '' }}">{!! $kes === 'tidak_layak' ? '[&#10003;] ' : '' !!}TIDAK LAYAK</span> / 
+                <span class="status-badge" style="{{ $kes === 'layak_dengan_catatan' ? 'background:#fef3c7; color:#b45309;' : '' }}">{!! $kes === 'layak_dengan_catatan' ? '[&#10003;] ' : '' !!}LAYAK DENGAN CATATAN</span>** 
                 untuk dilakukan proses loading/stuffing.
             </div>
             <div style="margin-top: 4px; font-size: 7.5pt;">

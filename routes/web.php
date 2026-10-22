@@ -22,8 +22,8 @@ Route::middleware('guest')->group(function () {
     Route::post('/login', [AuthController::class, 'login'])->name('login.post');
 });
 
-// Logout Route (Auth Only)
-Route::post('/logout', [AuthController::class, 'logout'])->name('logout')->middleware('auth');
+// Logout Route (POST & GET fallback)
+Route::match(['get', 'post'], '/logout', [AuthController::class, 'logout'])->name('logout');
 
 // Protected Routes (Session Required)
 Route::middleware('auth')->group(function () {

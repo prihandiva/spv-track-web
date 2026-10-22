@@ -329,16 +329,27 @@
             $sidebarInitials = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $sidebarName) ?: 'SP', 0, 2));
         @endphp
         <div class="shrink-0 p-3" style="border-top: 1px solid rgba(255,255,255,0.07); background: rgba(0,0,0,0.15);">
-            <div class="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition-all">
-                <div class="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 shadow-sm"
-                     style="background: linear-gradient(135deg, #e1f8eb, #63c384); color: #0d5950;">{{ $sidebarInitials }}</div>
-                <div class="overflow-hidden flex-1 min-w-0">
-                    <p class="text-xs font-bold text-white truncate leading-tight">{{ $sidebarName }}</p>
-                    <div class="flex items-center gap-1.5 mt-1">
-                        <span class="text-[9px] font-bold px-1.5 py-0.2 rounded border {{ $sidebarRoleBadge }}">{{ $sidebarRole }}</span>
-                        <span class="text-[10px] text-white/40 truncate font-mono">{{ '@' . $sidebarUsername }}</span>
+            <div class="flex items-center justify-between gap-2 p-2 rounded-xl hover:bg-white/5 transition-all">
+                <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                    <div class="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 shadow-sm"
+                         style="background: linear-gradient(135deg, #e1f8eb, #63c384); color: #0d5950;">{{ $sidebarInitials }}</div>
+                    <div class="overflow-hidden min-w-0 flex-1">
+                        <p class="text-xs font-bold text-white truncate leading-tight">{{ $sidebarName }}</p>
+                        <div class="flex items-center gap-1.5 mt-1">
+                            <span class="text-[9px] font-bold px-1.5 py-0.2 rounded border {{ $sidebarRoleBadge }}">{{ $sidebarRole }}</span>
+                            <span class="text-[10px] text-white/40 truncate font-mono">{{ '@' . $sidebarUsername }}</span>
+                        </div>
                     </div>
                 </div>
+                <form action="{{ route('logout') }}" method="POST" class="shrink-0">
+                    @csrf
+                    <button type="submit"
+                            onclick="return confirm('Apakah Anda yakin ingin logout dari sistem?')"
+                            class="w-8 h-8 rounded-lg flex items-center justify-center text-red-300 hover:text-white hover:bg-red-500/30 border border-red-500/20 transition-all cursor-pointer"
+                            title="Keluar / Logout">
+                        <i class="ph-bold ph-sign-out text-base"></i>
+                    </button>
+                </form>
             </div>
         </div>
     </aside>
@@ -386,45 +397,13 @@
         </header>
 
         <main class="flex-1 overflow-x-hidden overflow-y-auto p-3 sm:p-4 lg:p-6 animate-fade-in">
-            <!-- Toast / Flash Notifications -->
-            @if(session('success'))
-                <div x-data="{ show: true }" x-show="show" x-transition.duration.300ms class="mb-5 flex items-center justify-between p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 shadow-sm">
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
-                            <i class="ph-bold ph-check text-lg"></i>
-                        </div>
-                        <div>
-                            <p class="text-xs font-bold leading-tight text-emerald-900">Berhasil</p>
-                            <p class="text-xs text-emerald-700 mt-0.5">{{ session('success') }}</p>
-                        </div>
-                    </div>
-                    <button type="button" @click="show = false" class="text-emerald-500 hover:text-emerald-800 p-1.5 rounded-lg transition-colors" aria-label="Tutup">
-                        <i class="ph-bold ph-x text-base"></i>
-                    </button>
-                </div>
-            @endif
-
-            @if(session('error'))
-                <div x-data="{ show: true }" x-show="show" x-transition.duration.300ms class="mb-5 flex items-center justify-between p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 shadow-sm">
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-lg bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-sm">
-                            <i class="ph-bold ph-warning-circle text-lg"></i>
-                        </div>
-                        <div>
-                            <p class="text-xs font-bold leading-tight text-rose-900">Perhatian</p>
-                            <p class="text-xs text-rose-700 mt-0.5">{{ session('error') }}</p>
-                        </div>
-                    </div>
-                    <button type="button" @click="show = false" class="text-rose-500 hover:text-rose-800 p-1.5 rounded-lg transition-colors" aria-label="Tutup">
-                        <i class="ph-bold ph-x text-base"></i>
-                    </button>
-                </div>
-            @endif
-
             {{ $slot }}
         </main>
 
     </div>
+
+    <!-- Top-Right Auto-dismissing Toast Notification Pop-up (Directly under body) -->
+    <x-toast-notification />
 
     <!-- Drag-to-Scroll Script for All Table Containers -->
     <script>

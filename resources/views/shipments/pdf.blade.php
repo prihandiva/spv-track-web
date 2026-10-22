@@ -1,7 +1,21 @@
+@php
+    $lenzingLogoBase64 = '';
+    $logoCandidates = [
+        public_path('images/Logo-lenzing.png'),
+        public_path('Logo-lenzing.png'),
+        base_path('Logo-lenzing.png'),
+    ];
+    foreach ($logoCandidates as $lp) {
+        if (file_exists($lp)) {
+            $lenzingLogoBase64 = 'data:image/png;base64,' . base64_encode(file_get_contents($lp));
+            break;
+        }
+    }
+@endphp
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Laporan Loading Evidence - {{ $shipment->packing_list_no ?: $shipment->nomor_container_atau_plat }}</title>
     <style>
@@ -16,8 +30,11 @@
             print-color-adjust: exact;
         }
 
+        body, table, td, th, div, span, p, h1, h2, h3 {
+            font-family: 'DejaVu Sans', Arial, Helvetica, sans-serif;
+        }
+
         body {
-            font-family: Arial, Helvetica, sans-serif;
             font-size: 8.5pt;
             color: #1e293b;
             background-color: #ffffff;
@@ -160,30 +177,30 @@
 
         .form-banner-title {
             text-align: center;
-            font-size: 10.5pt;
+            font-size: 9.5pt;
             font-weight: bold;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            margin: 4px 0 5px 0;
-            padding: 2.5px 0;
+            margin: 2px 0 3px 0;
+            padding: 1.5px 0;
             border-top: 1.5px solid #000;
             border-bottom: 1.5px solid #000;
         }
 
         .loading-box {
             border: 1px solid #000;
-            width: 155px;
-            font-size: 7pt;
+            width: 145px;
+            font-size: 6.8pt;
         }
         .loading-box th {
             background-color: #f3f4f6;
             border-bottom: 1px solid #000;
-            padding: 1.5px 3px;
+            padding: 1px 3px;
             text-align: center;
             font-weight: bold;
         }
         .loading-box td {
-            padding: 1px 3px;
+            padding: 0.8px 3px;
             border-bottom: 1px solid #e5e7eb;
         }
         .loading-box tr:last-child td { border-bottom: none; }
@@ -191,11 +208,11 @@
         .meta-box-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 5px;
-            font-size: 7.5pt;
+            margin-bottom: 3px;
+            font-size: 7pt;
         }
         .meta-box-table td {
-            padding: 2px 4px;
+            padding: 1.5px 3px;
             border: 1px solid #000;
         }
         .meta-box-table .lbl {
@@ -210,11 +227,12 @@
         }
 
         .warning-banner {
-            border: 1.5px solid #000;
+            border: 1.2px solid #000;
             text-align: center;
-            padding: 3px;
-            margin-bottom: 5px;
-            font-size: 7.5pt;
+            padding: 2px;
+            margin-bottom: 3px;
+            font-size: 6.8pt;
+            line-height: 1.2;
         }
         .warning-banner .hl {
             font-weight: 900;
@@ -224,39 +242,39 @@
         .grid-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 7.5pt;
-            margin-bottom: 5px;
+            font-size: 7pt;
+            margin-bottom: 3px;
         }
         .grid-table th {
             border: 1px solid #000;
             background-color: #f3f4f6;
-            padding: 2.5px 3px;
+            padding: 2px 3px;
             font-weight: bold;
             text-align: center;
         }
         .grid-table td {
             border: 1px solid #000;
-            padding: 2.5px 3px;
+            padding: 1.8px 3px;
             vertical-align: top;
         }
 
         .check-box {
             display: inline-block;
-            width: 10px;
-            height: 10px;
+            width: 9px;
+            height: 9px;
             border: 1px solid #000;
             margin-right: 2px;
             vertical-align: middle;
-            line-height: 9px;
+            line-height: 8px;
             text-align: center;
-            font-size: 7pt;
+            font-size: 6.5pt;
             font-weight: bold;
         }
 
         .sign-line {
             border-bottom: 1px solid #000;
             display: inline-block;
-            min-width: 100px;
+            min-width: 80px;
             margin-left: 2px;
             font-weight: bold;
         }
@@ -426,16 +444,21 @@
         <div class="header-container">
             <table class="header-table">
                 <tr>
-                    <td style="width: 55%;">
+                    <td style="width: 48%;">
                         <h1 class="brand-title">PT. SOUTH PACIFIC VISCOSE</h1>
                         <p class="brand-subtitle">SPV-Track Logistics & Warehouse Monitoring</p>
                     </td>
-                    <td class="doc-badge" style="width: 45%;">
+                    <td class="doc-badge" style="width: 34%; padding-right: 10px;">
                         <h2 class="doc-title">Laporan Loading Evidence</h2>
                         <div class="doc-meta">
                             No. Dokumen: <strong>{{ $shipment->packing_list_no ?: ('SPV-'.$shipment->id) }}</strong><br>
                             Waktu Cetak: {{ now('Asia/Jakarta')->format('d F Y, H:i') }} WIB
                         </div>
+                    </td>
+                    <td style="width: 18%; text-align: right; vertical-align: middle;">
+                        @if($lenzingLogoBase64)
+                            <img src="{{ $lenzingLogoBase64 }}" style="height: 38px; width: auto;" alt="Lenzing">
+                        @endif
                     </td>
                 </tr>
             </table>
@@ -591,16 +614,16 @@
                     <table class="loading-box">
                         <tr><th colspan="2">LOADING</th></tr>
                         <tr>
-                            <td style="width: 40px; font-weight: bold;">Date</td>
+                            <td style="width: 35px; font-weight: bold;">Date</td>
                             <td>: {{ $shipment->tanggal_staging ? $shipment->tanggal_staging->format('d/m/Y') : ($cInsp?->loading_date ? $cInsp->loading_date->format('d/m/Y') : now()->format('d/m/Y')) }}</td>
                         </tr>
-                        <tr><td colspan="2" style="font-weight: bold; background: #fafafa; padding-left: 8px;">Time</td></tr>
+                        <tr><td colspan="2" style="font-weight: bold; background: #fafafa; padding-left: 6px;">Time</td></tr>
                         <tr>
-                            <td style="padding-left: 8px;">Start</td>
+                            <td style="padding-left: 6px;">Start</td>
                             <td>: {{ $shipment->waktu_kedatangan_container ? $shipment->waktu_kedatangan_container->format('H:i') : ($cInsp?->loading_start_time ?: '-') }}</td>
                         </tr>
                         <tr>
-                            <td style="padding-left: 8px;">Finish</td>
+                            <td style="padding-left: 6px;">Finish</td>
                             <td>: {{ $shipment->waktu_keberangkatan_container ? $shipment->waktu_keberangkatan_container->format('H:i') : ($cInsp?->loading_finish_time ?: '-') }}</td>
                         </tr>
                         <tr>
@@ -609,9 +632,13 @@
                         </tr>
                     </table>
                 </td>
-                <td style="width: 50%; vertical-align: top;">
-                    <div class="lenzing-title">Lenzing</div>
-                    <div class="lenzing-sub">Innovative by nature</div>
+                <td style="width: 50%; vertical-align: top; text-align: right;">
+                    @if($lenzingLogoBase64)
+                        <img src="{{ $lenzingLogoBase64 }}" style="height: 38px; width: auto;" alt="Lenzing">
+                    @else
+                        <div class="lenzing-title">Lenzing</div>
+                        <div class="lenzing-sub">Innovative by nature</div>
+                    @endif
                 </td>
             </tr>
         </table>
@@ -699,13 +726,13 @@
                 <tr>
                     <td>
                         <div style="font-weight: bold; color: #000;">{{ $p['num'] }} {{ $p['name'] }}</div>
-                        <div style="font-size: 7pt; color: #374151; margin-top: 1px;">{!! $p['desc'] !!}</div>
+                        <div style="font-size: 6.8pt; color: #374151; margin-top: 1px;">{!! $p['desc'] !!}</div>
                     </td>
                     <td style="text-align: center; vertical-align: middle; font-weight: bold;">
-                        <div style="margin-bottom: 2px;"><span class="check-box">{{ $p['status'] ? '✓' : '' }}</span> Ya</div>
-                        <div><span class="check-box">{{ !$p['status'] ? '✓' : '' }}</span> Tidak</div>
+                        <div style="margin-bottom: 2px;"><span class="check-box">{!! $p['status'] ? '&#10003;' : '&nbsp;' !!}</span> Ya</div>
+                        <div><span class="check-box">{!! !$p['status'] ? '&#10003;' : '&nbsp;' !!}</span> Tidak</div>
                     </td>
-                    <td style="font-size: 7.5pt; color: {{ $p['status'] ? '#15803d' : '#dc2626' }}; {{ !$p['status'] ? 'font-weight: bold;' : '' }}">
+                    <td style="font-size: 7pt; color: {{ $p['status'] ? '#15803d' : '#dc2626' }}; {{ !$p['status'] ? 'font-weight: bold;' : '' }}">
                         {{ $p['note'] ?: ($p['status'] ? 'Kondisi baik & bersih' : '-') }}
                     </td>
                 </tr>
@@ -715,33 +742,33 @@
 
         <!-- Kesimpulan Halaman 2 -->
         @php $kes = $cInsp?->kesimpulan ?? 'layak'; @endphp
-        <div style="border: 1px solid #000; padding: 4px 6px; font-size: 7.5pt; margin-bottom: 5px;">
+        <div style="border: 1px solid #000; padding: 3px 5px; font-size: 7pt; margin-bottom: 3px;">
             <div>
                 <strong>KESIMPULAN:</strong> Saya telah memastikan bahwa kontainer tersebut dalam keadaan:
-                <strong style="{{ $kes === 'layak' ? 'background:#dcfce7; padding:1px 4px; border:1px solid #15803d;' : '' }}">{{ $kes === 'layak' ? '[✓] ' : '' }}LAYAK</strong> / 
-                <strong style="{{ $kes === 'tidak_layak' ? 'background:#fee2e2; padding:1px 4px; border:1px solid #b91c1c;' : '' }}">{{ $kes === 'tidak_layak' ? '[✓] ' : '' }}TIDAK LAYAK</strong> / 
-                <strong style="{{ $kes === 'layak_dengan_catatan' ? 'background:#fef3c7; padding:1px 4px; border:1px solid #b45309;' : '' }}">{{ $kes === 'layak_dengan_catatan' ? '[✓] ' : '' }}LAYAK DENGAN CATATAN</strong>
+                <strong style="{{ $kes === 'layak' ? 'background:#dcfce7; padding:1px 3px; border:1px solid #15803d;' : '' }}">{!! $kes === 'layak' ? '[&#10003;] ' : '' !!}LAYAK</strong> / 
+                <strong style="{{ $kes === 'tidak_layak' ? 'background:#fee2e2; padding:1px 3px; border:1px solid #b91c1c;' : '' }}">{!! $kes === 'tidak_layak' ? '[&#10003;] ' : '' !!}TIDAK LAYAK</strong> / 
+                <strong style="{{ $kes === 'layak_dengan_catatan' ? 'background:#fef3c7; padding:1px 3px; border:1px solid #b45309;' : '' }}">{!! $kes === 'layak_dengan_catatan' ? '[&#10003;] ' : '' !!}LAYAK DENGAN CATATAN</strong>
                 untuk dilakukan proses loading/stuffing.
             </div>
-            <div style="margin-top: 3px;">
+            <div style="margin-top: 2px;">
                 <strong>CATATAN:</strong> {{ $cInsp?->catatan ?: '-' }}
             </div>
         </div>
 
-        <table style="width: 100%; border-collapse: collapse; font-size: 7.5pt;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 7pt;">
             <tr>
-                <td style="width: 50%; border: 1px solid #000; padding: 3px 6px;">
-                    <div style="font-size: 6.5pt; color: #4b5563; margin-bottom: 20px;">Tanda Tangan & Nama Inspektor:</div>
+                <td style="width: 50%; border: 1px solid #000; padding: 2px 5px;">
+                    <div style="font-size: 6.5pt; color: #4b5563; margin-bottom: 14px;">Tanda Tangan & Nama Inspektor:</div>
                     <strong>( {{ $cInsp?->nama_inspektor ?: ($shipment->allKaryawans()->pluck('nama')->first() ?: ($shipment->karyawan?->nama ?? '........................')) }} )</strong>
                 </td>
-                <td style="width: 50%; border: 1px solid #000; padding: 3px 6px;">
-                    <div style="font-size: 6.5pt; color: #4b5563; margin-bottom: 20px;">Tanggal Inspeksi:</div>
+                <td style="width: 50%; border: 1px solid #000; padding: 2px 5px;">
+                    <div style="font-size: 6.5pt; color: #4b5563; margin-bottom: 14px;">Tanggal Inspeksi:</div>
                     <strong>{{ $cInsp?->tanggal_inspeksi ? $cInsp->tanggal_inspeksi->format('d F Y') : now()->format('d F Y') }}</strong>
                 </td>
             </tr>
         </table>
 
-        <div class="footer-note">
+        <div class="footer-note" style="margin-top: 4px; padding-top: 2px;">
             Dokumen ini dihasilkan secara otomatis oleh Sistem SPV-Track PT. South Pacific Viscose &bull; <strong>Halaman 2: Formulir Inspeksi Kondisi Kontainer</strong>
         </div>
     </div>
@@ -780,22 +807,26 @@
                         </tr>
                     </table>
                 </td>
-                <td style="width: 50%; vertical-align: top;">
-                    <div class="lenzing-title">Lenzing</div>
-                    <div class="lenzing-sub">Innovative by nature</div>
+                <td style="width: 50%; vertical-align: top; text-align: right;">
+                    @if($lenzingLogoBase64)
+                        <img src="{{ $lenzingLogoBase64 }}" style="height: 38px; width: auto;" alt="Lenzing">
+                    @else
+                        <div class="lenzing-title">Lenzing</div>
+                        <div class="lenzing-sub">Innovative by nature</div>
+                    @endif
                 </td>
             </tr>
         </table>
 
-        <div class="form-banner-title">FORM INSPEKSI KONDISI BALE (LOADING)</div>
+        <div class="form-banner-title" style="margin: 2px 0 2px 0; padding: 1.5px 0; font-size: 9pt;">FORM INSPEKSI KONDISI BALE (LOADING)</div>
 
         <!-- Section A: Info Umum -->
-        <div style="font-weight: bold; font-size: 7.5pt; text-transform: uppercase; margin: 3px 0 1px 0;">A. Informasi Umum</div>
+        <div style="font-weight: bold; font-size: 7pt; text-transform: uppercase; margin: 2px 0 1px 0;">A. Informasi Umum</div>
         @php
             $jBale = (array) ($bInsp?->jenis_bale ?? ['tx_ecovero']);
             $jLabel = (array) ($bInsp?->jenis_label ?? ['tanpa_label']);
         @endphp
-        <table style="width: 100%; border-collapse: collapse; font-size: 7pt; margin-bottom: 3px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 6.5pt; line-height: 1.15; margin-bottom: 2px;">
             <tr>
                 <td style="width: 50%; vertical-align: top;">
                     &bull; Nomor Surat Jalan : <strong>{{ $bInsp?->nomor_surat_jalan ?: ($shipment->packing_list_no ?? '-') }}</strong><br>
@@ -804,34 +835,34 @@
                 </td>
                 <td style="width: 50%; vertical-align: top;">
                     &bull; Nomor Kontainer / Truk : <strong>{{ $bInsp?->nomor_kontainer_truk ?: ($shipment->nomor_container_atau_plat ?: ($shipment->plat_nomor ?? '-')) }}</strong><br>
-                    &bull; Jenis Bale (✓) : 
-                    <span class="check-box">{{ in_array('tx_ecovero', $jBale) ? '✓' : '' }}</span> TX ECOVERO™ &nbsp;
-                    <span class="check-box">{{ in_array('tx_non_ecovero', $jBale) ? '✓' : '' }}</span> TX Non-ECOVERO™ &nbsp;
-                    <span class="check-box">{{ in_array('nw', $jBale) ? '✓' : '' }}</span> NW<br>
-                    &bull; Jenis Sticker (✓) : 
-                    <span class="check-box">{{ in_array('tanpa_label', $jLabel) ? '✓' : '' }}</span> Tanpa Sticker &nbsp;
-                    <span class="check-box">{{ in_array('fsc', $jLabel) ? '✓' : '' }}</span> FSC &nbsp;
-                    <span class="check-box">{{ in_array('isi', $jLabel) ? '✓' : '' }}</span> ISI &nbsp;
-                    <span class="check-box">{{ in_array('n', $jLabel) ? '✓' : '' }}</span> N &nbsp;
-                    <span class="check-box">{{ in_array('o', $jLabel) ? '✓' : '' }}</span> O &nbsp;
-                    <span class="check-box">{{ in_array('a', $jLabel) ? '✓' : '' }}</span> A
+                    &bull; Jenis Bale (&#10003;) : 
+                    <span class="check-box">{!! in_array('tx_ecovero', $jBale) ? '&#10003;' : '&nbsp;' !!}</span> TX ECOVERO™ &nbsp;
+                    <span class="check-box">{!! in_array('tx_non_ecovero', $jBale) ? '&#10003;' : '&nbsp;' !!}</span> TX Non-ECOVERO™ &nbsp;
+                    <span class="check-box">{!! in_array('nw', $jBale) ? '&#10003;' : '&nbsp;' !!}</span> NW<br>
+                    &bull; Jenis Sticker (&#10003;) : 
+                    <span class="check-box">{!! in_array('tanpa_label', $jLabel) ? '&#10003;' : '&nbsp;' !!}</span> Tanpa Sticker &nbsp;
+                    <span class="check-box">{!! in_array('fsc', $jLabel) ? '&#10003;' : '&nbsp;' !!}</span> FSC &nbsp;
+                    <span class="check-box">{!! in_array('isi', $jLabel) ? '&#10003;' : '&nbsp;' !!}</span> ISI &nbsp;
+                    <span class="check-box">{!! in_array('n', $jLabel) ? '&#10003;' : '&nbsp;' !!}</span> N &nbsp;
+                    <span class="check-box">{!! in_array('o', $jLabel) ? '&#10003;' : '&nbsp;' !!}</span> O &nbsp;
+                    <span class="check-box">{!! in_array('a', $jLabel) ? '&#10003;' : '&nbsp;' !!}</span> A
                 </td>
             </tr>
         </table>
 
         <!-- Section B: 8 Poin Pemeriksaan Kondisi Bale -->
-        <div style="font-weight: bold; font-size: 7.5pt; text-transform: uppercase; margin: 3px 0 1px 0;">B. Pemeriksaan Kondisi Bale – Pemeriksa Pertama</div>
-        <table class="grid-table" style="font-size: 6.5pt; margin-bottom: 3px;">
+        <div style="font-weight: bold; font-size: 7pt; text-transform: uppercase; margin: 2px 0 1px 0;">B. Pemeriksaan Kondisi Bale – Pemeriksa Pertama</div>
+        <table class="grid-table" style="font-size: 5.8pt; line-height: 1.15; margin-bottom: 2px;">
             <thead>
                 <tr>
-                    <th style="width: 15px;">No</th>
-                    <th style="width: 135px; text-align: left;">Jenis Ketidaksesuaian</th>
-                    <th style="width: 25px;">Ada (✓)</th>
-                    <th style="width: 25px;">Tidak (✓)</th>
-                    <th style="width: 45px;">Jumlah Bale</th>
-                    <th style="width: 165px; text-align: left;">Tindakan Perbaikan (✓)</th>
-                    <th style="width: 75px;">Nomor Bale Awal</th>
-                    <th style="width: 75px;">Nomor Bale Pengganti</th>
+                    <th style="width: 15px; padding: 1.5px 2px;">No</th>
+                    <th style="width: 135px; text-align: left; padding: 1.5px 2px;">Jenis Ketidaksesuaian</th>
+                    <th style="width: 25px; padding: 1.5px 2px;">Ada (&#10003;)</th>
+                    <th style="width: 25px; padding: 1.5px 2px;">Tidak (&#10003;)</th>
+                    <th style="width: 45px; padding: 1.5px 2px;">Jumlah Bale</th>
+                    <th style="width: 165px; text-align: left; padding: 1.5px 2px;">Tindakan Perbaikan (&#10003;)</th>
+                    <th style="width: 75px; padding: 1.5px 2px;">Nomor Bale Awal</th>
+                    <th style="width: 75px; padding: 1.5px 2px;">Nomor Bale Pengganti</th>
                 </tr>
             </thead>
             <tbody>
@@ -856,54 +887,54 @@
                     $tind = $it?->tindakan_perbaikan;
                 @endphp
                 <tr>
-                    <td style="text-align: center; font-weight: bold;">{{ $idx }}</td>
-                    <td><strong>{{ $label }}</strong></td>
-                    <td style="text-align: center;"><span class="check-box">{{ $ada ? '✓' : '' }}</span></td>
-                    <td style="text-align: center;"><span class="check-box">{{ !$ada ? '✓' : '' }}</span></td>
-                    <td style="text-align: center; font-weight: bold;">{{ $ada && $it?->jumlah_bale ? $it->jumlah_bale : '-' }}</td>
-                    <td>
-                        <span class="check-box">{{ $ada && $tind === 'diganti' ? '✓' : '' }}</span> Diganti &nbsp;
-                        <span class="check-box">{{ $ada && $tind === 'diperbaiki' ? '✓' : '' }}</span> Diperbaiki/ditambal/dibersihkan<br>
-                        <span class="check-box">{{ $ada && $tind === 'ganti_label' ? '✓' : '' }}</span> Ganti label (EV/Non-EV) &nbsp;
-                        <span class="check-box">{{ $ada && $tind === 'lainnya' ? '✓' : '' }}</span> Lainnya: {{ $ada && $tind === 'lainnya' ? ($it?->tindakan_lainnya ?: '-') : '' }}
+                    <td style="text-align: center; font-weight: bold; padding: 1px 2px;">{{ $idx }}</td>
+                    <td style="padding: 1px 2px;"><strong>{{ $label }}</strong></td>
+                    <td style="text-align: center; padding: 1px 2px;"><span class="check-box">{!! $ada ? '&#10003;' : '&nbsp;' !!}</span></td>
+                    <td style="text-align: center; padding: 1px 2px;"><span class="check-box">{!! !$ada ? '&#10003;' : '&nbsp;' !!}</span></td>
+                    <td style="text-align: center; font-weight: bold; padding: 1px 2px;">{{ $ada && $it?->jumlah_bale ? $it->jumlah_bale : '-' }}</td>
+                    <td style="padding: 1px 2px;">
+                        <span class="check-box">{!! ($ada && $tind === 'diganti') ? '&#10003;' : '&nbsp;' !!}</span> Diganti &nbsp;
+                        <span class="check-box">{!! ($ada && $tind === 'diperbaiki') ? '&#10003;' : '&nbsp;' !!}</span> Diperbaiki/ditambal/dibersihkan<br>
+                        <span class="check-box">{!! ($ada && $tind === 'ganti_label') ? '&#10003;' : '&nbsp;' !!}</span> Ganti label (EV/Non-EV) &nbsp;
+                        <span class="check-box">{!! ($ada && $tind === 'lainnya') ? '&#10003;' : '&nbsp;' !!}</span> Lainnya: {{ $ada && $tind === 'lainnya' ? ($it?->tindakan_lainnya ?: '-') : '' }}
                     </td>
-                    <td style="text-align: center; font-family: monospace;">{{ $ada ? ($it?->nomor_bale_awal ?: '-') : '-' }}</td>
-                    <td style="text-align: center; font-family: monospace;">{{ $ada ? ($it?->nomor_bale_pengganti ?: '-') : '-' }}</td>
+                    <td style="text-align: center; font-family: monospace; padding: 1px 2px;">{{ $ada ? ($it?->nomor_bale_awal ?: '-') : '-' }}</td>
+                    <td style="text-align: center; font-family: monospace; padding: 1px 2px;">{{ $ada ? ($it?->nomor_bale_pengganti ?: '-') : '-' }}</td>
                 </tr>
                 @endforeach
             </tbody>
         </table>
 
-        <div style="font-size: 7pt; font-weight: bold; color: #00994d; margin-bottom: 4px;">
+        <div style="font-size: 6.5pt; font-weight: bold; color: #00994d; margin-bottom: 2px;">
             Bale harus dalam keadaan: <u>Bersih, Mulus dan Tidak Cacat</u>
         </div>
 
         <!-- Section C, D, E, F Grid -->
-        <table style="width: 100%; border-collapse: collapse; font-size: 7pt;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 6.2pt; line-height: 1.15;">
             <tr>
                 <!-- Column Left: C. Verifikasi 4 Eyes Principle -->
-                <td style="width: 50%; vertical-align: top; border: 1px solid #000; padding: 3px 5px;">
+                <td style="width: 50%; vertical-align: top; border: 1px solid #000; padding: 2px 4px;">
                     <div style="font-weight: bold; text-transform: uppercase;">C. VERIFIKASI 4 EYES PRINCIPLE</div>
                     
-                    <div style="font-weight: bold; margin-top: 2px;">1. Pemeriksa Pertama (First Eye)</div>
-                    <div style="font-size: 6.5pt; color: #4b5563; font-style: italic;">
+                    <div style="font-weight: bold; margin-top: 1px;">1. Pemeriksa Pertama (First Eye)</div>
+                    <div style="font-size: 5.8pt; color: #4b5563; font-style: italic;">
                         Saya menyatakan inspeksi kondisi bale telah dilakukan menyeluruh sesuai prosedur.
                     </div>
-                    <div style="margin-top: 2px;">
+                    <div style="margin-top: 1px;">
                         &bull; Nama : <span class="sign-line">{{ $bInsp?->first_eye_nama ?: ($shipment->allKaryawans()->pluck('nama')->first() ?: ($shipment->karyawan?->nama ?? '........................')) }}</span><br>
                         &bull; Jabatan / Unit : <span class="sign-line">{{ $bInsp?->first_eye_jabatan ?: 'Operator Lapangan' }}</span><br>
                         &bull; Tanda Tangan & Tanggal : <span class="sign-line">{{ $bInsp?->first_eye_tanggal ? $bInsp->first_eye_tanggal->format('d/m/Y') : now()->format('d/m/Y') }}</span>
                     </div>
 
-                    <div style="font-weight: bold; margin-top: 4px;">2. Pemeriksa Kedua (Second Eye / Verifikator)</div>
+                    <div style="font-weight: bold; margin-top: 2px;">2. Pemeriksa Kedua (Second Eye / Verifikator)</div>
                     @php $secStat = $bInsp?->second_eye_status ?? 'disetujui'; @endphp
                     <div style="margin-top: 1px;">
-                        Status Verifikasi (✓):<br>
-                        <span class="check-box">{{ $secStat === 'disetujui' ? '✓' : '' }}</span> <strong>Disetujui</strong> &nbsp;
-                        <span class="check-box">{{ $secStat === 'perlu_perbaikan' ? '✓' : '' }}</span> <strong>Perlu Perbaikan</strong> &nbsp;
-                        <span class="check-box">{{ $secStat === 'tidak_disetujui' ? '✓' : '' }}</span> <strong>Tidak Disetujui</strong>
+                        Status Verifikasi (&#10003;):<br>
+                        <span class="check-box">{!! $secStat === 'disetujui' ? '&#10003;' : '&nbsp;' !!}</span> <strong>Disetujui</strong> &nbsp;
+                        <span class="check-box">{!! $secStat === 'perlu_perbaikan' ? '&#10003;' : '&nbsp;' !!}</span> <strong>Perlu Perbaikan</strong> &nbsp;
+                        <span class="check-box">{!! $secStat === 'tidak_disetujui' ? '&#10003;' : '&nbsp;' !!}</span> <strong>Tidak Disetujui</strong>
                     </div>
-                    <div style="margin-top: 2px;">
+                    <div style="margin-top: 1px;">
                         &bull; Catatan Verifikator : <span class="sign-line">{{ $bInsp?->second_eye_catatan ?: '-' }}</span><br>
                         &bull; Nama : <span class="sign-line">{{ $bInsp?->second_eye_nama ?: ($shipment->allKaryawans()->count() > 1 ? $shipment->allKaryawans()[1]->nama : 'Supervisor Warehouse') }}</span><br>
                         &bull; Jabatan / Unit : <span class="sign-line">{{ $bInsp?->second_eye_jabatan ?: 'Verifikator / SPV' }}</span><br>
@@ -912,58 +943,58 @@
                 </td>
 
                 <!-- Column Right: D, E, F -->
-                <td style="width: 50%; vertical-align: top; border: 1px solid #000; padding: 3px 5px;">
+                <td style="width: 50%; vertical-align: top; border: 1px solid #000; padding: 2px 4px;">
                     <!-- D. Sumber Bale -->
-                    <div style="font-weight: bold; text-transform: uppercase;">D. Sumber Bale (✓)</div>
+                    <div style="font-weight: bold; text-transform: uppercase;">D. Sumber Bale (&#10003;)</div>
                     @php $sb = $bInsp?->sumber_bale ?? 'inspeksi_join_checking'; @endphp
                     <div style="margin-top: 1px;">
-                        <span class="check-box">{{ $sb === 'inspeksi_join_checking' ? '✓' : '' }}</span> Hasil inspeksi & join checking (FGW-TCS – QPD – PDP)<br>
-                        <span class="check-box">{{ $sb === 'produksi_baru' ? '✓' : '' }}</span> Bale produksi baru &nbsp;
-                        <span class="check-box">{{ $sb === 'lainnya' ? '✓' : '' }}</span> Lainnya
+                        <span class="check-box">{!! $sb === 'inspeksi_join_checking' ? '&#10003;' : '&nbsp;' !!}</span> Hasil inspeksi & join checking (FGW-TCS – QPD – PDP)<br>
+                        <span class="check-box">{!! $sb === 'produksi_baru' ? '&#10003;' : '&nbsp;' !!}</span> Bale produksi baru &nbsp;
+                        <span class="check-box">{!! $sb === 'lainnya' ? '&#10003;' : '&nbsp;' !!}</span> Lainnya
                     </div>
 
                     <!-- E. Lokasi Stagging -->
-                    <div style="font-weight: bold; text-transform: uppercase; margin-top: 3px;">E. Lokasi Stagging (✓)</div>
+                    <div style="font-weight: bold; text-transform: uppercase; margin-top: 2px;">E. Lokasi Stagging (&#10003;)</div>
                     <div>
                         Bale dikumpulkan dengan 2 Rubber Cone: 
-                        <span class="check-box">{{ ($bInsp?->stagging_2_rubber_cone ?? true) ? '✓' : '' }}</span> Ya &nbsp;
-                        <span class="check-box">{{ !($bInsp?->stagging_2_rubber_cone ?? true) ? '✓' : '' }}</span> Tidak<br>
+                        <span class="check-box">{!! ($bInsp?->stagging_2_rubber_cone ?? true) ? '&#10003;' : '&nbsp;' !!}</span> Ya &nbsp;
+                        <span class="check-box">{!! !($bInsp?->stagging_2_rubber_cone ?? true) ? '&#10003;' : '&nbsp;' !!}</span> Tidak<br>
                         Lokasi Stagging : <span class="sign-line">{{ $bInsp?->lokasi_stagging ?: $shipment->warehouse_label }}</span>
                     </div>
 
                     <!-- F. Kondisi Loading -->
-                    <div style="font-weight: bold; text-transform: uppercase; margin-top: 3px;">F. Kondisi Pemuatan (✓)</div>
+                    <div style="font-weight: bold; text-transform: uppercase; margin-top: 2px;">F. Kondisi Pemuatan (&#10003;)</div>
                     @php
                         $cuaca = $bInsp?->cuaca ?: ($shipment->cuaca ?: 'kering');
                         $waktu = $bInsp?->waktu ?: ($shipment->waktu ?: 'siang');
                     @endphp
                     <div>
                         &bull; Cuaca : 
-                        <span class="check-box">{{ $cuaca === 'kering' ? '✓' : '' }}</span> Kering &nbsp;
-                        <span class="check-box">{{ $cuaca === 'mendung' ? '✓' : '' }}</span> Mendung &nbsp;
-                        <span class="check-box">{{ $cuaca === 'gerimis' ? '✓' : '' }}</span> Gerimis &nbsp;
-                        <span class="check-box">{{ $cuaca === 'hujan' ? '✓' : '' }}</span> Hujan<br>
+                        <span class="check-box">{!! $cuaca === 'kering' ? '&#10003;' : '&nbsp;' !!}</span> Kering &nbsp;
+                        <span class="check-box">{!! $cuaca === 'mendung' ? '&#10003;' : '&nbsp;' !!}</span> Mendung &nbsp;
+                        <span class="check-box">{!! $cuaca === 'gerimis' ? '&#10003;' : '&nbsp;' !!}</span> Gerimis &nbsp;
+                        <span class="check-box">{!! $cuaca === 'hujan' ? '&#10003;' : '&nbsp;' !!}</span> Hujan<br>
                         &bull; Waktu : 
-                        <span class="check-box">{{ $waktu === 'siang' ? '✓' : '' }}</span> Siang &nbsp;
-                        <span class="check-box">{{ $waktu === 'sore' ? '✓' : '' }}</span> Sore &nbsp;
-                        <span class="check-box">{{ $waktu === 'malam' ? '✓' : '' }}</span> Malam
+                        <span class="check-box">{!! $waktu === 'siang' ? '&#10003;' : '&nbsp;' !!}</span> Siang &nbsp;
+                        <span class="check-box">{!! $waktu === 'sore' ? '&#10003;' : '&nbsp;' !!}</span> Sore &nbsp;
+                        <span class="check-box">{!! $waktu === 'malam' ? '&#10003;' : '&nbsp;' !!}</span> Malam
                     </div>
 
                     <!-- Kesimpulan Akhir -->
-                    <div style="border-top: 1px solid #000; margin-top: 3px; padding-top: 2px;">
-                        <div style="font-weight: bold; text-transform: uppercase;">Kesimpulan Akhir (✓)</div>
+                    <div style="border-top: 1px solid #000; margin-top: 2px; padding-top: 1px;">
+                        <div style="font-weight: bold; text-transform: uppercase;">Kesimpulan Akhir (&#10003;)</div>
                         @php $fin = $bInsp?->kesimpulan_akhir ?? 'layak'; @endphp
                         <div>
-                            <span class="check-box">{{ $fin === 'layak' ? '✓' : '' }}</span> <strong>Layak untuk proses loading / stuffing</strong><br>
-                            <span class="check-box">{{ $fin === 'layak_dengan_catatan' ? '✓' : '' }}</span> <strong>Layak dengan catatan (lihat C.2)</strong><br>
-                            <span class="check-box">{{ $fin === 'tidak_layak' ? '✓' : '' }}</span> <strong>Tidak layak (ditunda / diganti)</strong>
+                            <span class="check-box">{!! $fin === 'layak' ? '&#10003;' : '&nbsp;' !!}</span> <strong>Layak untuk proses loading / stuffing</strong><br>
+                            <span class="check-box">{!! $fin === 'layak_dengan_catatan' ? '&#10003;' : '&nbsp;' !!}</span> <strong>Layak dengan catatan (lihat C.2)</strong><br>
+                            <span class="check-box">{!! $fin === 'tidak_layak' ? '&#10003;' : '&nbsp;' !!}</span> <strong>Tidak layak (ditunda / diganti)</strong>
                         </div>
                     </div>
                 </td>
             </tr>
         </table>
 
-        <div class="footer-note">
+        <div class="footer-note" style="margin-top: 3px; padding-top: 2px;">
             Dokumen ini dihasilkan secara otomatis oleh Sistem SPV-Track PT. South Pacific Viscose &bull; <strong>Halaman 3: Formulir Inspeksi Kondisi Bale (Loading)</strong>
         </div>
     </div>
@@ -973,79 +1004,129 @@
     <!-- ========================================================================= -->
     <!-- HALAMAN 4 DST : GALERI FOTO EVIDENCE SOP 27 TITIK -->
     <!-- ========================================================================= -->
-    <div class="sheet">
-        <!-- Header Galeri Foto -->
-        <div class="header-container">
-            <table class="header-table">
-                <tr>
-                    <td style="width: 55%;">
-                        <h1 class="brand-title">PT. SOUTH PACIFIC VISCOSE</h1>
-                        <p class="brand-subtitle">SPV-Track Evidence Documentation Gallery</p>
-                    </td>
-                    <td class="doc-badge" style="width: 45%;">
-                        <h2 class="doc-title">Lampiran Foto Evidence</h2>
-                        <div class="doc-meta">
-                            No. Dokumen: <strong>{{ $shipment->packing_list_no ?: ('SPV-'.$shipment->id) }}</strong><br>
-                            Kontainer / Truk: <strong>{{ $shipment->nomor_container_atau_plat ?: $shipment->plat_nomor }}</strong>
-                        </div>
-                    </td>
-                </tr>
-            </table>
-        </div>
+    @php
+        // Filter hanya FOTO (tanpa video)
+        $photoEvidence = $shipmentPhotos->filter(function($item) {
+            return $item['tipe_item'] === 'foto';
+        })->values();
 
-        <div class="section-title">4. Bukti Foto Loading Evidence (27 Titik SOP Inspeksi)</div>
-        
-        @php
-            // Filter hanya FOTO (tanpa video)
-            $photoEvidence = $shipmentPhotos->filter(function($item) {
-                return $item['tipe_item'] === 'foto';
-            })->values();
+        // 6 foto per lembar (3 baris x 2 kolom) agar setiap halaman galeri rapi dan tidak pernah terpotong
+        $galleryPages = $photoEvidence->chunk(6);
+        $totalGalleryPages = $galleryPages->count();
+    @endphp
 
-            $chunks = $photoEvidence->chunk(2);
-        @endphp
+    @if($photoEvidence->isEmpty())
+        <div class="sheet">
+            <!-- Header Galeri Foto -->
+            <div class="header-container">
+                <table class="header-table">
+                    <tr>
+                        <td style="width: 48%;">
+                            <h1 class="brand-title">PT. SOUTH PACIFIC VISCOSE</h1>
+                            <p class="brand-subtitle">SPV-Track Evidence Documentation Gallery</p>
+                        </td>
+                        <td class="doc-badge" style="width: 34%; padding-right: 10px;">
+                            <h2 class="doc-title">Lampiran Foto Evidence</h2>
+                            <div class="doc-meta">
+                                No. Dokumen: <strong>{{ $shipment->packing_list_no ?: ('SPV-'.$shipment->id) }}</strong><br>
+                                Kontainer / Truk: <strong>{{ $shipment->nomor_container_atau_plat ?: $shipment->plat_nomor }}</strong>
+                            </div>
+                        </td>
+                        <td style="width: 18%; text-align: right; vertical-align: middle;">
+                            @if($lenzingLogoBase64)
+                                <img src="{{ $lenzingLogoBase64 }}" style="height: 38px; width: auto;" alt="Lenzing">
+                            @endif
+                        </td>
+                    </tr>
+                </table>
+            </div>
 
-        @if($photoEvidence->isEmpty())
+            <div class="section-title">4. Bukti Foto Loading Evidence (27 Titik SOP Inspeksi)</div>
             <div style="padding: 30px; text-align: center; border: 1px dashed #cbd5e1; border-radius: 6px; color: #64748b; font-size: 10px; margin-top: 15px;">
                 Belum ada bukti foto SOP yang diunggah untuk shipment ini.
             </div>
-        @else
-            <table class="evidence-grid">
-                @foreach($chunks as $pair)
-                    <tr class="evidence-row">
-                        @foreach($pair as $item)
-                            <td class="evidence-cell">
-                                <div class="photo-card">
-                                    <div class="photo-header">
-                                        <div style="float: right;">
-                                            @if($item['is_extra'])
-                                                <span style="background: rgba(255,255,255,0.25); padding: 1px 4px; border-radius: 2px; font-size: 7pt;">EKSTRA</span>
-                                            @endif
-                                        </div>
-                                        <span>Titik {{ $item['point_no'] ? sprintf('%02d', $item['point_no']) : '-' }}: {{ $item['point_name'] }}</span>
-                                    </div>
-                                    <div class="photo-wrapper">
-                                        <img src="{{ $item['image_src'] }}" class="photo-img" alt="{{ $item['point_name'] }}">
-                                    </div>
-                                    <div class="photo-footer">
-                                        Waktu Stempel Server: <strong>{{ $item['timestamp_wib'] }}</strong>
-                                    </div>
+
+            <div class="footer-note" style="margin-top: 10px;">
+                Dokumen ini dihasilkan secara otomatis oleh Sistem SPV-Track PT. South Pacific Viscose &bull; <strong>Halaman 4: Galeri Foto Evidence SOP</strong>
+            </div>
+        </div>
+    @else
+        @foreach($galleryPages as $gIndex => $pagePhotos)
+            @if($gIndex > 0)
+                <div class="page-break"></div>
+            @endif
+            <div class="sheet">
+                <!-- Header Galeri Foto -->
+                <div class="header-container">
+                    <table class="header-table">
+                        <tr>
+                            <td style="width: 48%;">
+                                <h1 class="brand-title">PT. SOUTH PACIFIC VISCOSE</h1>
+                                <p class="brand-subtitle">SPV-Track Evidence Documentation Gallery</p>
+                            </td>
+                            <td class="doc-badge" style="width: 34%; padding-right: 10px;">
+                                <h2 class="doc-title">Lampiran Foto Evidence</h2>
+                                <div class="doc-meta">
+                                    No. Dokumen: <strong>{{ $shipment->packing_list_no ?: ('SPV-'.$shipment->id) }}</strong><br>
+                                    Kontainer / Truk: <strong>{{ $shipment->nomor_container_atau_plat ?: $shipment->plat_nomor }}</strong>
                                 </div>
                             </td>
-                        @endforeach
+                            <td style="width: 18%; text-align: right; vertical-align: middle;">
+                                @if($lenzingLogoBase64)
+                                    <img src="{{ $lenzingLogoBase64 }}" style="height: 38px; width: auto;" alt="Lenzing">
+                                @endif
+                            </td>
+                        </tr>
+                    </table>
+                </div>
 
-                        {{-- Jika kolom ganjil pada baris terakhir, buat sel dummy agar lebar seimbang --}}
-                        @if($pair->count() == 1)
-                            <td class="evidence-cell" style="border: none; background: transparent;"></td>
-                        @endif
-                    </tr>
-                @endforeach
-            </table>
-        @endif
+                @if($gIndex === 0)
+                    <div class="section-title">4. Bukti Foto Loading Evidence (27 Titik SOP Inspeksi)</div>
+                @else
+                    <div class="section-title">4. Bukti Foto Loading Evidence (Lanjutan Bagian {{ $gIndex + 1 }} dari {{ $totalGalleryPages }})</div>
+                @endif
 
-        <div class="footer-note">
-            Dokumen ini dihasilkan secara otomatis oleh Sistem SPV-Track PT. South Pacific Viscose &bull; <strong>Halaman 4 dst: Galeri Foto Evidence SOP</strong>
-        </div>
-    </div>
+                @php
+                    $pairs = $pagePhotos->chunk(2);
+                @endphp
+                <table class="evidence-grid">
+                    @foreach($pairs as $pair)
+                        <tr class="evidence-row">
+                            @foreach($pair as $item)
+                                <td class="evidence-cell">
+                                    <div class="photo-card">
+                                        <div class="photo-header">
+                                            <div style="float: right;">
+                                                @if($item['is_extra'])
+                                                    <span style="background: rgba(255,255,255,0.25); padding: 1px 4px; border-radius: 2px; font-size: 7pt;">EKSTRA</span>
+                                                @endif
+                                            </div>
+                                            <span>Titik {{ $item['point_no'] ? sprintf('%02d', $item['point_no']) : '-' }}: {{ $item['point_name'] }}</span>
+                                        </div>
+                                        <div class="photo-wrapper">
+                                            <img src="{{ $item['image_src'] }}" class="photo-img" alt="{{ $item['point_name'] }}">
+                                        </div>
+                                        <div class="photo-footer">
+                                            Waktu Stempel Server: <strong>{{ $item['timestamp_wib'] }}</strong>
+                                        </div>
+                                    </div>
+                                </td>
+                            @endforeach
+
+                            {{-- Jika kolom ganjil pada baris terakhir, buat sel dummy agar lebar seimbang --}}
+                            @if($pair->count() == 1)
+                                <td class="evidence-cell" style="border: none; background: transparent;"></td>
+                            @endif
+                        </tr>
+                    @endforeach
+                </table>
+
+                <div class="footer-note" style="margin-top: 6px;">
+                    Dokumen ini dihasilkan secara otomatis oleh Sistem SPV-Track PT. South Pacific Viscose &bull; <strong>Halaman {{ 4 + $gIndex }}: Galeri Foto Evidence SOP (Hal. {{ $gIndex + 1 }}/{{ $totalGalleryPages }})</strong>
+                </div>
+            </div>
+        @endforeach
+    @endif
 
 </body>
 </html>

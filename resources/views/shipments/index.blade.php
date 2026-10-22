@@ -241,7 +241,7 @@
                         <th class="px-3.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">No. Packing List / Identitas</th>
                         <th class="px-3 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Produk</th>
                         <th class="px-2.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Tipe</th>
-                        <th class="px-3 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Petugas</th>
+                        <th class="px-3 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider w-[180px] max-w-[210px]">Petugas</th>
                         <th class="px-3 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Waktu Staging</th>
                         <th class="px-2.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Status</th>
                         <th class="px-3.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-right">Aksi</th>
@@ -282,7 +282,16 @@
                                     {{ $shipment->jenis_pengiriman }}
                                 </span>
                             </td>
-                            <td class="px-3 py-2.5"><p class="text-xs text-gray-600">{{ $shipment->allKaryawans()->pluck('nama')->join(', ') ?: ($shipment->karyawan?->nama ?? '-') }}</p></td>
+                            <td class="px-3 py-2.5 max-w-[180px] lg:max-w-[210px]">
+                                @php
+                                    $petugasNames = $shipment->allKaryawans()->pluck('nama')->join(', ') ?: ($shipment->karyawan?->nama ?? '-');
+                                @endphp
+                                <div class="whitespace-normal max-w-[180px] lg:max-w-[210px] cursor-default" title="{{ $petugasNames }}">
+                                    <p class="text-xs text-gray-600 leading-snug line-clamp-2" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                                        {{ $petugasNames }}
+                                    </p>
+                                </div>
+                            </td>
                             <td class="px-3 py-2.5"><p class="text-[10px] text-gray-500 font-medium">{{ $shipment->created_at->format('d M Y, H:i') }} WIB</p></td>
                             <td class="px-2.5 py-2.5">
                                 @if($shipment->status === 'submitted')

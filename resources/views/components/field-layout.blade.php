@@ -305,5 +305,8 @@
         {{ $slot }}
     </main>
 
+    <!-- Top-Right Auto-dismissing Toast Notification Pop-up (Directly under body) -->
+    <x-toast-notification />
+
 </body>
 </html>

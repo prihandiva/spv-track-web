@@ -284,7 +284,11 @@ class InspectionController extends Controller
 
         $pdf = Pdf::loadView('inspections.print-container', compact('shipment', 'inspection') + ['isPdf' => true])
             ->setPaper('a4', 'portrait')
-            ->setOption(['isRemoteEnabled' => true, 'isHtml5ParserEnabled' => true]);
+            ->setOption([
+                'isRemoteEnabled' => true,
+                'isHtml5ParserEnabled' => true,
+                'defaultFont' => 'DejaVu Sans',
+            ]);
 
         return $pdf->download($pdfName);
     }
@@ -308,7 +312,11 @@ class InspectionController extends Controller
 
         $pdf = Pdf::loadView('inspections.print-bale', compact('shipment', 'inspection') + ['isPdf' => true])
             ->setPaper('a4', 'portrait')
-            ->setOption(['isRemoteEnabled' => true, 'isHtml5ParserEnabled' => true]);
+            ->setOption([
+                'isRemoteEnabled' => true,
+                'isHtml5ParserEnabled' => true,
+                'defaultFont' => 'DejaVu Sans',
+            ]);
 
         return $pdf->download($pdfName);
     }

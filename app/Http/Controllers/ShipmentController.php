@@ -748,7 +748,11 @@ class ShipmentController extends Controller
 
         $pdf = Pdf::loadView('shipments.pdf', compact('shipment', 'shipmentPhotos') + ['isPdf' => true])
             ->setPaper('a4', 'portrait')
-            ->setOption(['isRemoteEnabled' => true, 'isHtml5ParserEnabled' => true]);
+            ->setOption([
+                'isRemoteEnabled' => true,
+                'isHtml5ParserEnabled' => true,
+                'defaultFont' => 'DejaVu Sans',
+            ]);
 
         $pdf->save($cachedPdfPath);
 
