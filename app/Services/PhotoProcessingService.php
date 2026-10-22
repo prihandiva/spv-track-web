@@ -285,14 +285,39 @@ class PhotoProcessingService
     /**
      * Buat image GD resource berdasarkan file dan MIME type.
      */
-    protected function createImageResource(string $filePath, string $mime)
+    protected function createImageResource(string $filePath, ?string $mime = null)
     {
-        return match (true) {
-            str_contains($mime, 'jpeg') || str_contains($mime, 'jpg') => @imagecreatefromjpeg($filePath),
-            str_contains($mime, 'png') => @imagecreatefrompng($filePath),
-            str_contains($mime, 'webp') => @imagecreatefromwebp($filePath),
-            default => @imagecreatefromstring(file_get_contents($filePath)),
-        };
+        if (empty($mime) || $mime === 'image/' || $mime === 'image') {
+            $imageInfo = @getimagesize($filePath);
+            $mime = $imageInfo['mime'] ?? (@mime_content_type($filePath) ?: 'image/jpeg');
+        }
+
+        $mime = strtolower((string) $mime);
+
+        if (str_contains($mime, 'jpeg') || str_contains($mime, 'jpg')) {
+            $res = @imagecreatefromjpeg($filePath);
+            if ($res) {
+                return $res;
+            }
+        }
+
+        if (str_contains($mime, 'png')) {
+            $res = @imagecreatefrompng($filePath);
+            if ($res) {
+                return $res;
+            }
+        }
+
+        if (str_contains($mime, 'webp') && function_exists('imagecreatefromwebp')) {
+            $res = @imagecreatefromwebp($filePath);
+            if ($res) {
+                return $res;
+            }
+        }
+
+        $content = @file_get_contents($filePath);
+
+        return $content !== false ? @imagecreatefromstring($content) : false;
     }
 
     /**
@@ -322,10 +347,16 @@ class PhotoProcessingService
         ?string $title = null,
         ?string $subText = null
     ): void {
-        $ext = strtolower(pathinfo($sourcePath, PATHINFO_EXTENSION));
-        $exif = @exif_read_data($sourcePath);
+        // Alokasikan memori yang cukup untuk pemrosesan foto kamera resolusi tinggi di VPS
+        if (function_exists('ini_set')) {
+            @ini_set('memory_limit', '512M');
+        }
 
-        $img = $this->createImageResource($sourcePath, 'image/'.($ext === 'jpg' ? 'jpeg' : $ext));
+        $imageInfo = @getimagesize($sourcePath);
+        $mime = $imageInfo['mime'] ?? (@mime_content_type($sourcePath) ?: 'image/jpeg');
+        $exif = function_exists('exif_read_data') ? @exif_read_data($sourcePath) : null;
+
+        $img = $this->createImageResource($sourcePath, $mime);
         if (! $img) {
             copy($sourcePath, $targetPath);
 
@@ -334,6 +365,20 @@ class PhotoProcessingService
 
         // 1. Koreksi orientasi kamera ponsel (EXIF tag 3, 6, 8) agar tidak miring/terbalik
         $img = $this->fixExifOrientation($img, $exif);
+
+        // Optimasi resolusi kamera sangat tinggi agar tidak boros memori GD
+        $maxDimension = 2800;
+        $origW = imagesx($img);
+        $origH = imagesy($img);
+        if ($origW > $maxDimension || $origH > $maxDimension) {
+            $scale = min($maxDimension / $origW, $maxDimension / $origH);
+            $newW = (int) round($origW * $scale);
+            $newH = (int) round($origH * $scale);
+            $scaledImg = imagecreatetruecolor($newW, $newH);
+            imagecopyresampled($scaledImg, $img, 0, 0, 0, 0, $newW, $newH, $origW, $origH);
+            imagedestroy($img);
+            $img = $scaledImg;
+        }
 
         $w = imagesx($img);
         $h = imagesy($img);

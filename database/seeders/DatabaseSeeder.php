@@ -52,12 +52,13 @@ class DatabaseSeeder extends Seeder
             [18, 'Terisi Penuh', 'Photo terisi fiber/bales penuh dan tersegel', 'foto', true, false, false, false],
             [19, 'Satu Pintu Tertutup', 'Photo tertutup satu pintu, nomor container harus terbaca', 'foto', true, true, false, false],
             [20, 'Tertutup Terkunci', 'Photo container tertutup dan terkunci', 'foto', true, false, false, false],
-            [21, 'Tampak Segel & Plat', 'Photo pintu tertutup tampak segel, nomor container, plat nomor, pelayaran', 'foto', true, true, false, false],
-            [22, 'Foto Segel', 'Foto segel', 'foto', true, false, false, false],
+            [21, 'Tampak Segel & Plat', 'Photo pintu tertutup tampak segel container dan beacukai, nomor container, plat nomor
+', 'foto', true, true, false, false],
+            [22, 'Foto Segel Pelayaran di zoom', 'Foto Segel Pelayaran', 'foto', true, false, false, false],
             [23, 'Ban Diganjal', 'Photo 2 ban diganjal stopper', 'foto', true, false, false, false],
             [24, 'Checklist Document', 'Truck Checklist (Lokal) / Container Checklist (Export)', 'foto', true, false, false, false],
             [25, 'Bales Inspection Ball', 'Bales Inspection Ball', 'foto', true, false, false, false],
-            [26, 'Surat Jalan', 'Surat Jalan + scan OK', 'foto', true, false, false, false],
+            [26, 'Surat Jalan dan Scanner OK', 'Surat Jalan dan Scanner OK', 'foto', true, false, false, false],
             [27, 'Video Singkat', 'Video singkat', 'video', false, false, false, false], // tidak wajib
         ];
 
