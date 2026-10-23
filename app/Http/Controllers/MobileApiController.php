@@ -225,82 +225,108 @@ class MobileApiController extends Controller
      */
     public function uploadEvidence(Request $request, Shipment $shipment): JsonResponse
     {
-        $request->validate([
-            'sop_photo_point_id' => 'nullable|exists:sop_photo_points,id',
-            'file' => 'required|file|max:51200', // 50MB
-            'is_tambahan' => 'nullable|boolean',
-            'captured_at' => 'nullable|string',
-        ]);
+        try {
+            $request->validate([
+                'sop_photo_point_id' => 'nullable|exists:sop_photo_points,id',
+                'file' => 'required|file|max:51200', // 50MB
+                'is_tambahan' => 'nullable|boolean',
+                'captured_at' => 'nullable|string',
+            ]);
 
-        $file = $request->file('file');
-        $ext = strtolower($file->getClientOriginalExtension());
-        $pointId = $request->input('sop_photo_point_id');
+            $file = $request->file('file');
+            $ext = strtolower($file->getClientOriginalExtension());
+            $pointId = $request->input('sop_photo_point_id');
 
-        $capturedAt = $request->input('captured_at') ? Carbon::parse($request->input('captured_at')) : now();
-        $timestampText = $capturedAt->format('Y-m-d H:i:s').' WIB';
+            $capturedAt = $request->input('captured_at') ? Carbon::parse($request->input('captured_at')) : now();
+            $timestampText = $capturedAt->format('Y-m-d H:i:s').' WIB';
 
-        $safePlate = preg_replace('/[^A-Za-z0-9]/', '', $shipment->nomor_container_atau_plat ?? 'SPV');
-        $count = $shipment->evidenceItems()->count() + 1;
-        $fileName = "{$safePlate}_p{$pointId}_{$count}.{$ext}";
+            $safePlate = preg_replace('/[^A-Za-z0-9]/', '', $shipment->nomor_container_atau_plat ?? 'SPV');
+            $count = $shipment->evidenceItems()->count() + 1;
+            $fileName = "{$safePlate}_p{$pointId}_{$count}.{$ext}";
 
-        $storageDir = storage_path("app/public/shipments/{$shipment->id}");
-        if (! is_dir($storageDir)) {
-            mkdir($storageDir, 0755, true);
-        }
-        $targetPath = "{$storageDir}/{$fileName}";
-        $relPath = "shipments/{$shipment->id}/{$fileName}";
+            $storageDir = storage_path("app/public/shipments/{$shipment->id}");
+            if (! is_dir($storageDir)) {
+                @mkdir($storageDir, 0775, true);
+            }
+            $targetPath = "{$storageDir}/{$fileName}";
+            $relPath = "shipments/{$shipment->id}/{$fileName}";
 
-        $point = $pointId ? SopPhotoPoint::find($pointId) : null;
-        $pointTitle = $point ? "TITIK {$point->urutan}: {$point->nama_titik}" : ($request->boolean('is_tambahan') ? 'FOTO EKSTRA' : 'EVIDENCE');
+            $point = $pointId ? SopPhotoPoint::find($pointId) : null;
+            $pointTitle = $point ? "TITIK {$point->urutan}: {$point->nama_titik}" : ($request->boolean('is_tambahan') ? 'FOTO EKSTRA' : 'EVIDENCE');
 
-        $isVideo = in_array($ext, ['mp4', 'mov', 'webm', '3gp', 'avi', 'm4v']) || str_starts_with($file->getMimeType(), 'video/');
+            $isVideo = in_array($ext, ['mp4', 'mov', 'webm', '3gp', 'avi', 'm4v']) || str_starts_with($file->getMimeType(), 'video/');
 
-        if ($isVideo) {
-            app(PhotoProcessingService::class)->watermarkVideoSingleFile(
-                sourcePath: $file->getPathname(),
-                targetPath: $targetPath,
-                stampText: $timestampText,
-                title: $pointTitle,
-                subText: $shipment->nomor_container_atau_plat
+            try {
+                if ($isVideo) {
+                    app(PhotoProcessingService::class)->watermarkVideoSingleFile(
+                        sourcePath: $file->getPathname(),
+                        targetPath: $targetPath,
+                        stampText: $timestampText,
+                        title: $pointTitle,
+                        subText: $shipment->nomor_container_atau_plat
+                    );
+                } elseif (in_array($ext, ['jpg', 'jpeg', 'png', 'webp']) && extension_loaded('gd')) {
+                    app(PhotoProcessingService::class)->watermarkSingleFile(
+                        sourcePath: $file->getPathname(),
+                        targetPath: $targetPath,
+                        stampText: $timestampText,
+                        title: $pointTitle,
+                        subText: $shipment->nomor_container_atau_plat
+                    );
+                } else {
+                    $file->move($storageDir, $fileName);
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Mobile upload evidence watermark failed: '.$e->getMessage());
+                if (! file_exists($targetPath)) {
+                    $file->move($storageDir, $fileName);
+                }
+            }
+
+            $evidence = EvidenceItem::updateOrCreate(
+                [
+                    'shipment_id' => $shipment->id,
+                    'sop_photo_point_id' => $pointId,
+                ],
+                [
+                    'file_path' => $relPath,
+                    'file_name' => $fileName,
+                    'tipe_item' => $isVideo ? 'video' : 'foto',
+                    'captured_at' => $capturedAt,
+                    'gps_lat' => -6.200000,
+                    'gps_lng' => 106.816666,
+                    'is_tambahan' => $request->boolean('is_tambahan', false),
+                ]
             );
-        } elseif (in_array($ext, ['jpg', 'jpeg', 'png']) && extension_loaded('gd')) {
-            app(PhotoProcessingService::class)->watermarkSingleFile(
-                sourcePath: $file->getPathname(),
-                targetPath: $targetPath,
-                stampText: $timestampText,
-                title: $pointTitle,
-                subText: $shipment->nomor_container_atau_plat
-            );
-        } else {
-            $file->move($storageDir, $fileName);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Evidence berhasil diunggah',
+                'data' => [
+                    'evidence_id' => $evidence->id,
+                    'file_url' => asset('storage/'.$relPath),
+                    'captured_at' => $capturedAt->format('Y-m-d H:i:s \W\I\B'),
+                    'uploaded_count' => $shipment->evidenceItems()->count(),
+                ],
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validasi gagal: '.implode(', ', array_map(fn ($v) => implode(' ', $v), $e->errors())),
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Throwable $e) {
+            Log::error('Upload evidence error: '.$e->getMessage(), [
+                'exception' => $e,
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengunggah evidence: '.$e->getMessage(),
+            ], 500);
         }
-
-        $evidence = EvidenceItem::updateOrCreate(
-            [
-                'shipment_id' => $shipment->id,
-                'sop_photo_point_id' => $pointId,
-            ],
-            [
-                'file_path' => $relPath,
-                'file_name' => $fileName,
-                'tipe_item' => $isVideo ? 'video' : 'foto',
-                'captured_at' => $capturedAt,
-                'gps_lat' => -6.200000,
-                'gps_lng' => 106.816666,
-                'is_tambahan' => $request->boolean('is_tambahan', false),
-            ]
-        );
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Evidence berhasil diunggah',
-            'data' => [
-                'evidence_id' => $evidence->id,
-                'file_url' => asset('storage/'.$relPath),
-                'captured_at' => $capturedAt->format('Y-m-d H:i:s \W\I\B'),
-                'uploaded_count' => $shipment->evidenceItems()->count(),
-            ],
-        ]);
     }
 
     /**

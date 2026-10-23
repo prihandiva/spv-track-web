@@ -434,31 +434,43 @@ class PhotoProcessingService
             }
         }
 
+        $ttfRendered = false;
         if ($fontFile && function_exists('imagettftext')) {
-            // Auto-scale font agar tidak terpotong di orientasi potrait maupun nama titik yang panjang
-            $fontSizeTitle = $this->fitFontSize($line1, $fontSizeTitle, $maxWidth, $fontFile, 12);
-            $fontSizeTime = $this->fitFontSize($line2, $fontSizeTime, $maxWidth, $fontFile, 14);
+            try {
+                // Auto-scale font agar tidak terpotong di orientasi potrait maupun nama titik yang panjang
+                $fontSizeTitle = $this->fitFontSize($line1, $fontSizeTitle, $maxWidth, $fontFile, 12);
+                $fontSizeTime = $this->fitFontSize($line2, $fontSizeTime, $maxWidth, $fontFile, 14);
 
-            $yLine1 = $barY + $accentHeight + (int) ($barHeight * ($isPortrait ? 0.36 : 0.35));
-            $yLine2 = $barY + $accentHeight + (int) ($barHeight * ($isPortrait ? 0.76 : 0.74));
-            $shadowOffset = max(2, (int) ($fontSizeTime * 0.05));
+                $yLine1 = $barY + $accentHeight + (int) ($barHeight * ($isPortrait ? 0.36 : 0.35));
+                $yLine2 = $barY + $accentHeight + (int) ($barHeight * ($isPortrait ? 0.76 : 0.74));
+                $shadowOffset = max(2, (int) ($fontSizeTime * 0.05));
 
-            // Shadow teks agar kontras tinggi
-            imagettftext($img, $fontSizeTitle, 0, $paddingX + $shadowOffset, $yLine1 + $shadowOffset, $blackShadow, $fontFile, $line1);
-            imagettftext($img, $fontSizeTitle, 0, $paddingX, $yLine1, $lightGray, $fontFile, $line1);
+                // Shadow teks agar kontras tinggi
+                @imagettftext($img, $fontSizeTitle, 0, $paddingX + $shadowOffset, $yLine1 + $shadowOffset, $blackShadow, $fontFile, $line1);
+                @imagettftext($img, $fontSizeTitle, 0, $paddingX, $yLine1, $lightGray, $fontFile, $line1);
 
-            imagettftext($img, $fontSizeTime, 0, $paddingX + $shadowOffset, $yLine2 + $shadowOffset, $blackShadow, $fontFile, $line2);
-            imagettftext($img, $fontSizeTime, 0, $paddingX, $yLine2, $gold, $fontFile, $line2);
-        } else {
+                @imagettftext($img, $fontSizeTime, 0, $paddingX + $shadowOffset, $yLine2 + $shadowOffset, $blackShadow, $fontFile, $line2);
+                @imagettftext($img, $fontSizeTime, 0, $paddingX, $yLine2, $gold, $fontFile, $line2);
+                $ttfRendered = true;
+            } catch (\Throwable $e) {
+                $ttfRendered = false;
+            }
+        }
+
+        if (! $ttfRendered) {
             $paddingX = 16;
             $yLine1 = $barY + 14;
             $yLine2 = $barY + 45;
-            imagestring($img, 4, $paddingX, $yLine1, $line1, $white);
-            imagestring($img, 5, $paddingX, $yLine2, $line2, $gold);
+            @imagestring($img, 4, $paddingX, $yLine1, $line1, $white);
+            @imagestring($img, 5, $paddingX, $yLine2, $line2, $gold);
         }
 
-        imagejpeg($img, $targetPath, 88);
+        $saved = @imagejpeg($img, $targetPath, 88);
         imagedestroy($img);
+
+        if (! $saved || ! file_exists($targetPath)) {
+            copy($sourcePath, $targetPath);
+        }
     }
 
     /**

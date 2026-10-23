@@ -908,8 +908,17 @@
                     method: 'POST',
                     body: fd
                 })
-                .then(r => {
-                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                .then(async r => {
+                    if (!r.ok) {
+                        let errMsg = 'HTTP ' + r.status;
+                        try {
+                            const errData = await r.json();
+                            if (errData && errData.message) {
+                                errMsg = errData.message;
+                            }
+                        } catch (e) {}
+                        throw new Error(errMsg);
+                    }
                     return r.json();
                 })
                 .then(data => {
@@ -958,7 +967,10 @@
                 .catch(err => {
                     console.error('Upload error:', err);
                     if (statusBox) {
-                        statusBox.innerHTML = '<span style="color:#f87171;">Offline (Lokal)</span>';
+                        statusBox.innerHTML = `<span style="color:#f87171;" title="${err.message}">Gagal: ${err.message}</span>`;
+                    }
+                    if (window.showToast) {
+                        window.showToast(err.message, 'error');
                     }
                 });
             }
