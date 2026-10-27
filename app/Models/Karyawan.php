@@ -23,6 +23,8 @@ class Karyawan extends Model
         return match (strtolower($this->position ?? 'operator')) {
             'checker' => 'Checker',
             'helper' => 'Helper',
+            'inspektor' => 'Inspektor',
+            'supervisor' => 'Supervisor',
             default => 'Operator',
         };
     }

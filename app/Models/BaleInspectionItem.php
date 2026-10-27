@@ -34,6 +34,35 @@ class BaleInspectionItem extends Model
     }
 
     /**
+     * Get pairs of [awal, pengganti] as an array
+     *
+     * @return array<int, array{awal: string, pengganti: string}>
+     */
+    public function getBalePairsAttribute(): array
+    {
+        $rawAwal = trim((string) $this->nomor_bale_awal);
+        $rawPengganti = trim((string) $this->nomor_bale_pengganti);
+
+        $awalList = $rawAwal !== '' ? array_values(array_map('trim', explode(',', $rawAwal))) : [];
+        $penggantiList = $rawPengganti !== '' ? array_values(array_map('trim', explode(',', $rawPengganti))) : [];
+
+        $count = max(count($awalList), count($penggantiList));
+        if ($count === 0) {
+            return [['awal' => '', 'pengganti' => '']];
+        }
+
+        $pairs = [];
+        for ($i = 0; $i < $count; $i++) {
+            $pairs[] = [
+                'awal' => $awalList[$i] ?? '',
+                'pengganti' => $penggantiList[$i] ?? '',
+            ];
+        }
+
+        return $pairs;
+    }
+
+    /**
      * Standard 8 jenis ketidaksesuaian default
      */
     public static function defaultChecklist(): array

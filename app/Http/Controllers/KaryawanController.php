@@ -32,7 +32,7 @@ class KaryawanController extends Controller
         }
 
         if ($position = $request->input('position')) {
-            if (in_array($position, ['operator', 'helper', 'checker'], true)) {
+            if (in_array($position, ['operator', 'helper', 'checker', 'inspektor', 'supervisor'], true)) {
                 $query->where('position', $position);
             }
         }
@@ -69,13 +69,13 @@ class KaryawanController extends Controller
         $validated = $request->validate([
             'nama' => ['required', 'string', 'max:255'],
             'nomor_induk' => ['required', 'string', 'max:50', 'unique:karyawans,nomor_induk'],
-            'position' => ['nullable', 'string', 'in:operator,helper,checker'],
+            'position' => ['nullable', 'string', 'in:operator,helper,checker,inspektor,supervisor'],
             'status' => ['required', 'in:aktif,nonaktif'],
         ], [
             'nama.required' => 'Nama petugas wajib diisi.',
             'nomor_induk.required' => 'Nomor induk / NIK wajib diisi.',
             'nomor_induk.unique' => 'Nomor induk / NIK ini sudah terdaftar.',
-            'position.in' => 'Posisi harus berupa operator, helper, atau checker.',
+            'position.in' => 'Posisi harus berupa operator, helper, checker, inspektor, atau supervisor.',
             'status.required' => 'Status petugas wajib dipilih.',
         ]);
 
@@ -126,13 +126,13 @@ class KaryawanController extends Controller
                 'max:50',
                 Rule::unique('karyawans', 'nomor_induk')->ignore($karyawan->id),
             ],
-            'position' => ['nullable', 'string', 'in:operator,helper,checker'],
+            'position' => ['nullable', 'string', 'in:operator,helper,checker,inspektor,supervisor'],
             'status' => ['required', 'in:aktif,nonaktif'],
         ], [
             'nama.required' => 'Nama petugas wajib diisi.',
             'nomor_induk.required' => 'Nomor induk / NIK wajib diisi.',
             'nomor_induk.unique' => 'Nomor induk / NIK ini sudah digunakan oleh petugas lain.',
-            'position.in' => 'Posisi harus berupa operator, helper, atau checker.',
+            'position.in' => 'Posisi harus berupa operator, helper, checker, inspektor, atau supervisor.',
             'status.required' => 'Status petugas wajib dipilih.',
         ]);
 

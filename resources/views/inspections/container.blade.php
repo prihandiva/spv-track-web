@@ -42,7 +42,21 @@
     </div>
     @endif
 
-    <form action="{{ route('field-app.container-inspection.save', $shipment->id) }}" method="POST">
+    <style>
+        .form-req:invalid:not(:placeholder-shown),
+        .was-validated .form-req:invalid {
+            border-color: #ef4444 !important;
+            background-color: #fffbfa !important;
+            box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.2) !important;
+        }
+        .was-validated .form-req:invalid ~ .field-error-msg,
+        .form-req:invalid:not(:placeholder-shown) ~ .field-error-msg {
+            display: flex !important;
+        }
+    </style>
+
+    <form id="containerForm" action="{{ route('field-app.container-inspection.save', $shipment->id) }}" method="POST"
+          onsubmit="if(!this.checkValidity()){ event.preventDefault(); this.classList.add('was-validated'); const first = this.querySelector(':invalid'); if(first){ first.scrollIntoView({behavior:'smooth', block:'center'}); first.focus(); } return false; }">
         @csrf
 
         <!-- Official Header Card (Lenzing Brand) -->
@@ -67,6 +81,9 @@
             </div>
 
             <!-- Loading Box & General Info Grid -->
+            @php
+                $minDate = (auth()->user()?->isOperator() ?? true) ? date('Y-m-d') : '';
+            @endphp
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-5">
                 <div>
                     <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1 flex items-center justify-between">
@@ -74,42 +91,80 @@
                         <span class="text-[10px] text-emerald-600 font-semibold normal-case">Dari Shipment</span>
                     </label>
                     <input type="text" name="nomor_kontainer" value="{{ old('nomor_kontainer', $inspection->nomor_kontainer ?: $shipment->nomor_container_atau_plat) }}" required
-                           class="w-full text-sm font-mono font-bold px-3.5 py-2.5 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all uppercase bg-slate-50/50">
+                           placeholder="Contoh: MSKU1234567"
+                           class="form-req w-full text-sm font-mono font-bold px-3.5 py-2.5 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all uppercase bg-slate-50/50">
+                    <p class="field-error-msg hidden text-[11px] text-red-600 font-semibold mt-1 items-center gap-1">
+                        <i class="ph-bold ph-warning-circle"></i> Nomor kontainer wajib diisi
+                    </p>
                 </div>
 
                 <div>
                     <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1 flex items-center justify-between">
-                        <span>Nomor Seal</span>
+                        <span>Nomor Seal <span class="text-red-500">*</span></span>
                         <span class="text-[10px] text-emerald-600 font-semibold normal-case">Dari Shipment</span>
                     </label>
-                    <input type="text" name="nomor_seal" value="{{ old('nomor_seal', $inspection->nomor_seal ?: $shipment->nomor_seal) }}"
+                    <input type="text" name="nomor_seal" value="{{ old('nomor_seal', $inspection->nomor_seal ?: $shipment->nomor_seal) }}" required
                            placeholder="Contoh: LENZ123456"
-                           class="w-full text-sm font-mono font-bold px-3.5 py-2.5 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all uppercase">
+                           class="form-req w-full text-sm font-mono font-bold px-3.5 py-2.5 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all uppercase">
+                    <p class="field-error-msg hidden text-[11px] text-red-600 font-semibold mt-1 items-center gap-1">
+                        <i class="ph-bold ph-warning-circle"></i> Nomor seal wajib diisi
+                    </p>
                 </div>
 
                 <div>
                     <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1 flex items-center justify-between">
-                        <span>Tanggal Loading / Inspeksi</span>
-                        <span class="text-[10px] text-emerald-600 font-semibold normal-case">Dari Shipment</span>
+                        <span>Tanggal Staging / Loading <span class="text-red-500">*</span></span>
+                        <span class="text-[10px] text-emerald-600 font-semibold normal-case">Staging Date</span>
                     </label>
-                    <input type="date" name="loading_date" value="{{ old('loading_date', $inspection->loading_date ? $inspection->loading_date->format('Y-m-d') : ($shipment->tanggal_staging ? $shipment->tanggal_staging->format('Y-m-d') : now()->toDateString())) }}"
-                           class="w-full text-sm px-3.5 py-2.5 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all">
+                    <input type="date" name="loading_date"
+                           value="{{ old('loading_date', $inspection->loading_date ? $inspection->loading_date->format('Y-m-d') : ($shipment->tanggal_staging ? $shipment->tanggal_staging->format('Y-m-d') : now()->toDateString())) }}"
+                           @if($minDate) min="{{ $minDate }}" @endif
+                           required
+                           class="form-req w-full text-sm font-bold px-3.5 py-2.5 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all">
+                    <p class="field-error-msg hidden text-[11px] text-red-600 font-semibold mt-1 items-center gap-1">
+                        <i class="ph-bold ph-warning-circle"></i> Tanggal staging / loading wajib diisi
+                    </p>
+                    @if($minDate)
+                    <p class="text-[10px] text-emerald-700 font-semibold mt-1 flex items-center gap-1">
+                        <i class="ph-bold ph-lock"></i> Tanggal tidak bisa backdate (minimal hari ini)
+                    </p>
+                    @endif
                 </div>
 
                 <div>
-                    <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">Nama EMKL & Pelayaran</label>
-                    <input type="text" name="nama_emkl_pelayaran" value="{{ old('nama_emkl_pelayaran', $inspection->nama_emkl_pelayaran ?: $shipment->agen_forwarding) }}"
+                    <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                        <span>Nama EMKL & Pelayaran <span class="text-red-500">*</span></span>
+                    </label>
+                    <input type="text" name="nama_emkl_pelayaran" value="{{ old('nama_emkl_pelayaran', $inspection->nama_emkl_pelayaran ?: $shipment->agen_forwarding) }}" required
                            placeholder="Nama forwarder / pelayaran"
-                           class="w-full text-sm px-3.5 py-2.5 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all">
+                           class="form-req w-full text-sm px-3.5 py-2.5 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all">
+                    <p class="field-error-msg hidden text-[11px] text-red-600 font-semibold mt-1 items-center gap-1">
+                        <i class="ph-bold ph-warning-circle"></i> Nama EMKL & Pelayaran wajib diisi
+                    </p>
                 </div>
 
                 <div class="md:col-span-2">
                     <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1 flex items-center justify-between">
                         <span>Nama Petugas Inspeksi <span class="text-red-500">*</span></span>
-                        <span class="text-[10px] text-emerald-600 font-semibold normal-case">Petugas Staging</span>
+                        <span class="text-[10px] text-emerald-600 font-semibold normal-case">Tabel Karyawan</span>
                     </label>
-                    <input type="text" name="nama_petugas_inspeksi" value="{{ old('nama_petugas_inspeksi', $inspection->nama_petugas_inspeksi ?: ($shipment->allKaryawans()->pluck('nama')->first() ?: ($shipment->karyawan?->nama ?? auth()->user()?->name))) }}" required
-                           class="w-full text-sm font-semibold px-3.5 py-2.5 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all">
+                    <select name="nama_petugas_inspeksi" required
+                            class="form-req w-full text-sm font-semibold px-3.5 py-2.5 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all bg-white">
+                        <option value="">-- Pilih Petugas Inspeksi (Dari Tabel Karyawan) --</option>
+                        @foreach($karyawans as $k)
+                            <option value="{{ $k->nama }}" {{ old('nama_petugas_inspeksi', $inspection->nama_petugas_inspeksi) === $k->nama ? 'selected' : '' }}>
+                                {{ $k->nama }} ({{ $k->position_label }} - {{ $k->nomor_induk }})
+                            </option>
+                        @endforeach
+                        @if(!empty($inspection->nama_petugas_inspeksi) && !$karyawans->contains('nama', $inspection->nama_petugas_inspeksi))
+                            <option value="{{ $inspection->nama_petugas_inspeksi }}" selected>
+                                {{ $inspection->nama_petugas_inspeksi }} (Tersimpan Sebelumnya)
+                            </option>
+                        @endif
+                    </select>
+                    <p class="field-error-msg hidden text-[11px] text-red-600 font-semibold mt-1 items-center gap-1">
+                        <i class="ph-bold ph-warning-circle"></i> Petugas inspeksi wajib dipilih dari tabel karyawan
+                    </p>
                 </div>
             </div>
 
@@ -260,8 +315,11 @@
                            value="{{ old($noteField, $currentNote ?: $pt['default_note']) }}"
                            required
                            :placeholder="status === 1 ? 'Contoh: Kondisi baik, bersih, swab test bersih' : 'Wajib diisi: Jelaskan detail kerusakan / noda / retak...'"
-                           class="w-full text-xs px-3.5 py-2.5 rounded-xl border font-medium transition-all"
+                           class="form-req w-full text-xs px-3.5 py-2.5 rounded-xl border font-medium transition-all"
                            :class="status === 1 ? 'border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 bg-slate-50/50' : 'border-red-300 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 bg-white'">
+                    <p class="field-error-msg hidden text-[11px] text-red-600 font-semibold mt-1 items-center gap-1">
+                        <i class="ph-bold ph-warning-circle"></i> Catatan pemeriksaan titik ini wajib diisi
+                    </p>
                 </div>
             </div>
             @endforeach
@@ -318,21 +376,53 @@
                 </p>
                 <textarea name="catatan" rows="3" required
                           placeholder="Wajib diisi: Tuliskan catatan kondisi kontainer..."
-                          class="w-full text-xs px-3.5 py-2.5 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 font-medium">{{ old('catatan', $inspection->catatan ?: 'Kontainer dalam keadaan bersih, kering, tidak berbau tajam, bebas benda tajam/paku, dan layak untuk stuffing.') }}</textarea>
+                          class="form-req w-full text-xs px-3.5 py-2.5 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 font-medium">{{ old('catatan', $inspection->catatan ?: 'Kontainer dalam keadaan bersih, kering, tidak berbau tajam, bebas benda tajam/paku, dan layak untuk stuffing.') }}</textarea>
+                <p class="field-error-msg hidden text-[11px] text-red-600 font-semibold mt-1 items-center gap-1">
+                    <i class="ph-bold ph-warning-circle"></i> Catatan tambahan kondisi kontainer wajib diisi
+                </p>
             </div>
 
             <!-- Pengesahan / Inspektor -->
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-gray-100">
                 <div>
-                    <label class="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1">Nama Inspektor <span class="text-red-500">*</span></label>
-                    <input type="text" name="nama_inspektor" value="{{ old('nama_inspektor', $inspection->nama_inspektor ?: ($shipment->allKaryawans()->pluck('nama')->first() ?: auth()->user()?->name)) }}" required
-                           class="w-full text-sm font-semibold px-3.5 py-2.5 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20">
+                    <label class="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1 flex items-center justify-between">
+                        <span>Nama Inspektor <span class="text-red-500">*</span></span>
+                        <span class="text-[10px] text-emerald-600 font-semibold normal-case">Tabel Karyawan</span>
+                    </label>
+                    <select name="nama_inspektor" required
+                            class="form-req w-full text-sm font-semibold px-3.5 py-2.5 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all bg-white">
+                        <option value="">-- Pilih Inspektor (Dari Tabel Karyawan) --</option>
+                        @foreach($karyawans as $k)
+                            <option value="{{ $k->nama }}" {{ old('nama_inspektor', $inspection->nama_inspektor) === $k->nama ? 'selected' : '' }}>
+                                {{ $k->nama }} ({{ $k->position_label }} - {{ $k->nomor_induk }})
+                            </option>
+                        @endforeach
+                        @if(!empty($inspection->nama_inspektor) && !$karyawans->contains('nama', $inspection->nama_inspektor))
+                            <option value="{{ $inspection->nama_inspektor }}" selected>
+                                {{ $inspection->nama_inspektor }} (Tersimpan Sebelumnya)
+                            </option>
+                        @endif
+                    </select>
+                    <p class="field-error-msg hidden text-[11px] text-red-600 font-semibold mt-1 items-center gap-1">
+                        <i class="ph-bold ph-warning-circle"></i> Nama inspektor wajib dipilih dari tabel karyawan
+                    </p>
                 </div>
 
                 <div>
                     <label class="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1">Tanggal Inspeksi <span class="text-red-500">*</span></label>
-                    <input type="date" name="tanggal_inspeksi" value="{{ old('tanggal_inspeksi', $inspection->tanggal_inspeksi ? $inspection->tanggal_inspeksi->format('Y-m-d') : now()->toDateString()) }}" required
-                           class="w-full text-sm px-3.5 py-2.5 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20">
+                    <input type="date" name="tanggal_inspeksi"
+                           value="{{ old('tanggal_inspeksi', $inspection->tanggal_inspeksi ? $inspection->tanggal_inspeksi->format('Y-m-d') : now()->toDateString()) }}"
+                           @if($minDate) min="{{ $minDate }}" @endif
+                           required
+                           class="form-req w-full text-sm px-3.5 py-2.5 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20">
+                    <p class="field-error-msg hidden text-[11px] text-red-600 font-semibold mt-1 items-center gap-1">
+                        <i class="ph-bold ph-warning-circle"></i> Tanggal inspeksi wajib diisi
+                    </p>
+                    @if($minDate)
+                    <p class="text-[10px] text-emerald-700 font-semibold mt-1 flex items-center gap-1">
+                        <i class="ph-bold ph-lock"></i> Tanggal tidak bisa backdate (minimal hari ini)
+                    </p>
+                    @endif
                 </div>
             </div>
         </div>

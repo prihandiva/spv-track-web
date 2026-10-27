@@ -87,7 +87,7 @@
                         <label class="block text-xs font-bold text-gray-700 mb-1.5">
                             Posisi / Peran Petugas <span class="text-rose-500">*</span>
                         </label>
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                             <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-blue-50/40 hover:border-blue-300 transition-all">
                                 <input type="radio" name="position" value="operator" {{ old('position', $karyawan->position ?? 'operator') === 'operator' ? 'checked' : '' }} class="text-spv-blue focus:ring-spv-blue">
                                 <div>
@@ -107,6 +107,13 @@
                                 <div>
                                     <p class="text-xs font-bold text-purple-900">Checker</p>
                                     <p class="text-[10px] text-gray-400 mt-0.5">Petugas pemeriksa / QC</p>
+                                </div>
+                            </label>
+                            <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-emerald-50/40 hover:border-emerald-300 transition-all">
+                                <input type="radio" name="position" value="inspektor" {{ old('position', $karyawan->position) === 'inspektor' ? 'checked' : '' }} class="text-emerald-600 focus:ring-emerald-500">
+                                <div>
+                                    <p class="text-xs font-bold text-emerald-900">Inspektor</p>
+                                    <p class="text-[10px] text-gray-400 mt-0.5">Petugas inspeksi kontainer/bale</p>
                                 </div>
                             </label>
                         </div>
@@ -181,7 +188,7 @@
                 <div class="flex items-center justify-center gap-1.5 mt-1">
                     <span class="text-xs font-mono text-gray-400">{{ $karyawan->nomor_induk }}</span>
                     <span>&bull;</span>
-                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase {{ $karyawan->position === 'checker' ? 'bg-purple-100 text-purple-700' : ($karyawan->position === 'helper' ? 'bg-teal-100 text-teal-700' : 'bg-blue-100 text-blue-700') }}">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase {{ $karyawan->position === 'checker' ? 'bg-purple-100 text-purple-700' : ($karyawan->position === 'helper' ? 'bg-teal-100 text-teal-700' : ($karyawan->position === 'inspektor' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700')) }}">
                         {{ $karyawan->position_label }}
                     </span>
                 </div>

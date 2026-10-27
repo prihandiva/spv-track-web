@@ -156,7 +156,7 @@
 
                                 <!-- Posisi -->
                                 <td class="px-2.5 py-2.5">
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider {{ $karyawan->position === 'checker' ? 'bg-purple-50 text-purple-700 border border-purple-200' : ($karyawan->position === 'helper' ? 'bg-teal-50 text-teal-700 border border-teal-200' : 'bg-blue-50 text-blue-700 border border-blue-200') }}">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider {{ $karyawan->position === 'checker' ? 'bg-purple-50 text-purple-700 border border-purple-200' : ($karyawan->position === 'helper' ? 'bg-teal-50 text-teal-700 border border-teal-200' : ($karyawan->position === 'inspektor' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-blue-50 text-blue-700 border border-blue-200')) }}">
                                         {{ $karyawan->position_label }}
                                     </span>
                                 </td>
@@ -355,7 +355,7 @@
                                 <label class="block text-xs font-bold text-gray-700 mb-1.5">
                                     Posisi / Peran Petugas <span class="text-rose-500">*</span>
                                 </label>
-                                <div class="grid grid-cols-3 gap-2">
+                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                     <label class="flex items-center gap-2 p-2.5 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
                                         <input type="radio" name="position" value="operator" checked class="text-spv-blue focus:ring-spv-blue">
                                         <span class="text-xs font-bold text-blue-900">Operator</span>
@@ -367,6 +367,10 @@
                                     <label class="flex items-center gap-2 p-2.5 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
                                         <input type="radio" name="position" value="checker" class="text-spv-blue focus:ring-spv-blue">
                                         <span class="text-xs font-bold text-purple-900">Checker</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 p-2.5 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
+                                        <input type="radio" name="position" value="inspektor" class="text-emerald-600 focus:ring-emerald-500">
+                                        <span class="text-xs font-bold text-emerald-900">Inspektor</span>
                                     </label>
                                 </div>
                             </div>
@@ -487,7 +491,7 @@
                                 <label class="block text-xs font-bold text-gray-700 mb-1.5">
                                     Posisi / Peran Petugas <span class="text-rose-500">*</span>
                                 </label>
-                                <div class="grid grid-cols-3 gap-2">
+                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                     <label class="flex items-center gap-2 p-2.5 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
                                         <input type="radio" name="position" value="operator" x-model="editPetugas.position" class="text-spv-blue focus:ring-spv-blue">
                                         <span class="text-xs font-bold text-blue-900">Operator</span>
@@ -499,6 +503,10 @@
                                     <label class="flex items-center gap-2 p-2.5 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
                                         <input type="radio" name="position" value="checker" x-model="editPetugas.position" class="text-spv-blue focus:ring-spv-blue">
                                         <span class="text-xs font-bold text-purple-900">Checker</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 p-2.5 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
+                                        <input type="radio" name="position" value="inspektor" x-model="editPetugas.position" class="text-emerald-600 focus:ring-emerald-500">
+                                        <span class="text-xs font-bold text-emerald-900">Inspektor</span>
                                     </label>
                                 </div>
                             </div>

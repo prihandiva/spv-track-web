@@ -284,4 +284,134 @@ class InspectionTest extends TestCase
         $response->assertSee('Form Inspeksi Kondisi Kontainer');
         $response->assertSee('Form Inspeksi Kondisi Bale (Loading)');
     }
+
+    public function test_operator_cannot_backdate_container_inspection_date(): void
+    {
+        $operator = User::create([
+            'nama_warehouse' => 'Warehouse Operator',
+            'email' => 'op_field@spvtrack.com',
+            'password' => bcrypt('password'),
+            'role' => 'operator',
+        ]);
+        $this->actingAs($operator);
+
+        $payload = [
+            'loading_date' => now()->subDay()->toDateString(), // Backdate
+            'nomor_kontainer' => 'TGHU1234567',
+            'nomor_seal' => 'LENZ987654',
+            'nama_emkl_pelayaran' => 'Maersk Line',
+            'nama_petugas_inspeksi' => 'Budi Santoso',
+            'pintu_status' => 1,
+            'pintu_catatan' => 'OK',
+            'dinding_kanan_status' => 1,
+            'dinding_kanan_catatan' => 'OK',
+            'dinding_kiri_status' => 1,
+            'dinding_kiri_catatan' => 'OK',
+            'dinding_depan_status' => 1,
+            'dinding_depan_catatan' => 'OK',
+            'atap_status' => 1,
+            'atap_catatan' => 'OK',
+            'lantai_status' => 1,
+            'lantai_catatan' => 'OK',
+            'kesimpulan' => 'layak',
+            'catatan' => 'Lengkap',
+            'nama_inspektor' => 'Budi Santoso',
+            'tanggal_inspeksi' => now()->subDays(2)->toDateString(), // Backdate
+        ];
+
+        $response = $this->post(route('field-app.container-inspection.save', $this->shipment->id), $payload);
+        $response->assertSessionHasErrors(['loading_date', 'tanggal_inspeksi']);
+    }
+
+    public function test_operator_cannot_backdate_bale_inspection_date(): void
+    {
+        $operator = User::create([
+            'nama_warehouse' => 'Warehouse Operator 2',
+            'email' => 'op_field2@spvtrack.com',
+            'password' => bcrypt('password'),
+            'role' => 'operator',
+        ]);
+        $this->actingAs($operator);
+
+        $payload = [
+            'loading_date' => now()->subDay()->toDateString(), // Backdate
+            'nama_petugas_loading' => 'Budi Santoso',
+            'nomor_surat_jalan' => '900000001',
+            'nama_pelanggan' => 'PT Maju Bersama',
+            'jumlah_bale' => 100,
+            'nomor_kontainer_truk' => 'TGHU1234567',
+            'first_eye_nama' => 'Budi Santoso',
+            'first_eye_jabatan' => 'Inspektor',
+            'first_eye_tanggal' => now()->subDays(3)->toDateString(), // Backdate
+            'kesimpulan_akhir' => 'layak',
+        ];
+
+        $response = $this->post(route('field-app.bale-inspection.save', $this->shipment->id), $payload);
+        $response->assertSessionHasErrors(['loading_date', 'first_eye_tanggal']);
+    }
+
+    public function test_can_save_bale_inspection_with_multiple_scanned_pairs_and_requires_replacement(): void
+    {
+        $items = [];
+        for ($i = 1; $i <= 8; $i++) {
+            $items[$i] = [
+                'ada' => 0,
+                'jumlah' => 0,
+                'tindakan' => null,
+            ];
+        }
+
+        // Cacat pada item 1 dengan 2 pasang barcode bale yang discan
+        $items[1]['ada'] = 1;
+        $items[1]['tindakan'] = 'diganti';
+        $items[1]['pairs'] = [
+            ['awal' => 'BALE-A01', 'pengganti' => 'BALE-P01'],
+            ['awal' => 'BALE-A02', 'pengganti' => 'BALE-P02'],
+        ];
+
+        $payload = [
+            'loading_date' => now()->toDateString(),
+            'nama_petugas_loading' => 'Budi Santoso',
+            'nomor_surat_jalan' => '900000001',
+            'nama_pelanggan' => 'PT Maju Bersama',
+            'jumlah_bale' => 120,
+            'nomor_kontainer_truk' => 'TGHU1234567',
+            'jenis_bale' => ['tx_ecovero'],
+            'jenis_label' => ['fsc'],
+            'first_eye_nama' => 'Budi Santoso',
+            'first_eye_jabatan' => 'Inspektor',
+            'first_eye_tanggal' => now()->toDateString(),
+            'second_eye_status' => 'disetujui',
+            'second_eye_catatan' => 'OK',
+            'second_eye_nama' => 'Agus SPV',
+            'second_eye_jabatan' => 'Supervisor',
+            'second_eye_tanggal' => now()->toDateString(),
+            'sumber_bale' => 'inspeksi_join_checking',
+            'stagging_2_rubber_cone' => 1,
+            'lokasi_stagging' => 'Gudang Atas',
+            'cuaca' => 'kering',
+            'waktu' => 'siang',
+            'kesimpulan_akhir' => 'layak',
+            'items' => $items,
+        ];
+
+        $response = $this->post(route('field-app.bale-inspection.save', $this->shipment->id), $payload);
+        $response->assertRedirect(route('field-app.timeline', $this->shipment->id));
+
+        $this->assertDatabaseHas('bale_inspection_items', [
+            'item_index' => 1,
+            'ada_ketidaksesuaian' => true,
+            'jumlah_bale' => 2,
+            'nomor_bale_awal' => 'BALE-A01, BALE-A02',
+            'nomor_bale_pengganti' => 'BALE-P01, BALE-P02',
+        ]);
+
+        // Uji validasi: jika ada temuan tapi pengganti kosong, harus ditolak
+        $items[1]['pairs'] = [
+            ['awal' => 'BALE-A03', 'pengganti' => ''],
+        ];
+        $payload['items'] = $items;
+        $failResponse = $this->post(route('field-app.bale-inspection.save', $this->shipment->id), $payload);
+        $failResponse->assertSessionHasErrors(['items.1.bale_pengganti']);
+    }
 }

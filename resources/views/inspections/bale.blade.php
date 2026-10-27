@@ -46,7 +46,161 @@
     </div>
     @endif
 
-    <form action="{{ route('field-app.bale-inspection.save', $shipment->id) }}" method="POST">
+    <!-- Barcode Scanner & App Script -->
+    <script src="{{ asset('vendor/html5-qrcode.min.js') }}"></script>
+    <script>
+    function baleInspectionApp() {
+        return {
+            barcodeScanning: false,
+            barcodeTitle: '',
+            barcodeTargetCallback: null,
+            html5Scanner: null,
+            barcodeStream: null,
+            manualBarcodeInput: '',
+
+            openBarcodeScanner(title, callback) {
+                this.barcodeTitle = title;
+                this.barcodeTargetCallback = callback;
+                this.manualBarcodeInput = '';
+                this.barcodeScanning = true;
+                this.$nextTick(() => {
+                    this.startBarcodeScan();
+                });
+            },
+
+            async startBarcodeScan() {
+                if (typeof Html5Qrcode !== 'undefined') {
+                    try {
+                        const readerEl = document.getElementById('bale-barcode-reader');
+                        if (readerEl) {
+                            readerEl.innerHTML = '';
+                            this.html5Scanner = new Html5Qrcode('bale-barcode-reader');
+                            const config = {
+                                fps: 15,
+                                qrbox: { width: 300, height: 120 },
+                                aspectRatio: 1.333333
+                            };
+                            await this.html5Scanner.start(
+                                { facingMode: 'environment' },
+                                config,
+                                (decodedText) => {
+                                    this.handleBarcodeResult(decodedText);
+                                },
+                                () => {}
+                            );
+                            return;
+                        }
+                    } catch (err) {
+                        console.warn('Html5Qrcode scanner failed:', err);
+                    }
+                }
+
+                // Fallback native BarcodeDetector
+                const video = this.$refs.baleBarcodeVideo;
+                if (video && ('BarcodeDetector' in window)) {
+                    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+                        .then(stream => {
+                            this.barcodeStream = stream;
+                            video.style.display = 'block';
+                            video.srcObject = stream;
+                            video.play();
+                            const detector = new BarcodeDetector({ formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'itf', 'qr_code', 'data_matrix'] });
+                            const scan = () => {
+                                if (!this.barcodeScanning) return;
+                                detector.detect(video).then(codes => {
+                                    if (codes.length > 0) {
+                                        this.handleBarcodeResult(codes[0].rawValue);
+                                    } else {
+                                        requestAnimationFrame(scan);
+                                    }
+                                }).catch(() => requestAnimationFrame(scan));
+                            };
+                            requestAnimationFrame(scan);
+                        })
+                        .catch(() => {
+                            this.barcodeScanning = false;
+                            alert('Tidak dapat membuka kamera. Pastikan izin kamera aktif, atau gunakan barcode scanner USB/Bluetooth — klik pada kolom lalu scan.');
+                        });
+                } else {
+                    alert('Scanner kamera tidak tersedia. Anda dapat mengetik nomor barcode atau menggunakan scanner USB.');
+                }
+            },
+
+            async closeBarcodeScanner() {
+                this.barcodeScanning = false;
+                if (this.html5Scanner) {
+                    try {
+                        await this.html5Scanner.stop();
+                        this.html5Scanner.clear();
+                    } catch (e) {}
+                    this.html5Scanner = null;
+                }
+                if (this.barcodeStream) {
+                    this.barcodeStream.getTracks().forEach(t => t.stop());
+                    this.barcodeStream = null;
+                }
+                const video = this.$refs.baleBarcodeVideo;
+                if (video) {
+                    video.style.display = 'none';
+                    video.srcObject = null;
+                }
+            },
+
+            playBeep() {
+                try {
+                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.frequency.value = 920;
+                    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.12);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.12);
+                    if (navigator.vibrate) navigator.vibrate(80);
+                } catch (e) {}
+            },
+
+            handleBarcodeResult(raw) {
+                const cleaned = (raw || '').trim();
+                if (!cleaned) return;
+                this.playBeep();
+                if (typeof this.barcodeTargetCallback === 'function') {
+                    this.barcodeTargetCallback(cleaned);
+                }
+                this.closeBarcodeScanner();
+            },
+
+            submitManualBarcode() {
+                if (this.manualBarcodeInput.trim()) {
+                    this.handleBarcodeResult(this.manualBarcodeInput);
+                }
+            }
+        };
+    }
+    </script>
+
+    <style>
+        .form-req:invalid:not(:placeholder-shown),
+        .was-validated .form-req:invalid {
+            border-color: #ef4444 !important;
+            background-color: #fffbfa !important;
+            box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.2) !important;
+        }
+        .was-validated .form-req:invalid ~ .field-error-msg,
+        .form-req:invalid:not(:placeholder-shown) ~ .field-error-msg {
+            display: flex !important;
+        }
+    </style>
+
+    @php
+        $minDate = (auth()->user()?->isOperator() ?? true) ? date('Y-m-d') : '';
+    @endphp
+
+    <form id="baleForm" action="{{ route('field-app.bale-inspection.save', $shipment->id) }}" method="POST"
+          x-data="baleInspectionApp()"
+          onsubmit="if(!this.checkValidity()){ event.preventDefault(); this.classList.add('was-validated'); const first = this.querySelector(':invalid'); if(first){ first.scrollIntoView({behavior:'smooth', block:'center'}); first.focus(); } return false; }">
         @csrf
 
         <!-- Official Header Card (Lenzing Brand) -->
@@ -74,20 +228,45 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
                 <div>
                     <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1 flex items-center justify-between">
-                        <span>Tanggal Loading</span>
-                        <span class="text-[10px] text-emerald-600 font-semibold normal-case">Dari Shipment</span>
+                        <span>Tanggal Staging / Loading <span class="text-red-500">*</span></span>
+                        <span class="text-[10px] text-emerald-600 font-semibold normal-case">Staging Date</span>
                     </label>
-                    <input type="date" name="loading_date" value="{{ old('loading_date', $inspection->loading_date ? $inspection->loading_date->format('Y-m-d') : ($shipment->tanggal_staging ? $shipment->tanggal_staging->format('Y-m-d') : now()->toDateString())) }}"
-                           class="w-full text-sm px-3.5 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all">
+                    <input type="date" name="loading_date"
+                           value="{{ old('loading_date', $inspection->loading_date ? $inspection->loading_date->format('Y-m-d') : ($shipment->tanggal_staging ? $shipment->tanggal_staging->format('Y-m-d') : now()->toDateString())) }}"
+                           @if($minDate) min="{{ $minDate }}" @endif
+                           required
+                           class="form-req w-full text-sm font-bold px-3.5 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all">
+                    <p class="field-error-msg hidden text-[11px] text-red-600 font-semibold mt-1 items-center gap-1">
+                        <i class="ph-bold ph-warning-circle"></i> Tanggal staging / loading wajib diisi
+                    </p>
+                    @if($minDate)
+                    <p class="text-[10px] text-emerald-700 font-semibold mt-1 flex items-center gap-1">
+                        <i class="ph-bold ph-lock"></i> Tanggal tidak bisa backdate (minimal hari ini)
+                    </p>
+                    @endif
                 </div>
                 <div>
                     <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1 flex items-center justify-between">
-                        <span>Nama Petugas Loading</span>
-                        <span class="text-[10px] text-emerald-600 font-semibold normal-case">Petugas Staging</span>
+                        <span>Nama Petugas Loading <span class="text-red-500">*</span></span>
+                        <span class="text-[10px] text-emerald-600 font-semibold normal-case">Tabel Karyawan</span>
                     </label>
-                    <input type="text" name="nama_petugas_loading" value="{{ old('nama_petugas_loading', $inspection->nama_petugas_loading ?: ($shipment->allKaryawans()->pluck('nama')->first() ?: ($shipment->karyawan?->nama ?? auth()->user()?->name))) }}"
-                           placeholder="Nama operator"
-                           class="w-full text-sm font-semibold px-3.5 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all">
+                    <select name="nama_petugas_loading" required
+                            class="form-req w-full text-sm font-semibold px-3.5 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all bg-white">
+                        <option value="">-- Pilih Petugas Loading (Dari Tabel Karyawan) --</option>
+                        @foreach($karyawans as $k)
+                            <option value="{{ $k->nama }}" {{ old('nama_petugas_loading', $inspection->nama_petugas_loading) === $k->nama ? 'selected' : '' }}>
+                                {{ $k->nama }} ({{ $k->position_label }} - {{ $k->nomor_induk }})
+                            </option>
+                        @endforeach
+                        @if(!empty($inspection->nama_petugas_loading) && !$karyawans->contains('nama', $inspection->nama_petugas_loading))
+                            <option value="{{ $inspection->nama_petugas_loading }}" selected>
+                                {{ $inspection->nama_petugas_loading }} (Tersimpan Sebelumnya)
+                            </option>
+                        @endif
+                    </select>
+                    <p class="field-error-msg hidden text-[11px] text-red-600 font-semibold mt-1 items-center gap-1">
+                        <i class="ph-bold ph-warning-circle"></i> Petugas loading wajib dipilih dari tabel karyawan
+                    </p>
                 </div>
             </div>
 
@@ -119,22 +298,37 @@
                 <div>
                     <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">Nomor Surat Jalan <span class="text-red-500">*</span></label>
                     <input type="text" name="nomor_surat_jalan" value="{{ old('nomor_surat_jalan', $inspection->nomor_surat_jalan ?: $shipment->packing_list_no) }}" required
-                           class="w-full text-sm font-mono font-bold px-3.5 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 uppercase bg-slate-50/50">
+                           placeholder="Contoh: 800123456"
+                           class="form-req w-full text-sm font-mono font-bold px-3.5 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 uppercase bg-slate-50/50">
+                    <p class="field-error-msg hidden text-[11px] text-red-600 font-semibold mt-1 items-center gap-1">
+                        <i class="ph-bold ph-warning-circle"></i> Nomor surat jalan wajib diisi
+                    </p>
                 </div>
                 <div>
-                    <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">Nama Pelanggan (Customer)</label>
-                    <input type="text" name="nama_pelanggan" value="{{ old('nama_pelanggan', $inspection->nama_pelanggan ?: $shipment->tujuan_pengiriman) }}"
-                           class="w-full text-sm px-3.5 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
+                    <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">Nama Pelanggan (Customer) <span class="text-red-500">*</span></label>
+                    <input type="text" name="nama_pelanggan" value="{{ old('nama_pelanggan', $inspection->nama_pelanggan ?: $shipment->tujuan_pengiriman) }}" required
+                           placeholder="Contoh: Pelabuhan Tanjung Priok"
+                           class="form-req w-full text-sm px-3.5 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
+                    <p class="field-error-msg hidden text-[11px] text-red-600 font-semibold mt-1 items-center gap-1">
+                        <i class="ph-bold ph-warning-circle"></i> Nama pelanggan wajib diisi
+                    </p>
                 </div>
                 <div>
-                    <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">Jumlah Bale</label>
-                    <input type="number" name="jumlah_bale" value="{{ old('jumlah_bale', $inspection->jumlah_bale) }}" placeholder="Contoh: 120" min="0"
-                           class="w-full text-sm font-bold px-3.5 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
+                    <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">Jumlah Total Bale <span class="text-red-500">*</span></label>
+                    <input type="number" name="jumlah_bale" value="{{ old('jumlah_bale', $inspection->jumlah_bale ?: $shipment->jumlah_bale) }}" placeholder="Contoh: 86" min="1" required
+                           class="form-req w-full text-sm font-bold px-3.5 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
+                    <p class="field-error-msg hidden text-[11px] text-red-600 font-semibold mt-1 items-center gap-1">
+                        <i class="ph-bold ph-warning-circle"></i> Jumlah total bale wajib diisi
+                    </p>
                 </div>
                 <div>
-                    <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">No. Kontainer / Truk Lokal</label>
-                    <input type="text" name="nomor_kontainer_truk" value="{{ old('nomor_kontainer_truk', $inspection->nomor_kontainer_truk ?: ($shipment->nomor_container_atau_plat ?: $shipment->plat_nomor)) }}"
-                           class="w-full text-sm font-mono font-bold px-3.5 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 uppercase">
+                    <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">No. Kontainer / Truk Lokal <span class="text-red-500">*</span></label>
+                    <input type="text" name="nomor_kontainer_truk" value="{{ old('nomor_kontainer_truk', $inspection->nomor_kontainer_truk ?: ($shipment->nomor_container_atau_plat ?: $shipment->plat_nomor)) }}" required
+                           placeholder="Contoh: MSKU1234567"
+                           class="form-req w-full text-sm font-mono font-bold px-3.5 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 uppercase">
+                    <p class="field-error-msg hidden text-[11px] text-red-600 font-semibold mt-1 items-center gap-1">
+                        <i class="ph-bold ph-warning-circle"></i> Nomor kontainer/truk wajib diisi
+                    </p>
                 </div>
             </div>
 
@@ -222,31 +416,60 @@
                 Pastikan bale <strong>TIDAK</strong> mengalami kondisi berikut. Tandai "Ada" dan isi rincian jika ada temuan cacat/ketidaksesuaian:
             </p>
 
-            <div class="space-y-3">
+            <div class="space-y-4">
                 @foreach($defaultChecklist as $idx => $label)
                 @php
                     $item = $items->get($idx);
                     $ada = old("items.{$idx}.ada", $item?->ada_ketidaksesuaian ?? false);
                     $jml = old("items.{$idx}.jumlah", $item?->jumlah_bale);
-                    $tindakan = old("items.{$idx}.tindakan", $item?->tindakan_perbaikan);
+                    $tindakan = old("items.{$idx}.tindakan", $item?->tindakan_perbaikan ?? 'diganti');
                     $tindakanLain = old("items.{$idx}.tindakan_lainnya", $item?->tindakan_lainnya);
-                    $baleAwal = old("items.{$idx}.bale_awal", $item?->nomor_bale_awal);
-                    $baleGanti = old("items.{$idx}.bale_pengganti", $item?->nomor_bale_pengganti);
+                    $pairsInit = $item?->bale_pairs ?? [['awal' => '', 'pengganti' => '']];
+                    if (old("items.{$idx}.pairs")) {
+                        $pairsInit = old("items.{$idx}.pairs");
+                    } elseif (old("items.{$idx}.bale_awal")) {
+                        $rawA = explode(',', old("items.{$idx}.bale_awal"));
+                        $rawP = explode(',', old("items.{$idx}.bale_pengganti", ''));
+                        $c = max(count($rawA), count($rawP));
+                        $pairsInit = [];
+                        for ($k=0; $k<$c; $k++) {
+                            $pairsInit[] = ['awal' => trim($rawA[$k] ?? ''), 'pengganti' => trim($rawP[$k] ?? '')];
+                        }
+                    }
                 @endphp
-                <div x-data="{ ada: {{ $ada ? 1 : 0 }} }"
-                     class="rounded-2xl p-4 border transition-all"
-                     :class="ada === 1 ? 'bg-amber-50/40 border-amber-300 shadow-xs' : 'bg-slate-50/50 border-gray-200'">
+                <div x-data="{
+                    ada: {{ $ada ? 1 : 0 }},
+                    tindakan: '{{ $tindakan }}',
+                    pairs: {{ Js::from($pairsInit) }},
+                    addPair() {
+                        this.pairs.push({ awal: '', pengganti: '' });
+                    },
+                    removePair(pIdx) {
+                        if (this.pairs.length > 1) {
+                            this.pairs.splice(pIdx, 1);
+                        } else {
+                            this.pairs = [{ awal: '', pengganti: '' }];
+                        }
+                    }
+                }"
+                     class="rounded-2xl p-4 sm:p-5 border transition-all"
+                     :class="ada === 1 ? 'bg-amber-50/50 border-amber-300 shadow-sm' : 'bg-slate-50/50 border-gray-200'">
                     
                     <!-- Hidden input to reliably submit 0 or 1 -->
                     <input type="hidden" name="items[{{ $idx }}][ada]" :value="ada">
 
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div class="flex items-center gap-3">
-                            <span class="w-7 h-7 rounded-lg font-bold text-xs flex items-center justify-center shrink-0"
-                                  :class="ada === 1 ? 'bg-amber-500 text-white' : 'bg-white border border-gray-200 text-gray-600'">
+                            <span class="w-8 h-8 rounded-xl font-extrabold text-xs flex items-center justify-center shrink-0 transition-all"
+                                  :class="ada === 1 ? 'bg-amber-500 text-white shadow-xs' : 'bg-white border border-gray-200 text-gray-600'">
                                 {{ $idx }}
                             </span>
-                            <span class="text-xs sm:text-sm font-bold text-gray-800">{{ $label }}</span>
+                            <div>
+                                <span class="text-xs sm:text-sm font-bold text-gray-800">{{ $label }}</span>
+                                <p x-show="ada === 1" class="text-[11px] text-amber-700 font-semibold mt-0.5" x-cloak>
+                                    <span x-text="pairs.filter(p => p.awal || p.pengganti).length || pairs.length"></span> Bale Cacat Tercatat
+                                </p>
+                            </div>
                         </div>
 
                         <!-- Ada / Tidak Toggle Buttons -->
@@ -267,31 +490,150 @@
                     </div>
 
                     <!-- Detail Isian Jika Ada Ketidaksesuaian -->
-                    <div x-show="ada === 1" x-cloak class="mt-4 pt-3 border-t border-amber-200/70 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                        <div>
-                            <label class="block text-[11px] font-bold text-gray-600 mb-1">Jumlah Bale Cacat:</label>
-                            <input type="number" name="items[{{ $idx }}][jumlah]" value="{{ $jml }}" placeholder="Qty" min="1"
-                                   class="w-full text-xs px-3 py-2 rounded-xl border border-gray-300 focus:border-amber-500 bg-white">
+                    <div x-show="ada === 1" x-cloak class="mt-4 pt-4 border-t border-amber-200/80 space-y-4">
+                        <!-- Row 1: Tindakan Perbaikan & Ringkasan Qty -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 mb-1">
+                                    Tindakan Perbaikan <span class="text-red-500">*</span>
+                                </label>
+                                <select name="items[{{ $idx }}][tindakan]" x-model="tindakan" :required="ada === 1"
+                                        class="form-req w-full text-xs font-semibold px-3 py-2.5 rounded-xl border border-gray-300 focus:border-amber-500 bg-white">
+                                    <option value="diganti">Diganti</option>
+                                    <option value="diperbaiki">Diperbaiki / ditambal / dibersihkan</option>
+                                    <option value="ganti_label">Ganti label (EV / Non-EV)</option>
+                                    <option value="lainnya">Lainnya</option>
+                                </select>
+                                <p class="field-error-msg hidden text-[11px] text-red-600 font-semibold mt-1 items-center gap-1">
+                                    <i class="ph-bold ph-warning-circle"></i> Tindakan perbaikan wajib dipilih
+                                </p>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 mb-1">
+                                    Jumlah Bale Cacat:
+                                </label>
+                                <div class="flex items-center gap-2">
+                                    <input type="number" name="items[{{ $idx }}][jumlah]"
+                                           :value="pairs.length"
+                                           readonly
+                                           class="w-24 text-xs font-extrabold px-3 py-2.5 rounded-xl border border-amber-300 bg-amber-50 text-amber-900 text-center">
+                                    <span class="text-[11px] text-gray-500 font-medium leading-tight">
+                                        Otomatis dihitung dari jumlah pasang bale rusak &amp; pengganti di bawah
+                                    </span>
+                                </div>
+                            </div>
                         </div>
-                        <div>
-                            <label class="block text-[11px] font-bold text-gray-600 mb-1">Tindakan Perbaikan:</label>
-                            <select name="items[{{ $idx }}][tindakan]" class="w-full text-xs px-3 py-2 rounded-xl border border-gray-300 focus:border-amber-500 bg-white">
-                                <option value="">-- Pilih Tindakan --</option>
-                                <option value="diganti" {{ $tindakan === 'diganti' ? 'selected' : '' }}>Diganti</option>
-                                <option value="diperbaiki" {{ $tindakan === 'diperbaiki' ? 'selected' : '' }}>Diperbaiki / ditambal / dibersihkan</option>
-                                <option value="ganti_label" {{ $tindakan === 'ganti_label' ? 'selected' : '' }}>Ganti label (EV / Non-EV)</option>
-                                <option value="lainnya" {{ $tindakan === 'lainnya' ? 'selected' : '' }}>Lainnya</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-[11px] font-bold text-gray-600 mb-1">No. Bale Awal:</label>
-                            <input type="text" name="items[{{ $idx }}][bale_awal]" value="{{ $baleAwal }}" placeholder="Nomor bale reject"
-                                   class="w-full text-xs px-3 py-2 rounded-xl border border-gray-300 focus:border-amber-500 bg-white font-mono">
-                        </div>
-                        <div>
-                            <label class="block text-[11px] font-bold text-gray-600 mb-1">No. Bale Pengganti:</label>
-                            <input type="text" name="items[{{ $idx }}][bale_pengganti]" value="{{ $baleGanti }}" placeholder="Nomor bale baru"
-                                   class="w-full text-xs px-3 py-2 rounded-xl border border-gray-300 focus:border-amber-500 bg-white font-mono">
+
+                        <!-- Row 2: Dynamic List of Pairs (Bale Rusak & Pengganti) with Barcode Scanner -->
+                        <div class="bg-white/80 backdrop-blur-xs p-3.5 sm:p-4 rounded-xl border border-amber-200">
+                            <div class="flex items-center justify-between mb-2.5 flex-wrap gap-2">
+                                <div class="flex items-center gap-2">
+                                    <i class="ph-bold ph-barcode text-amber-600 text-base"></i>
+                                    <h4 class="text-xs font-extrabold text-gray-800 uppercase tracking-wide">
+                                        Pencatatan Nomor Barcode Bale Rusak &amp; Penggantinya
+                                    </h4>
+                                </div>
+                                <span class="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                                    Wajib Ada Penggantinya
+                                </span>
+                            </div>
+                            <p class="text-[11px] text-gray-500 mb-3">
+                                Gunakan tombol <strong>Scan</strong> untuk membaca barcode batang pada bale via kamera HP/Laptop, atau klik kolom dan tembak dengan scanner USB/Bluetooth.
+                            </p>
+
+                            <!-- Pairs Repeater -->
+                            <div class="space-y-3">
+                                <template x-for="(pair, pIdx) in pairs" :key="pIdx">
+                                    <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 hover:border-amber-300 transition-all flex flex-col md:flex-row items-stretch md:items-center gap-3">
+                                        <span class="w-6 h-6 rounded-lg bg-amber-500 text-white font-bold text-[11px] flex items-center justify-center shrink-0 self-start md:self-center"
+                                              x-text="'#' + (pIdx + 1)"></span>
+
+                                        <!-- Bale Rusak (Awal) -->
+                                        <div class="flex-1">
+                                            <label class="block text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-1">
+                                                No. Bale Rusak (Awal) <span class="text-red-500">*</span>
+                                            </label>
+                                            <div class="flex items-center gap-1.5">
+                                                <input type="text"
+                                                       :name="'items[{{ $idx }}][pairs][' + pIdx + '][awal]'"
+                                                       x-model="pair.awal"
+                                                       :required="ada === 1"
+                                                       placeholder="Scan / ketik no bale rusak..."
+                                                       class="form-req w-full text-xs font-mono font-bold px-3 py-2 rounded-lg border border-gray-300 focus:border-amber-500 bg-white uppercase">
+                                                <button type="button"
+                                                        @click="openBarcodeScanner('Scan: {{ addslashes($label) }} - Bale Rusak #' + (pIdx + 1), (val) => { pair.awal = val })"
+                                                        class="px-2.5 py-2 rounded-lg bg-blue-50 text-spv-blue hover:bg-blue-100 border border-blue-200 text-xs font-bold flex items-center gap-1 shrink-0 transition-all cursor-pointer"
+                                                        title="Scan Barcode Batang Bale Rusak">
+                                                    <i class="ph-bold ph-barcode text-sm"></i>
+                                                    <span class="hidden sm:inline">Scan</span>
+                                                </button>
+                                            </div>
+                                            <p class="field-error-msg hidden text-[10px] text-red-600 font-semibold mt-1 items-center gap-1">
+                                                <i class="ph-bold ph-warning-circle"></i> Nomor bale rusak wajib diisi
+                                            </p>
+                                        </div>
+
+                                        <!-- Arrow Indicator -->
+                                        <div class="hidden md:flex items-center justify-center shrink-0 text-amber-500 pt-3">
+                                            <i class="ph-bold ph-arrow-right text-base"></i>
+                                        </div>
+
+                                        <!-- Bale Pengganti -->
+                                        <div class="flex-1">
+                                            <label class="block text-[10px] font-bold text-emerald-700 uppercase tracking-wider mb-1">
+                                                No. Bale Pengganti <span class="text-red-500">* (Harus Ada)</span>
+                                            </label>
+                                            <div class="flex items-center gap-1.5">
+                                                <input type="text"
+                                                       :name="'items[{{ $idx }}][pairs][' + pIdx + '][pengganti]'"
+                                                       x-model="pair.pengganti"
+                                                       :required="ada === 1"
+                                                       placeholder="Scan / ketik no bale baru..."
+                                                       class="form-req w-full text-xs font-mono font-bold px-3 py-2 rounded-lg border border-emerald-300 focus:border-emerald-500 bg-emerald-50/20 uppercase">
+                                                <button type="button"
+                                                        @click="openBarcodeScanner('Scan: {{ addslashes($label) }} - Bale Pengganti #' + (pIdx + 1), (val) => { pair.pengganti = val })"
+                                                        class="px-2.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1 shrink-0 transition-all cursor-pointer shadow-xs"
+                                                        title="Scan Barcode Batang Bale Pengganti">
+                                                    <i class="ph-bold ph-barcode text-sm"></i>
+                                                    <span class="hidden sm:inline">Scan</span>
+                                                </button>
+                                            </div>
+                                            <p class="field-error-msg hidden text-[10px] text-red-600 font-semibold mt-1 items-center gap-1">
+                                                <i class="ph-bold ph-warning-circle"></i> Nomor bale pengganti wajib diisi
+                                            </p>
+                                        </div>
+
+                                        <!-- Action Delete (jika > 1) -->
+                                        <div class="pt-0 md:pt-4 self-end md:self-center shrink-0">
+                                            <button type="button"
+                                                    x-show="pairs.length > 1"
+                                                    @click="removePair(pIdx)"
+                                                    class="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                                                    title="Hapus baris bale ini">
+                                                <i class="ph-bold ph-trash text-sm"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+
+                            <!-- Add Pair Button -->
+                            <div class="mt-3 pt-2.5 border-t border-slate-200/70 flex items-center justify-between flex-wrap gap-2">
+                                <button type="button"
+                                        @click="addPair()"
+                                        class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-amber-800 bg-amber-100 hover:bg-amber-200 transition-all shadow-xs cursor-pointer">
+                                    <i class="ph-bold ph-plus-circle text-base"></i>
+                                    <span>Tambah Bale Rusak &amp; Pengganti</span>
+                                </button>
+                                <span class="text-[11px] font-semibold text-gray-600">
+                                    Total: <strong class="text-amber-700" x-text="pairs.length"></strong> Pasang Bale
+                                </span>
+                            </div>
+
+                            <!-- Fallback hidden inputs for legacy controller -->
+                            <input type="hidden" name="items[{{ $idx }}][bale_awal]" :value="pairs.map(p => p.awal).filter(Boolean).join(', ')">
+                            <input type="hidden" name="items[{{ $idx }}][bale_pengganti]" :value="pairs.map(p => p.pengganti).filter(Boolean).join(', ')">
                         </div>
                     </div>
                 </div>
@@ -319,18 +661,47 @@
                     <div class="space-y-3">
                         <div>
                             <label class="block text-[11px] font-bold text-gray-600 mb-1">Nama Petugas <span class="text-red-500">*</span></label>
-                            <input type="text" name="first_eye_nama" value="{{ old('first_eye_nama', $inspection->first_eye_nama) }}" required
-                                   class="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-gray-200 bg-white">
+                            <select name="first_eye_nama" required
+                                    class="form-req w-full text-xs font-semibold px-3 py-2 rounded-xl border border-gray-200 bg-white focus:border-blue-500">
+                                <option value="">-- Pilih Pemeriksa Pertama (Dari Tabel Karyawan) --</option>
+                                @foreach($karyawans as $k)
+                                    <option value="{{ $k->nama }}" {{ old('first_eye_nama', $inspection->first_eye_nama) === $k->nama ? 'selected' : '' }}>
+                                        {{ $k->nama }} ({{ $k->position_label }} - {{ $k->nomor_induk }})
+                                    </option>
+                                @endforeach
+                                @if(!empty($inspection->first_eye_nama) && !$karyawans->contains('nama', $inspection->first_eye_nama))
+                                    <option value="{{ $inspection->first_eye_nama }}" selected>
+                                        {{ $inspection->first_eye_nama }} (Tersimpan Sebelumnya)
+                                    </option>
+                                @endif
+                            </select>
+                            <p class="field-error-msg hidden text-[11px] text-red-600 font-semibold mt-1 items-center gap-1">
+                                <i class="ph-bold ph-warning-circle"></i> Nama pemeriksa pertama wajib dipilih
+                            </p>
                         </div>
                         <div>
-                            <label class="block text-[11px] font-bold text-gray-600 mb-1">Jabatan / Unit</label>
-                            <input type="text" name="first_eye_jabatan" value="{{ old('first_eye_jabatan', $inspection->first_eye_jabatan) }}"
-                                   class="w-full text-xs px-3 py-2 rounded-xl border border-gray-200 bg-white">
+                            <label class="block text-[11px] font-bold text-gray-600 mb-1">Jabatan / Unit <span class="text-red-500">*</span></label>
+                            <input type="text" name="first_eye_jabatan" value="{{ old('first_eye_jabatan', $inspection->first_eye_jabatan ?: 'Inspektor / QPD') }}" required
+                                   class="form-req w-full text-xs px-3 py-2 rounded-xl border border-gray-200 bg-white">
+                            <p class="field-error-msg hidden text-[11px] text-red-600 font-semibold mt-1 items-center gap-1">
+                                <i class="ph-bold ph-warning-circle"></i> Jabatan pemeriksa pertama wajib diisi
+                            </p>
                         </div>
                         <div>
                             <label class="block text-[11px] font-bold text-gray-600 mb-1">Tanggal Verifikasi <span class="text-red-500">*</span></label>
-                            <input type="date" name="first_eye_tanggal" value="{{ old('first_eye_tanggal', $inspection->first_eye_tanggal ? $inspection->first_eye_tanggal->format('Y-m-d') : now()->toDateString()) }}" required
-                                   class="w-full text-xs px-3 py-2 rounded-xl border border-gray-200 bg-white">
+                            <input type="date" name="first_eye_tanggal"
+                                   value="{{ old('first_eye_tanggal', $inspection->first_eye_tanggal ? $inspection->first_eye_tanggal->format('Y-m-d') : now()->toDateString()) }}"
+                                   @if($minDate) min="{{ $minDate }}" @endif
+                                   required
+                                   class="form-req w-full text-xs px-3 py-2 rounded-xl border border-gray-200 bg-white">
+                            <p class="field-error-msg hidden text-[11px] text-red-600 font-semibold mt-1 items-center gap-1">
+                                <i class="ph-bold ph-warning-circle"></i> Tanggal verifikasi pemeriksa pertama wajib diisi
+                            </p>
+                            @if($minDate)
+                            <p class="text-[10px] text-emerald-700 font-semibold mt-1 flex items-center gap-1">
+                                <i class="ph-bold ph-lock"></i> Tanggal tidak bisa backdate (minimal hari ini)
+                            </p>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -372,8 +743,20 @@
                         </div>
                         <div>
                             <label class="block text-[11px] font-bold text-gray-600 mb-1">Nama Verifikator</label>
-                            <input type="text" name="second_eye_nama" value="{{ old('second_eye_nama', $inspection->second_eye_nama) }}"
-                                   class="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-blue-200 bg-white">
+                            <select name="second_eye_nama"
+                                    class="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-blue-200 bg-white focus:border-spv-blue">
+                                <option value="">-- Pilih Verifikator (Dari Tabel Karyawan) --</option>
+                                @foreach($karyawans as $k)
+                                    <option value="{{ $k->nama }}" {{ old('second_eye_nama', $inspection->second_eye_nama) === $k->nama ? 'selected' : '' }}>
+                                        {{ $k->nama }} ({{ $k->position_label }} - {{ $k->nomor_induk }})
+                                    </option>
+                                @endforeach
+                                @if(!empty($inspection->second_eye_nama) && !$karyawans->contains('nama', $inspection->second_eye_nama))
+                                    <option value="{{ $inspection->second_eye_nama }}" selected>
+                                        {{ $inspection->second_eye_nama }} (Tersimpan Sebelumnya)
+                                    </option>
+                                @endif
+                            </select>
                         </div>
                         <div>
                             <label class="block text-[11px] font-bold text-gray-600 mb-1">Jabatan / Unit</label>
@@ -382,7 +765,9 @@
                         </div>
                         <div>
                             <label class="block text-[11px] font-bold text-gray-600 mb-1">Tanggal Verifikasi</label>
-                            <input type="date" name="second_eye_tanggal" value="{{ old('second_eye_tanggal', $inspection->second_eye_tanggal ? $inspection->second_eye_tanggal->format('Y-m-d') : now()->toDateString()) }}"
+                            <input type="date" name="second_eye_tanggal"
+                                   value="{{ old('second_eye_tanggal', $inspection->second_eye_tanggal ? $inspection->second_eye_tanggal->format('Y-m-d') : now()->toDateString()) }}"
+                                   @if($minDate) min="{{ $minDate }}" @endif
                                    class="w-full text-xs px-3 py-2 rounded-xl border border-blue-200 bg-white">
                         </div>
                     </div>
@@ -423,18 +808,21 @@
                 <p class="text-[11px] text-gray-500 mb-2">Bale dikumpulkan pada 1 lokasi staging dengan 2 Rubber Cone?</p>
                 <div class="flex items-center gap-4 mb-3">
                     <label class="flex items-center gap-1.5 text-xs font-bold text-gray-700 cursor-pointer">
-                        <input type="radio" name="stagging_2_rubber_cone" value="1" {{ old('stagging_2_rubber_cone', $inspection->stagging_2_rubber_cone) ? 'checked' : '' }} class="text-emerald-600 focus:ring-emerald-500">
+                        <input type="radio" name="stagging_2_rubber_cone" value="1" {{ old('stagging_2_rubber_cone', $inspection->stagging_2_rubber_cone ?? 1) ? 'checked' : '' }} class="text-emerald-600 focus:ring-emerald-500">
                         <span>Ya (Ada 2 Cone)</span>
                     </label>
                     <label class="flex items-center gap-1.5 text-xs font-bold text-gray-700 cursor-pointer">
-                        <input type="radio" name="stagging_2_rubber_cone" value="0" {{ !old('stagging_2_rubber_cone', $inspection->stagging_2_rubber_cone) ? 'checked' : '' }} class="text-red-600 focus:ring-red-500">
+                        <input type="radio" name="stagging_2_rubber_cone" value="0" {{ old('stagging_2_rubber_cone', $inspection->stagging_2_rubber_cone) === 0 ? 'checked' : '' }} class="text-red-600 focus:ring-red-500">
                         <span>Tidak</span>
                     </label>
                 </div>
                 <div>
-                    <label class="block text-[11px] font-bold text-gray-600 mb-1">Nama / Kode Lokasi Stagging:</label>
-                    <input type="text" name="lokasi_stagging" value="{{ old('lokasi_stagging', $inspection->lokasi_stagging) }}" placeholder="Contoh: Bay 3 Atas"
-                           class="w-full text-xs px-3 py-2 rounded-xl border border-gray-200 focus:border-blue-500">
+                    <label class="block text-[11px] font-bold text-gray-600 mb-1">Nama / Kode Lokasi Stagging: <span class="text-red-500">*</span></label>
+                    <input type="text" name="lokasi_stagging" value="{{ old('lokasi_stagging', $inspection->lokasi_stagging) }}" placeholder="Contoh: Bay 3 Atas" required
+                           class="form-req w-full text-xs px-3 py-2 rounded-xl border border-gray-200 focus:border-blue-500">
+                    <p class="field-error-msg hidden text-[11px] text-red-600 font-semibold mt-1 items-center gap-1">
+                        <i class="ph-bold ph-warning-circle"></i> Lokasi stagging wajib diisi
+                    </p>
                 </div>
             </div>
 
@@ -445,22 +833,22 @@
                     Kondisi Pemuatan
                 </h2>
                 <div class="mb-3">
-                    <label class="block text-[11px] font-bold text-gray-600 mb-1">Cuaca:</label>
+                    <label class="block text-[11px] font-bold text-gray-600 mb-1">Cuaca: <span class="text-red-500">*</span></label>
                     <div class="grid grid-cols-2 gap-1.5">
                         @foreach(['kering' => 'Kering', 'mendung' => 'Mendung', 'gerimis' => 'Gerimis', 'hujan' => 'Hujan'] as $cVal => $cLbl)
                         <label class="flex items-center gap-1.5 text-xs font-medium text-gray-700 cursor-pointer">
-                            <input type="radio" name="cuaca" value="{{ $cVal }}" {{ old('cuaca', $inspection->cuaca) === $cVal ? 'checked' : '' }} class="text-spv-blue focus:ring-spv-blue">
+                            <input type="radio" name="cuaca" value="{{ $cVal }}" {{ old('cuaca', $inspection->cuaca ?? 'kering') === $cVal ? 'checked' : '' }} required class="text-spv-blue focus:ring-spv-blue">
                             <span>{{ $cLbl }}</span>
                         </label>
                         @endforeach
                     </div>
                 </div>
                 <div>
-                    <label class="block text-[11px] font-bold text-gray-600 mb-1">Waktu:</label>
+                    <label class="block text-[11px] font-bold text-gray-600 mb-1">Waktu: <span class="text-red-500">*</span></label>
                     <div class="flex items-center gap-3">
                         @foreach(['siang' => 'Siang', 'sore' => 'Sore', 'malam' => 'Malam'] as $wVal => $wLbl)
                         <label class="flex items-center gap-1.5 text-xs font-medium text-gray-700 cursor-pointer">
-                            <input type="radio" name="waktu" value="{{ $wVal }}" {{ old('waktu', $inspection->waktu) === $wVal ? 'checked' : '' }} class="text-spv-blue focus:ring-spv-blue">
+                            <input type="radio" name="waktu" value="{{ $wVal }}" {{ old('waktu', $inspection->waktu ?? 'siang') === $wVal ? 'checked' : '' }} required class="text-spv-blue focus:ring-spv-blue">
                             <span>{{ $wLbl }}</span>
                         </label>
                         @endforeach
@@ -527,6 +915,71 @@
                     <i class="ph-bold ph-floppy-disk text-xs"></i>
                     <span>Simpan & Kembali ke Timeline</span>
                 </button>
+            </div>
+        </div>
+
+        <!-- Barcode Scanner Modal (Bentuk Barcode Batang 1D) -->
+        <div x-cloak x-show="barcodeScanning"
+             class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-xs"
+             @keydown.escape.window="closeBarcodeScanner()">
+            <div class="bg-slate-900 border border-slate-700 rounded-3xl overflow-hidden w-full max-w-md shadow-2xl" @click.stop>
+                <!-- Modal Header -->
+                <div class="p-4 bg-gradient-to-r from-spv-blue to-teal-800 text-white flex items-center justify-between">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center">
+                            <i class="ph-bold ph-barcode text-lg"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs font-extrabold" x-text="barcodeTargetTitle || 'Scan Barcode Bale'"></p>
+                            <p class="text-[10px] text-white/70">Arahkan garis laser merah ke barcode batang pada bale</p>
+                        </div>
+                    </div>
+                    <button type="button" @click="closeBarcodeScanner()"
+                            class="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all cursor-pointer">
+                        ✕ Tutup
+                    </button>
+                </div>
+
+                <!-- Camera Viewfinder with 1D Barcode Batang reticle -->
+                <div class="relative w-full min-h-[260px] bg-black flex items-center justify-center overflow-hidden">
+                    <div id="bale-barcode-reader" class="w-full"></div>
+                    <video x-ref="baleBarcodeVideo" autoplay playsinline muted
+                           class="w-full max-h-[300px] object-cover" style="display: none;"></video>
+
+                    <!-- Horizontal Barcode Frame (Bentuk Batang) Overlay -->
+                    <div class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center">
+                        <div class="relative w-[85%] max-w-[320px] h-[110px] border-2 border-dashed border-amber-400 rounded-xl flex items-center justify-center overflow-hidden shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]">
+                            <!-- Laser scan line animation -->
+                            <div class="w-full h-0.5 bg-red-500 shadow-[0_0_8px_#ef4444] animate-pulse"></div>
+                            <!-- Barcode badge -->
+                            <div class="absolute top-1 left-2 text-[10px] font-mono font-bold text-amber-300 drop-shadow">1D BARCODE BATANG</div>
+                            <div class="absolute bottom-1 right-2 text-[10px] font-mono text-amber-300 drop-shadow tracking-widest">||| | |||| | |||</div>
+                        </div>
+                        <p class="text-[11px] text-white/80 font-medium mt-3 bg-black/60 px-3 py-1 rounded-full border border-white/10">
+                            Posisikan barcode batang horizontal di dalam kotak
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Manual Input Fallback -->
+                <div class="p-4 border-t border-slate-800 bg-slate-950/70">
+                    <label class="block text-[11px] font-bold text-gray-300 mb-1.5">Input Manual Nomor Barcode Bale:</label>
+                    <div class="flex items-center gap-2 mb-2">
+                        <input type="text"
+                               x-model="manualBarcodeInput"
+                               @keydown.enter.prevent="submitManualBarcode()"
+                               placeholder="Ketik nomor bale..."
+                               class="flex-1 text-xs px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 uppercase font-mono font-bold">
+                        <button type="button"
+                                @click="submitManualBarcode()"
+                                class="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold rounded-xl transition-all cursor-pointer">
+                            Gunakan
+                        </button>
+                    </div>
+                    <p class="text-[10px] text-slate-400 text-center">
+                        💡 Tip: Gunakan barcode scanner USB/Bluetooth — klik pada input lalu tembak scan tanpa buka modal.
+                    </p>
+                </div>
             </div>
         </div>
     </form>
