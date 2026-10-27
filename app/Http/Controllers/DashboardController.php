@@ -10,6 +10,8 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 
+use Illuminate\Support\Facades\DB;
+
 class DashboardController extends Controller
 {
     /**
@@ -45,12 +47,41 @@ class DashboardController extends Controller
                     });
             })->count();
 
-        // Load all shipment records with minimal attributes for memory-efficient date & category processing
+        // Load all shipment records with attributes for memory-efficient date, category, and lead time processing
         $allShipments = Shipment::select([
             'id', 'status', 'jenis_produk', 'jenis_pengiriman',
             'waktu', 'cuaca', 'warehouse_lokasi', 'tanggal_staging',
             'created_at', 'submitted_at', 'karyawan_id',
+            'waktu_kedatangan_container', 'waktu_keberangkatan_container',
         ])->get();
+
+        // Lead Time calculation (waktu akhir staging - waktu awal staging dalam jam dan menit)
+        $completedWithLeadTime = $allShipments->filter(fn ($s) => $s->status === 'submitted' && ! is_null($s->lead_time_minutes));
+        $leadTimes = $completedWithLeadTime->pluck('lead_time_minutes');
+
+        $avgLeadTimeMinutes = $leadTimes->isNotEmpty() ? (int) round($leadTimes->avg()) : null;
+        $fastestLeadTimeMinutes = $leadTimes->isNotEmpty() ? $leadTimes->min() : null;
+        $slowestLeadTimeMinutes = $leadTimes->isNotEmpty() ? $leadTimes->max() : null;
+
+        // Lead Time Hari Ini
+        $todayCompletedWithLeadTime = $completedWithLeadTime->filter(function ($s) use ($todayDate) {
+            return ($s->tanggal_staging && $s->tanggal_staging->isSameDay($todayDate))
+                || ($s->created_at && $s->created_at->isSameDay($todayDate));
+        });
+        $todayLeadTimes = $todayCompletedWithLeadTime->pluck('lead_time_minutes');
+        $todayAvgLeadTimeMinutes = $todayLeadTimes->isNotEmpty() ? (int) round($todayLeadTimes->avg()) : null;
+
+        $leadTimeStats = [
+            'avg_minutes' => $avgLeadTimeMinutes,
+            'avg_formatted' => Shipment::formatDurationMinutes($avgLeadTimeMinutes),
+            'fastest_minutes' => $fastestLeadTimeMinutes,
+            'fastest_formatted' => Shipment::formatDurationMinutes($fastestLeadTimeMinutes),
+            'slowest_minutes' => $slowestLeadTimeMinutes,
+            'slowest_formatted' => Shipment::formatDurationMinutes($slowestLeadTimeMinutes),
+            'today_avg_minutes' => $todayAvgLeadTimeMinutes,
+            'today_avg_formatted' => Shipment::formatDurationMinutes($todayAvgLeadTimeMinutes),
+            'total_measured' => $leadTimes->count(),
+        ];
 
         // 1. Multi-Period KPI Data
         $kpiData = $this->buildMultiPeriodKpiData($allShipments, $todayDate);
@@ -90,7 +121,7 @@ class DashboardController extends Controller
             ],
         ];
 
-        // 5. Top Petugas performance
+        // 5. Top Petugas performance & individual lead time
         $topPetugas = Karyawan::where('status', 'aktif')
             ->withCount([
                 'shipments as total_shipments',
@@ -102,6 +133,26 @@ class DashboardController extends Controller
             ->orderByDesc('total_shipments')
             ->take(5)
             ->get();
+
+        $pivotMappings = DB::table('karyawan_shipment')
+            ->whereIn('karyawan_id', $topPetugas->pluck('id'))
+            ->get()
+            ->groupBy('karyawan_id');
+
+        foreach ($topPetugas as $p) {
+            $pivotIds = $pivotMappings->get($p->id, collect())->pluck('shipment_id')->all();
+            $pShipments = $allShipments->filter(function ($s) use ($p, $pivotIds) {
+                return $s->karyawan_id == $p->id || in_array($s->id, $pivotIds);
+            });
+
+            $pLeadTimes = $pShipments
+                ->where('status', 'submitted')
+                ->map(fn ($s) => $s->lead_time_minutes)
+                ->filter(fn ($v) => ! is_null($v));
+
+            $p->avg_lead_time_minutes = $pLeadTimes->isNotEmpty() ? (int) round($pLeadTimes->avg()) : null;
+            $p->avg_lead_time_formatted = Shipment::formatDurationMinutes($p->avg_lead_time_minutes);
+        }
 
         // 6. Recent Shipments for table
         $recentShipments = Shipment::with(['karyawan', 'karyawans'])
@@ -118,6 +169,7 @@ class DashboardController extends Controller
             'successRate' => $successRate,
             'todayShipments' => $todayShipments,
             'todaySubmitted' => $todaySubmitted,
+            'leadTimeStats' => $leadTimeStats,
             'kpiData' => $kpiData,
             'statusDistribution' => $statusDistribution,
             'typeDistribution' => $typeDistribution,
@@ -137,7 +189,7 @@ class DashboardController extends Controller
     {
         $currentYear = $now->year;
 
-        // Map shipments with Carbon date for quick access
+        // Map shipments with Carbon date and lead time for quick access
         $datedShipments = $shipments->map(function ($s) {
             $date = $s->tanggal_staging
                 ? Carbon::parse($s->tanggal_staging)
@@ -150,6 +202,7 @@ class DashboardController extends Controller
                 'year' => $date?->year,
                 'month' => $date?->month,
                 'date_str' => $date?->format('Y-m-d'),
+                'lead_time_minutes' => $s->lead_time_minutes,
             ];
         })->filter(fn ($item) => ! is_null($item['date']));
 
@@ -181,6 +234,8 @@ class DashboardController extends Controller
         $dailySumSubmitted = array_sum($dailySubmitted);
         $dailySumDraft = array_sum($dailyDrafts);
         $dailyAvgRate = $dailySumTotal > 0 ? round(($dailySumSubmitted / $dailySumTotal) * 100, 1) : 0;
+        $dailySumLeadTimes = $datedShipments->filter(fn ($item) => $item['date_str'] >= $now->copy()->subDays(13)->format('Y-m-d') && $item['status'] === 'submitted' && ! is_null($item['lead_time_minutes']))->pluck('lead_time_minutes');
+        $dailyAvgLeadTime = $dailySumLeadTimes->isNotEmpty() ? (int) round($dailySumLeadTimes->avg()) : null;
 
         // --- 2. BULANAN (Monthly - 12 Months of Current Year) ---
         $monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
@@ -206,6 +261,8 @@ class DashboardController extends Controller
         $monthlySumSubmitted = array_sum($monthlySubmitted);
         $monthlySumDraft = array_sum($monthlyDrafts);
         $monthlyAvgRate = $monthlySumTotal > 0 ? round(($monthlySumSubmitted / $monthlySumTotal) * 100, 1) : 0;
+        $monthlySumLeadTimes = $datedShipments->filter(fn ($item) => $item['year'] == $currentYear && $item['status'] === 'submitted' && ! is_null($item['lead_time_minutes']))->pluck('lead_time_minutes');
+        $monthlyAvgLeadTime = $monthlySumLeadTimes->isNotEmpty() ? (int) round($monthlySumLeadTimes->avg()) : null;
 
         // --- 3. KUARTALAN (Quarterly - Q1..Q4 of Current Year) ---
         $quarterLabels = ['Q1 (Jan - Mar)', 'Q2 (Apr - Jun)', 'Q3 (Jul - Sep)', 'Q4 (Okt - Des)'];
@@ -236,6 +293,8 @@ class DashboardController extends Controller
         $quarterlySumSubmitted = array_sum($quarterlySubmitted);
         $quarterlySumDraft = array_sum($quarterlyDrafts);
         $quarterlyAvgRate = $quarterlySumTotal > 0 ? round(($quarterlySumSubmitted / $quarterlySumTotal) * 100, 1) : 0;
+        $quarterlySumLeadTimes = $datedShipments->filter(fn ($item) => $item['year'] == $currentYear && $item['status'] === 'submitted' && ! is_null($item['lead_time_minutes']))->pluck('lead_time_minutes');
+        $quarterlyAvgLeadTime = $quarterlySumLeadTimes->isNotEmpty() ? (int) round($quarterlySumLeadTimes->avg()) : null;
 
         // --- 4. TAHUNAN (Yearly - 5 Years) ---
         $yearLabels = [];
@@ -263,6 +322,8 @@ class DashboardController extends Controller
         $yearlySumSubmitted = array_sum($yearlySubmitted);
         $yearlySumDraft = array_sum($yearlyDrafts);
         $yearlyAvgRate = $yearlySumTotal > 0 ? round(($yearlySumSubmitted / $yearlySumTotal) * 100, 1) : 0;
+        $yearlySumLeadTimes = $datedShipments->filter(fn ($item) => $item['year'] >= $startYear && $item['year'] <= $currentYear && $item['status'] === 'submitted' && ! is_null($item['lead_time_minutes']))->pluck('lead_time_minutes');
+        $yearlyAvgLeadTime = $yearlySumLeadTimes->isNotEmpty() ? (int) round($yearlySumLeadTimes->avg()) : null;
 
         return [
             'harian' => [
@@ -278,6 +339,7 @@ class DashboardController extends Controller
                     'submitted' => $dailySumSubmitted,
                     'draft' => $dailySumDraft,
                     'rate' => $dailyAvgRate,
+                    'lead_time' => Shipment::formatDurationMinutes($dailyAvgLeadTime),
                 ],
             ],
             'bulanan' => [
@@ -293,6 +355,7 @@ class DashboardController extends Controller
                     'submitted' => $monthlySumSubmitted,
                     'draft' => $monthlySumDraft,
                     'rate' => $monthlyAvgRate,
+                    'lead_time' => Shipment::formatDurationMinutes($monthlyAvgLeadTime),
                 ],
             ],
             'kuartalan' => [
@@ -308,6 +371,7 @@ class DashboardController extends Controller
                     'submitted' => $quarterlySumSubmitted,
                     'draft' => $quarterlySumDraft,
                     'rate' => $quarterlyAvgRate,
+                    'lead_time' => Shipment::formatDurationMinutes($quarterlyAvgLeadTime),
                 ],
             ],
             'tahunan' => [
@@ -323,6 +387,7 @@ class DashboardController extends Controller
                     'submitted' => $yearlySumSubmitted,
                     'draft' => $yearlySumDraft,
                     'rate' => $yearlyAvgRate,
+                    'lead_time' => Shipment::formatDurationMinutes($yearlyAvgLeadTime),
                 ],
             ],
         ];

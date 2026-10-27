@@ -266,6 +266,13 @@
                     <span class="text-gray-400 block text-[11px] mb-0.5">Waktu Akhir Staging:</span>
                     <span class="font-semibold text-gray-700">{{ $shipment->waktu_keberangkatan_container ? $shipment->waktu_keberangkatan_container->format('d M Y, H:i') : '—' }}</span>
                 </div>
+                <div>
+                    <span class="text-gray-400 block text-[11px] mb-0.5">Lead Time (Durasi Staging):</span>
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold {{ $shipment->lead_time_minutes !== null ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-gray-100 text-gray-600' }}">
+                        <i class="ph-bold ph-timer text-emerald-600"></i>
+                        {{ $shipment->lead_time_formatted }}
+                    </span>
+                </div>
             </div>
         </div>
 

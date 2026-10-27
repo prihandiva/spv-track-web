@@ -58,6 +58,85 @@ class Shipment extends Model
         return ($this->warehouse_type ?? 'internal') === 'internal';
     }
 
+    /**
+     * Waktu awal staging (prioritas: waktu_kedatangan_container, fallback: created_at).
+     */
+    public function getWaktuAwalStagingAttribute(): ?\Carbon\Carbon
+    {
+        return $this->waktu_kedatangan_container ?: ($this->created_at ? \Carbon\Carbon::parse($this->created_at) : null);
+    }
+
+    /**
+     * Waktu akhir staging (prioritas: waktu_keberangkatan_container, fallback: submitted_at jika status submitted).
+     */
+    public function getWaktuAkhirStagingAttribute(): ?\Carbon\Carbon
+    {
+        if ($this->waktu_keberangkatan_container) {
+            return $this->waktu_keberangkatan_container;
+        }
+        if ($this->status === 'submitted' && $this->submitted_at) {
+            return $this->submitted_at;
+        }
+        return null;
+    }
+
+    /**
+     * Total selisih lead time staging dalam menit (waktu akhir staging - waktu awal staging).
+     */
+    public function getLeadTimeMinutesAttribute(): ?int
+    {
+        $start = $this->waktu_awal_staging;
+        $end = $this->waktu_akhir_staging;
+
+        if (! $start || ! $end) {
+            return null;
+        }
+
+        $minutes = (int) $start->diffInMinutes($end, false);
+        return abs($minutes);
+    }
+
+    /**
+     * Format lead time staging ke "X jam Y menit" atau "X menit".
+     */
+    public function getLeadTimeFormattedAttribute(): string
+    {
+        $minutes = $this->lead_time_minutes;
+
+        if ($minutes === null) {
+            return $this->status === 'draft' ? 'Sedang berjalan' : '—';
+        }
+
+        return static::formatDurationMinutes($minutes);
+    }
+
+    /**
+     * Helper statis memformat jumlah menit ke format jam dan menit bahasa Indonesia.
+     */
+    public static function formatDurationMinutes(?int $minutes): string
+    {
+        if ($minutes === null) {
+            return '—';
+        }
+
+        if ($minutes === 0) {
+            return '< 1 menit';
+        }
+
+        $hours = intdiv($minutes, 60);
+        $remMinutes = $minutes % 60;
+
+        if ($hours > 0 && $remMinutes > 0) {
+            return "{$hours} jam {$remMinutes} menit";
+        }
+
+        if ($hours > 0) {
+            return "{$hours} jam";
+        }
+
+        return "{$remMinutes} menit";
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

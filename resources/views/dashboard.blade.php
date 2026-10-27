@@ -102,7 +102,7 @@
         </div>
 
         <!-- 2. QUICK STATS KPI CARDS -->
-        <div class="grid grid-cols-2 lg:grid-cols-5 gap-3.5 lg:gap-4">
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5 lg:gap-4">
             
             <!-- Card 1: Total Shipment -->
             <div class="bg-white rounded-2xl p-4 lg:p-5 transition-all duration-300 hover:-translate-y-0.5"
@@ -162,10 +162,10 @@
             <div class="bg-white rounded-2xl p-4 lg:p-5 transition-all duration-300 hover:-translate-y-0.5"
                  style="border: 1px solid #e8edf3; box-shadow: 0 2px 10px rgba(40,84,145,0.04);">
                 <div class="flex items-start justify-between mb-3">
-                    <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style="background:#e8f5f3;">
-                        <i class="ph-fill ph-chart-line-up text-xl" style="color:#0d5950;"></i>
+                    <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style="background:#eff4fc;">
+                        <i class="ph-fill ph-chart-line-up text-xl" style="color:#285491;"></i>
                     </div>
-                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:#e8f5f3; color:#0d5950;">
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background:#eff4fc; color:#285491;">
                         Target 100%
                     </span>
                 </div>
@@ -178,9 +178,35 @@
                 </div>
             </div>
 
-            <!-- Card 5: Petugas Aktif -->
+            <!-- Card 5: Rata-rata Lead Time Staging -->
+            <div class="bg-white rounded-2xl p-4 lg:p-5 transition-all duration-300 hover:-translate-y-0.5"
+                 style="border: 1px solid #e8edf3; box-shadow: 0 2px 10px rgba(40,84,145,0.04);">
+                <div class="flex items-start justify-between mb-3">
+                    <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style="background:#e6f4f2;">
+                        <i class="ph-fill ph-timer text-xl" style="color:#0d5950;"></i>
+                    </div>
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1" style="background:#e6f4f2; color:#0d5950;">
+                        <i class="ph-bold ph-lightning text-xs"></i>Lead Time
+                    </span>
+                </div>
+                <p class="text-[11px] font-medium text-gray-400 mb-0.5">Rata-rata Lead Time</p>
+                <div class="flex items-baseline gap-1">
+                    <p class="text-lg lg:text-xl font-extrabold text-teal-800 truncate" title="{{ $leadTimeStats['avg_formatted'] }}">
+                        {{ $leadTimeStats['avg_formatted'] }}
+                    </p>
+                </div>
+                <p class="text-[10px] text-gray-400 mt-1 truncate" title="Dihitung dari selisih waktu akhir - awal staging">
+                    @if($leadTimeStats['fastest_formatted'] !== '—')
+                        Tercepat: <strong class="text-emerald-600 font-semibold">{{ $leadTimeStats['fastest_formatted'] }}</strong>
+                    @else
+                        Akhir - Awal Staging
+                    @endif
+                </p>
+            </div>
+
+            <!-- Card 6: Petugas Aktif -->
             <a href="{{ route('karyawan.index') }}"
-               class="col-span-2 lg:col-span-1 bg-white rounded-2xl p-4 lg:p-5 transition-all duration-300 hover:-translate-y-0.5 block group"
+               class="bg-white rounded-2xl p-4 lg:p-5 transition-all duration-300 hover:-translate-y-0.5 block group"
                style="border: 1px solid #e8edf3; box-shadow: 0 2px 10px rgba(40,84,145,0.04);"
                onmouseover="this.style.borderColor='#c5d4ea'"
                onmouseout="this.style.borderColor='#e8edf3'">
@@ -419,7 +445,7 @@
             </div>
 
             <!-- Active Period KPI Metric Ribbon (Dynamic via Alpine.js) -->
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-y-3 gap-x-2 my-4 p-3.5 rounded-2xl bg-slate-50/80 border border-slate-100">
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-y-3 gap-x-2 my-4 p-3.5 rounded-2xl bg-slate-50/80 border border-slate-100">
                 <div class="px-2">
                     <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Periode Aktif</p>
                     <p class="text-xs sm:text-sm font-bold text-gray-800 truncate mt-0.5" x-text="currentSummary.badge"></p>
@@ -433,6 +459,12 @@
                     <p class="text-sm sm:text-base font-extrabold text-emerald-600 mt-0.5" x-text="currentSummary.submitted + ' Selesai'"></p>
                 </div>
                 <div class="px-2 border-t pt-2.5 sm:border-t-0 sm:pt-0 border-l border-gray-200/60">
+                    <p class="text-[10px] font-semibold text-teal-700 uppercase tracking-wider flex items-center gap-1">
+                        <i class="ph-bold ph-timer"></i> Avg Lead Time
+                    </p>
+                    <p class="text-sm sm:text-base font-extrabold text-teal-800 mt-0.5" x-text="currentSummary.lead_time"></p>
+                </div>
+                <div class="px-2 border-t pt-2.5 sm:border-t-0 sm:pt-0 border-l border-gray-200/60 col-span-2 sm:col-span-1">
                     <p class="text-[10px] font-semibold text-spv-blue uppercase tracking-wider">Capaian KPI</p>
                     <div class="flex items-center gap-1.5 mt-0.5">
                         <span class="text-sm sm:text-base font-extrabold text-spv-blue" x-text="currentSummary.rate + '%'"></span>
@@ -629,6 +661,7 @@
                                 <th class="px-2.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider hidden sm:table-cell">Produk</th>
                                 <th class="px-2.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider hidden md:table-cell">Tipe</th>
                                 <th class="px-2.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider hidden lg:table-cell">Petugas & Waktu</th>
+                                <th class="px-2.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Lead Time Staging</th>
                                 <th class="px-2.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Status</th>
                                 <th class="px-3.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-right">Aksi</th>
                             </tr>
@@ -662,6 +695,31 @@
                                         <p class="text-[10px] text-gray-400 leading-tight">{{ $s->created_at->format('d M, H:i') }} WIB</p>
                                     </td>
                                     <td class="px-2.5 py-2.5">
+                                        @if($s->lead_time_minutes !== null)
+                                            <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-sm"
+                                                 title="Waktu Mulai: {{ $s->waktu_awal_staging?->format('d/m/Y H:i') }} WIB &#10;Waktu Selesai: {{ $s->waktu_akhir_staging?->format('d/m/Y H:i') }} WIB &#10;Total Durasi Staging: {{ $s->lead_time_formatted }}">
+                                                <i class="ph-bold ph-timer text-emerald-600 text-xs"></i>
+                                                <span class="text-xs font-bold text-emerald-800">{{ $s->lead_time_formatted }}</span>
+                                            </div>
+                                            <p class="text-[10px] text-gray-400 mt-0.5 leading-tight flex items-center gap-1">
+                                                <span>{{ $s->waktu_awal_staging?->format('H:i') }}</span>
+                                                <i class="ph-bold ph-arrow-right text-[9px] text-gray-300"></i>
+                                                <span>{{ $s->waktu_akhir_staging?->format('H:i') }} WIB</span>
+                                            </p>
+                                        @elseif($s->status === 'draft')
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                                                <i class="ph-bold ph-hourglass-simple text-xs"></i> Sedang Berjalan
+                                            </span>
+                                            @if($s->waktu_awal_staging)
+                                                <p class="text-[10px] text-gray-400 mt-0.5 leading-tight">
+                                                    Mulai: {{ $s->waktu_awal_staging->format('H:i') }} WIB
+                                                </p>
+                                            @endif
+                                        @else
+                                            <span class="text-xs text-gray-400">—</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-2.5 py-2.5">
                                         @if($s->status === 'submitted')
                                             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>Submitted
@@ -675,8 +733,8 @@
                                     <td class="px-3.5 py-2.5 text-right">
                                         <div class="flex items-center justify-end gap-1">
                                             <a href="{{ route('shipments.show', $s->id) }}"
-                                               title="Lihat Detail Shipment"
-                                               class="p-1 rounded-lg text-gray-400 hover:text-spv-blue hover:bg-blue-50 transition-colors">
+                                                title="Lihat Detail Shipment"
+                                                class="p-1 rounded-lg text-gray-400 hover:text-spv-blue hover:bg-blue-50 transition-colors">
                                                 <i class="ph-bold ph-eye text-sm"></i>
                                             </a>
 
@@ -704,8 +762,8 @@
                                             @endif
 
                                             <a href="{{ route('shipments.download-pdf', $s->id) }}"
-                                               title="Download PDF Laporan"
-                                               class="p-1 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors">
+                                                title="Download PDF Laporan"
+                                                class="p-1 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors">
                                                 <i class="ph-bold ph-file-pdf text-sm"></i>
                                             </a>
                                         </div>
@@ -713,7 +771,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="6" class="text-center py-8 text-xs text-gray-400">Belum ada data shipment</td>
+                                    <td colspan="7" class="text-center py-8 text-xs text-gray-400">Belum ada data shipment</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -764,6 +822,11 @@
                                 <div class="text-right">
                                     <p class="text-xs font-extrabold text-emerald-600">{{ $petugas->submitted_shipments }} <span class="text-[10px] font-normal text-gray-400">selesai</span></p>
                                     <p class="text-[10px] text-gray-400">{{ $petugas->total_shipments }} total</p>
+                                    <div class="mt-1 flex items-center justify-end gap-1 text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-100"
+                                         title="Rata-rata kecepatan operator dalam menyelesaikan 1 kali staging">
+                                        <i class="ph-bold ph-timer text-xs text-teal-600"></i>
+                                        <span>Avg: {{ $petugas->avg_lead_time_formatted ?? '—' }}</span>
+                                    </div>
                                 </div>
                             </div>
                         @empty
@@ -805,7 +868,7 @@
 
                 get currentSummary() {
                     if (!this.kpiData || !this.kpiData[this.activePeriod]) {
-                        return { title: '', badge: '', total: 0, submitted: 0, draft: 0, rate: 0 };
+                        return { title: '', badge: '', total: 0, submitted: 0, draft: 0, rate: 0, lead_time: '—' };
                     }
                     const data = this.kpiData[this.activePeriod];
                     return {
@@ -814,7 +877,8 @@
                         total: data.summary.total,
                         submitted: data.summary.submitted,
                         draft: data.summary.draft,
-                        rate: data.summary.rate
+                        rate: data.summary.rate,
+                        lead_time: data.summary.lead_time || '—'
                     };
                 },
 
