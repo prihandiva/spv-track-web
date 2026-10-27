@@ -277,6 +277,13 @@
                         <span class="ml-auto text-[9px] px-1.5 py-0.2 rounded-full font-bold bg-white/20 text-white/90">27</span>
                     </a>
 
+                    <a href="{{ route('settings.external-warehouses.index') }}"
+                       @click="sidebarOpen = false"
+                       class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-all {{ request()->routeIs('settings.external-warehouses.*') ? 'text-white font-bold bg-white/20 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/10' }}">
+                        <i class="ph-bold ph-warehouse text-sm shrink-0"></i>
+                        <span>Warehouse Eksternal</span>
+                    </a>
+
                     <a href="{{ route('settings.system.index') }}"
                        @click="sidebarOpen = false"
                        class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-all {{ request()->routeIs('settings.system.*') ? 'text-white font-bold bg-white/20 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/10' }}">

@@ -31,6 +31,13 @@
             <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full {{ $active === 'sop' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800' }}">27</span>
         </a>
 
+        <!-- Master Warehouse Eksternal -->
+        <a href="{{ route('settings.external-warehouses.index') }}"
+           class="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all {{ $active === 'external-warehouses' ? 'bg-spv-blue text-white shadow-sm' : 'text-gray-600 hover:text-spv-blue hover:bg-gray-50' }}">
+            <i class="ph-bold ph-warehouse text-base"></i>
+            <span>Warehouse Eksternal</span>
+        </a>
+
         <!-- Parameter Sistem -->
         <a href="{{ route('settings.system.index') }}"
            class="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all {{ $active === 'system' ? 'bg-spv-blue text-white shadow-sm' : 'text-gray-600 hover:text-spv-blue hover:bg-gray-50' }}">

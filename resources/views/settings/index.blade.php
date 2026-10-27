@@ -36,8 +36,8 @@
     <!-- Navigation Tabs -->
     @include('settings.tabs', ['active' => 'index'])
 
-    <!-- 4 Sub-Menu Navigation & Overview Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
+    <!-- Sub-Menu Navigation & Overview Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-8">
 
         <!-- Card 1: Pengguna -->
         <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-[0_1px_6px_rgba(40,84,145,0.04)] hover:shadow-md transition-all flex flex-col justify-between group">
@@ -177,6 +177,43 @@
             <a href="{{ route('settings.system.index') }}"
                class="mt-5 w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-gray-50 hover:bg-teal-700 hover:text-white text-gray-700 text-xs font-bold transition-all border border-gray-200 hover:border-teal-700">
                 <span>Buka Parameter</span>
+                <i class="ph-bold ph-arrow-right text-xs"></i>
+            </a>
+        </div>
+
+        <!-- Card 5: Master Warehouse Eksternal -->
+        <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-[0_1px_6px_rgba(40,84,145,0.04)] hover:shadow-md transition-all flex flex-col justify-between group">
+            <div>
+                <div class="flex items-center justify-between mb-4">
+                    <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-white" style="background: linear-gradient(135deg, #1e40af, #3b82f6);">
+                        <i class="ph-fill ph-warehouse text-2xl group-hover:scale-110 transition-transform"></i>
+                    </div>
+                    <span class="text-xs font-bold px-2.5 py-1 rounded-full bg-blue-50 text-spv-blue border border-blue-100">
+                        {{ $totalExternalWarehouses }} PT Rekanan
+                    </span>
+                </div>
+                <h3 class="text-base font-bold text-gray-800">Warehouse Eksternal</h3>
+                <p class="text-xs text-gray-500 mt-1.5 leading-relaxed">Kelola master data rekanan logistik luar, kontak PIC, dan opsi pilihan dropdown Field App.</p>
+
+                <div class="mt-4 pt-3 border-t border-gray-100 space-y-1.5 text-xs">
+                    <div class="flex items-center justify-between text-gray-600">
+                        <span>Status Aktif:</span>
+                        <span class="font-bold text-emerald-600">{{ $totalExternalWarehousesActive }} Gudang</span>
+                    </div>
+                    <div class="flex items-center justify-between text-gray-600">
+                        <span>Status Nonaktif:</span>
+                        <span class="font-bold text-red-500">{{ $totalExternalWarehouses - $totalExternalWarehousesActive }} Gudang</span>
+                    </div>
+                    <div class="flex items-center justify-between text-gray-600">
+                        <span>Penyimpanan:</span>
+                        <span class="font-bold text-gray-800">Tabel Database</span>
+                    </div>
+                </div>
+            </div>
+
+            <a href="{{ route('settings.external-warehouses.index') }}"
+               class="mt-5 w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-gray-50 hover:bg-blue-600 hover:text-white text-gray-700 text-xs font-bold transition-all border border-gray-200 hover:border-blue-600">
+                <span>Kelola Warehouse</span>
                 <i class="ph-bold ph-arrow-right text-xs"></i>
             </a>
         </div>

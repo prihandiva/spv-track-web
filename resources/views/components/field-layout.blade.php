@@ -27,6 +27,13 @@
             document.write('<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/id.js"><\/script>');
         }
     </script>
+    <!-- Barcode / QR Scanner (Offline Local Bundle + CDN Fallback) -->
+    <script src="{{ asset('vendor/html5-qrcode.min.js') }}"></script>
+    <script>
+        if (typeof Html5Qrcode === 'undefined') {
+            document.write('<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"><\/script>');
+        }
+    </script>
     <script>
         tailwind.config = {
             theme: {

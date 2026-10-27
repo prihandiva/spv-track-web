@@ -106,8 +106,8 @@
         Alpine.data('timelineManager', () => ({
             mandatoryPointIds: @json($mandatoryPointIds),
             uploadedPointIds: @json($initialUploadedPointIds),
-            waktuKedatangan: @json(old('waktu_kedatangan_container', $shipment->waktu_kedatangan_container ? $shipment->waktu_kedatangan_container->format('Y-m-d H:i') : '')),
-            waktuKeberangkatan: @json(old('waktu_keberangkatan_container', $shipment->waktu_keberangkatan_container ? $shipment->waktu_keberangkatan_container->format('Y-m-d H:i') : '')),
+            waktuKedatangan: @json(old('waktu_kedatangan_container', $shipment->waktu_kedatangan_container ? $shipment->waktu_kedatangan_container->format('Y-m-d H:i') : now('Asia/Jakarta')->format('Y-m-d H:i'))),
+            waktuKeberangkatan: @json(old('waktu_keberangkatan_container', $shipment->waktu_keberangkatan_container ? $shipment->waktu_keberangkatan_container->format('Y-m-d H:i') : now('Asia/Jakarta')->format('Y-m-d H:i'))),
             openStagingSection: true,
             fpKedatangan: null,
             fpKeberangkatan: null,
@@ -588,6 +588,8 @@
             </div>
         @endif
 
+        <input type="hidden" name="waktu_kedatangan_container" :value="waktuKedatangan">
+
         <!-- Data Utama Shipment (Terverifikasi dari Dokumen Shipment Order) -->
         <div style="background: white; border: 1.5px solid #d0e0f5; border-radius: 14px; padding: 14px; box-shadow: 0 2px 8px rgba(40,84,145,0.04);">
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; border-bottom:1px solid #f1f5f9; padding-bottom:8px;">
@@ -625,83 +627,66 @@
                     <span style="color:#64748b; font-size:10px; display:block;">Nama Sopir:</span>
                     <strong style="color:#1e293b; font-size:12px;">{{ $shipment->nama_sopir ?: '-' }}</strong>
                 </div>
+                <div style="grid-column: span 2; background:#f0fdf4; padding:8px 10px; border-radius:8px; border:1px solid #bbf7d0; display:flex; align-items:center; justify-content:space-between;">
+                    <div>
+                        <span style="color:#166534; font-size:10px; font-weight:600; display:block;">Waktu Mulai Staging Container (Diisi di Form Awal):</span>
+                        <strong style="color:#15803d; font-size:12px; font-family:monospace;" x-text="waktuKedatangan ? waktuKedatangan + ' WIB' : '{{ $shipment->waktu_kedatangan_container ? $shipment->waktu_kedatangan_container->format('d/m/Y H:i') . ' WIB' : '-' }}'">
+                            {{ $shipment->waktu_kedatangan_container ? $shipment->waktu_kedatangan_container->format('d/m/Y H:i') . ' WIB' : '-' }}
+                        </strong>
+                    </div>
+                    <span style="font-size:9px; font-weight:700; background:#dcfce7; color:#15803d; padding:2px 8px; border-radius:6px; border:1px solid #86efac;">
+                        ✓ TERCATAT DI AWAL
+                    </span>
+                </div>
             </div>
         </div>
 
-        <!-- Section Waktu Pelaksanaan Staging Container (Mulai & Akhir Saja) -->
+        <!-- ═══════════════════════════════════════════════════════════ -->
+        <!-- WAKTU SELESAI STAGING (AKHIR FORM TIMELINE)                -->
+        <!-- ═══════════════════════════════════════════════════════════ -->
         <div class="section-card" style="margin-top: 10px;">
-            <div class="section-card-header" @click="openStagingSection = !openStagingSection"
-                 style="background: linear-gradient(90deg, rgba(40,84,145,0.06), transparent);">
-                <div style="width: 32px; height: 32px; border-radius: 10px; background: #eff4fc; display: flex; align-items: center; justify-content: center; flex-shrink:0;">
-                    <i class="ph-fill ph-clock" style="font-size: 16px; color: #285491;"></i>
+            <div class="section-card-header" style="background: linear-gradient(90deg, rgba(40,84,145,0.08), transparent);">
+                <div style="width: 34px; height: 34px; border-radius: 10px; background: #eff4fc; border: 1px solid #bfcfe8; display: flex; align-items: center; justify-content: center; flex-shrink:0;">
+                    <i class="ph-fill ph-check-circle" style="font-size: 18px; color: #285491;"></i>
                 </div>
                 <div style="flex: 1;">
-                    <p style="font-size: 13px; font-weight: 700; color: #1f2937;">Waktu Pelaksanaan Staging Container</p>
-                    <p style="font-size: 10px; color: #64748b;">Hanya perlu mengisi waktu mulai dan waktu selesai</p>
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <p style="font-size: 13px; font-weight: 700; color: #1f2937;">Waktu Pelaksanaan Staging Container — Selesai</p>
+                        <span style="font-size: 10px; font-weight: 700; color: #285491; background:#e0ecfb; border:1px solid #bfcfe8; border-radius: 6px; padding: 1px 7px;">⏱ AKHIR FORM</span>
+                    </div>
+                    <p style="font-size: 10px; color: #64748b;">Dicatat saat seluruh muatan barang selesai dimuat (otomatis terisi saat ini &amp; dapat diedit)</p>
                 </div>
-                <i class="ph-bold" :class="openStagingSection ? 'ph-caret-up' : 'ph-caret-down'" style="font-size: 14px; color: #9ca3af;"></i>
             </div>
-            <div class="section-card-body" x-show="openStagingSection" x-collapse style="display:flex; flex-direction:column; gap:14px; padding: 16px;">
-                <div style="display:flex; flex-direction:column; gap:14px;">
-                    <!-- Waktu Mulai (Kedatangan Container) -->
-                    <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px; transition: all 0.2s;"
-                         :style="waktuKedatangan ? 'border-color: #86efac; background: #f0fdf4;' : ''">
-                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
-                            <label class="field-label" style="margin-bottom:0; display:flex; align-items:center; gap:5px; font-weight:700; color:#1e293b;">
-                                <i class="ph-bold ph-play-circle" style="color:#059e3d; font-size:16px;"></i>
-                                Waktu Mulai Staging <span style="color:#ef4444;">*</span>
-                                <span style="font-size:10px; font-weight:700; color:#285491; background:#e0ecfb; border:1px solid #bfcfe8; border-radius:6px; padding:1px 6px; margin-left:4px;">
-                                    Format 24 Jam
-                                </span>
-                            </label>
-                            <button type="button" @click="setNow('kedatangan')"
-                                    style="font-size:10px; font-weight:700; color:#285491; background:#eff4fc; border:1px solid #bfcfe8; border-radius:6px; padding:3px 8px; cursor:pointer; display:flex; align-items:center; gap:3px; transition:background 0.15s;"
-                                    onmouseover="this.style.background='#dbe7f6'"
-                                    onmouseout="this.style.background='#eff4fc'">
-                                <i class="ph-bold ph-clock"></i> Set Sekarang
-                            </button>
-                        </div>
-                        <div style="position:relative;">
-                            <input type="text" id="waktu_kedatangan_container" name="waktu_kedatangan_container"
-                                   placeholder="Pilih tanggal & jam format 24 jam (contoh: 12/10/2026 14:30)..."
-                                   class="field-input flatpickr-custom-input"
-                                   style="width:100%; box-sizing:border-box; background:white; font-size:13px; font-weight:600; padding-right:38px; cursor:pointer;">
-                            <div style="position:absolute; right:12px; top:50%; transform:translateY(-50%); pointer-events:none; color:#285491; display:flex; align-items:center;">
-                                <i class="ph-bold ph-calendar-blank" style="font-size:17px;"></i>
-                            </div>
-                        </div>
-                        <p style="font-size:10px; color:#64748b; margin-top:4px;">Waktu saat container mulai staging (format 24 jam: 00:00 - 23:59 WIB).</p>
+            <div class="section-card-body" style="padding: 14px;">
+                <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px; transition: all 0.2s;"
+                     :style="waktuKeberangkatan ? 'border-color: #86efac; background: #f0fdf4;' : ''">
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+                        <label class="field-label" style="margin-bottom:0; display:flex; align-items:center; gap:5px; font-weight:700; color:#1e293b;">
+                            <i class="ph-bold ph-flag-checkered" style="color:#285491; font-size:16px;"></i>
+                            Waktu Selesai Staging <span style="color:#ef4444;">*</span>
+                            <span style="font-size:10px; font-weight:700; color:#285491; background:#e0ecfb; border:1px solid #bfcfe8; border-radius:6px; padding:1px 6px; margin-left:4px;">
+                                Format 24 Jam
+                            </span>
+                        </label>
+                        <button type="button" @click="setNow('keberangkatan')"
+                                style="font-size:10px; font-weight:700; color:#285491; background:#eff4fc; border:1px solid #bfcfe8; border-radius:6px; padding:3px 8px; cursor:pointer; display:flex; align-items:center; gap:3px; transition:background 0.15s;"
+                                onmouseover="this.style.background='#dbe7f6'"
+                                onmouseout="this.style.background='#eff4fc'">
+                            <i class="ph-bold ph-clock"></i> Set Sekarang
+                        </button>
                     </div>
-
-                    <!-- Waktu Akhir (Keberangkatan Container) -->
-                    <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px; transition: all 0.2s;"
-                         :style="waktuKeberangkatan ? 'border-color: #86efac; background: #f0fdf4;' : ''">
-                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
-                            <label class="field-label" style="margin-bottom:0; display:flex; align-items:center; gap:5px; font-weight:700; color:#1e293b;">
-                                <i class="ph-bold ph-check-circle" style="color:#285491; font-size:16px;"></i>
-                                Waktu Selesai Staging  <span style="color:#ef4444;">*</span>
-                                <span style="font-size:10px; font-weight:700; color:#285491; background:#e0ecfb; border:1px solid #bfcfe8; border-radius:6px; padding:1px 6px; margin-left:4px;">
-                                    Format 24 Jam
-                                </span>
-                            </label>
-                            <button type="button" @click="setNow('keberangkatan')"
-                                    style="font-size:10px; font-weight:700; color:#285491; background:#eff4fc; border:1px solid #bfcfe8; border-radius:6px; padding:3px 8px; cursor:pointer; display:flex; align-items:center; gap:3px; transition:background 0.15s;"
-                                    onmouseover="this.style.background='#dbe7f6'"
-                                    onmouseout="this.style.background='#eff4fc'">
-                                <i class="ph-bold ph-clock"></i> Set Sekarang
-                            </button>
+                    <div style="position:relative;">
+                        <input type="text" id="waktu_keberangkatan_container" name="waktu_keberangkatan_container"
+                               value="{{ old('waktu_keberangkatan_container', $shipment->waktu_keberangkatan_container ? $shipment->waktu_keberangkatan_container->format('Y-m-d H:i') : now('Asia/Jakarta')->format('Y-m-d H:i')) }}"
+                               placeholder="Pilih tanggal & jam format 24 jam (contoh: {{ now('Asia/Jakarta')->format('d/m/Y H:i') }})..."
+                               class="field-input flatpickr-custom-input"
+                               style="width:100%; box-sizing:border-box; background:white; font-size:13px; font-weight:600; padding-right:38px; cursor:pointer;"
+                               required>
+                        <div style="position:absolute; right:12px; top:50%; transform:translateY(-50%); pointer-events:none; color:#285491; display:flex; align-items:center;">
+                            <i class="ph-bold ph-calendar-blank" style="font-size:17px;"></i>
                         </div>
-                        <div style="position:relative;">
-                            <input type="text" id="waktu_keberangkatan_container" name="waktu_keberangkatan_container"
-                                   placeholder="Pilih tanggal & jam format 24 jam (contoh: 12/10/2026 17:15)..."
-                                   class="field-input flatpickr-custom-input"
-                                   style="width:100%; box-sizing:border-box; background:white; font-size:13px; font-weight:600; padding-right:38px; cursor:pointer;">
-                            <div style="position:absolute; right:12px; top:50%; transform:translateY(-50%); pointer-events:none; color:#285491; display:flex; align-items:center;">
-                                <i class="ph-bold ph-calendar-blank" style="font-size:17px;"></i>
-                            </div>
-                        </div>
-                        <p style="font-size:10px; color:#64748b; margin-top:4px;">Waktu saat proses pemuatan selesai dan container siap diberangkatkan (format 24 jam: 00:00 - 23:59 WIB).</p>
                     </div>
+                    <p style="font-size:10px; color:#64748b; margin-top:4px;">Waktu saat proses pemuatan selesai dan container siap diberangkatkan (format 24 jam: 00:00 - 23:59 WIB). Terisi otomatis dan dapat diedit.</p>
                 </div>
             </div>
         </div>

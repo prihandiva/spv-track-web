@@ -64,285 +64,591 @@
         $existingWhLoc = (string) old('warehouse_lokasi', $shipment->warehouse_lokasi ?? 'atas');
         $initWhInternal = in_array(strtolower($existingWhLoc), ['atas', 'tengah', 'bawah']) ? strtolower($existingWhLoc) : (string) old('warehouse_lokasi_internal', 'atas');
         $initWhExternal = !in_array(strtolower($existingWhLoc), ['atas', 'tengah', 'bawah']) ? $existingWhLoc : (string) old('warehouse_lokasi_external', '');
+
+        $extWarehousesList = $externalWarehouses ?? ($history['external_warehouse'] ?? []);
+        $isMatchedWh = in_array($initWhExternal, $extWarehousesList, true);
+        $initWhExternalSelect = $isMatchedWh ? $initWhExternal : ($initWhExternal !== '' ? '__custom__' : '');
+        $initWhExternalCustom = ! $isMatchedWh ? $initWhExternal : '';
     @endphp
 
+    <script>
+    function stagingFormData() {
+        return {
+            nomorContainer: {{ Js::from((string) old('nomor_container_atau_plat', $shipment->nomor_container_atau_plat ?? '')) }},
+            shipmentGroup: {{ Js::from((string) old('shipment_group', $shipment->shipment_group ?? '')) }},
+            shipmentNo: {{ Js::from((string) old('shipment_no', $shipment->shipment_no ?? '')) }},
+            agenForwarding: {{ Js::from((string) old('agen_forwarding', $shipment->agen_forwarding ?? '')) }},
+            tujuanPengiriman: {{ Js::from((string) old('tujuan_pengiriman', $shipment->tujuan_pengiriman ?? '')) }},
+            platNomor: {{ Js::from((string) old('plat_nomor', $shipment->plat_nomor ?? '')) }},
+            namaSopir: {{ Js::from((string) old('nama_sopir', $shipment->nama_sopir ?? '')) }},
+            nomorSeal: {{ Js::from((string) old('nomor_seal', $shipment->nomor_seal ?? '')) }},
+            selectedKaryawanIds: {{ Js::from(array_map('strval', (array) old('karyawan_ids', isset($shipment) ? ($shipment->karyawans->pluck('id')->map('strval')->all() ?: ($shipment->karyawan_id ? [(string) $shipment->karyawan_id] : [])) : (old('karyawan_id') ? [(string) old('karyawan_id')] : [])))) }},
+            packingListNo: {{ Js::from((string) old('packing_list_no', $shipment->packing_list_no ?? '')) }},
+            productChoice: {{ Js::from($initProductSelect) }},
+            customProductText: {{ Js::from($initCustomText) }},
+            whType: {{ Js::from($existingWhType) }},
+            whInternal: {{ Js::from($initWhInternal) }},
+            whExternalSelect: {{ Js::from($initWhExternalSelect) }},
+            whExternalCustom: {{ Js::from($initWhExternalCustom) }},
+
+            get whExternal() {
+                if (this.whExternalSelect === '__custom__') {
+                    return (this.whExternalCustom || '').trim();
+                }
+                return (this.whExternalSelect || '').trim();
+            },
+            handleWhExternalSelectChange() {
+                if (this.whExternalSelect === '__custom__') {
+                    this.$nextTick(() => {
+                        const input = document.getElementById('wh-custom-input');
+                        if (input) input.focus();
+                    });
+                }
+            },
+            dropdownOpen: false,
+            searchKaryawan: '',
+            photoPreviewUrl: '',
+            isOcrLoading: false,
+            ocrStatus: 'idle', // idle, loading, success, warning, error
+            ocrMessage: '',
+            ocrExtractedSummary: '',
+            ocrRawText: '',
+            showRawText: false,
+            zoomModalOpen: false,
+
+            // ── Barcode Scanner ──────────────────────────────────────
+            barcodeScanning: false,
+            barcodeTarget: null,  // nama field tujuan hasil scan
+            barcodeStream: null,
+            html5Scanner: null,
+
+            // ── Waktu Mulai Staging (Default Sekarang & Editable) ───
+            waktuKedatangan: {{ Js::from(old('waktu_kedatangan_container', isset($shipment) && $shipment->waktu_kedatangan_container ? $shipment->waktu_kedatangan_container->format('Y-m-d H:i') : now('Asia/Jakarta')->format('Y-m-d H:i'))) }},
+            fpKedatangan: null,
+
+            // ── Field Tambahan Form ────────────────────────────────
+            jenisPengiriman: {{ Js::from(old('jenis_pengiriman', $shipment->jenis_pengiriman ?? 'export')) }},
+            cuaca: {{ Js::from(old('cuaca', $shipment->cuaca ?? 'kering')) }},
+            waktu: {{ Js::from(old('waktu', $shipment->waktu ?? 'siang')) }},
+            tanggalStaging: {{ Js::from(old('tanggal_staging', isset($shipment) && $shipment->tanggal_staging ? $shipment->tanggal_staging->format('Y-m-d') : date('Y-m-d'))) }},
+
+            // ── Google Form-Style Real-time Auto-Save (LocalStorage) ─
+            isEditMode: {{ Js::from(isset($shipment)) }},
+            autoSaveStatus: 'idle', // 'idle' | 'saving' | 'saved'
+            lastSavedText: '',
+            hasRestoredDraft: false,
+
+            init() {
+                this.initDatePicker();
+                if (!this.isEditMode) {
+                    this.loadDraftFromLocalStorage();
+                    // Debounce watcher untuk auto-save real-time setiap ada perubahan input
+                    let debounceTimer = null;
+                    this.$watch('$data', () => {
+                        clearTimeout(debounceTimer);
+                        debounceTimer = setTimeout(() => {
+                            this.saveDraftToLocalStorage();
+                        }, 400);
+                    });
+                }
+            },
+
+            saveDraftToLocalStorage() {
+                if (this.isEditMode) return;
+                // Hanya simpan jika minimal satu field utama terisi
+                const hasInput = this.nomorContainer || this.packingListNo || this.shipmentGroup || this.shipmentNo || this.platNomor || this.namaSopir || this.nomorSeal;
+                if (!hasInput) return;
+
+                this.autoSaveStatus = 'saving';
+                try {
+                    const draft = {
+                        nomorContainer: this.nomorContainer,
+                        shipmentGroup: this.shipmentGroup,
+                        shipmentNo: this.shipmentNo,
+                        packingListNo: this.packingListNo,
+                        platNomor: this.platNomor,
+                        namaSopir: this.namaSopir,
+                        nomorSeal: this.nomorSeal,
+                        agenForwarding: this.agenForwarding,
+                        tujuanPengiriman: this.tujuanPengiriman,
+                        productChoice: this.productChoice,
+                        customProductText: this.customProductText,
+                        jenisPengiriman: this.jenisPengiriman,
+                        cuaca: this.cuaca,
+                        waktu: this.waktu,
+                        tanggalStaging: this.tanggalStaging,
+                        whType: this.whType,
+                        whInternal: this.whInternal,
+                        whExternalSelect: this.whExternalSelect,
+                        whExternalCustom: this.whExternalCustom,
+                        selectedKaryawanIds: this.selectedKaryawanIds,
+                        waktuKedatangan: this.waktuKedatangan,
+                        ocrRawText: this.ocrRawText,
+                        photoPreviewUrl: this.photoPreviewUrl,
+                        _savedAt: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' WIB',
+                        _timestamp: Date.now()
+                    };
+                    localStorage.setItem('spv_staging_create_draft_v1', JSON.stringify(draft));
+                    this.lastSavedText = 'Semua perubahan disimpan otomatis (' + draft._savedAt + ')';
+                    this.autoSaveStatus = 'saved';
+                } catch (e) {
+                    console.warn('Auto-save error', e);
+                    this.autoSaveStatus = 'idle';
+                }
+            },
+
+            loadDraftFromLocalStorage() {
+                if (this.isEditMode) return;
+                try {
+                    const raw = localStorage.getItem('spv_staging_create_draft_v1');
+                    if (!raw) return;
+                    const draft = JSON.parse(raw);
+                    if (!draft || typeof draft !== 'object') return;
+
+                    const hasInput = draft.nomorContainer || draft.packingListNo || draft.shipmentGroup || draft.shipmentNo || draft.platNomor || draft.namaSopir;
+                    if (!hasInput) return;
+
+                    if (draft.nomorContainer) this.nomorContainer = draft.nomorContainer;
+                    if (draft.shipmentGroup) this.shipmentGroup = draft.shipmentGroup;
+                    if (draft.shipmentNo) this.shipmentNo = draft.shipmentNo;
+                    if (draft.packingListNo) this.packingListNo = draft.packingListNo;
+                    if (draft.platNomor) this.platNomor = draft.platNomor;
+                    if (draft.namaSopir) this.namaSopir = draft.namaSopir;
+                    if (draft.nomorSeal) this.nomorSeal = draft.nomorSeal;
+                    if (draft.agenForwarding) this.agenForwarding = draft.agenForwarding;
+                    if (draft.tujuanPengiriman) this.tujuanPengiriman = draft.tujuanPengiriman;
+                    if (draft.productChoice) this.productChoice = draft.productChoice;
+                    if (draft.customProductText) this.customProductText = draft.customProductText;
+                    if (draft.jenisPengiriman) this.jenisPengiriman = draft.jenisPengiriman;
+                    if (draft.cuaca) this.cuaca = draft.cuaca;
+                    if (draft.waktu) this.waktu = draft.waktu;
+                    if (draft.tanggalStaging) this.tanggalStaging = draft.tanggalStaging;
+                    if (draft.whType) this.whType = draft.whType;
+                    if (draft.whInternal) this.whInternal = draft.whInternal;
+                    if (draft.whExternalSelect) this.whExternalSelect = draft.whExternalSelect;
+                    if (draft.whExternalCustom) this.whExternalCustom = draft.whExternalCustom;
+                    if (Array.isArray(draft.selectedKaryawanIds)) this.selectedKaryawanIds = draft.selectedKaryawanIds;
+                    if (draft.waktuKedatangan) {
+                        this.waktuKedatangan = draft.waktuKedatangan;
+                        if (this.fpKedatangan) this.fpKedatangan.setDate(this.waktuKedatangan, true);
+                    }
+                    if (draft.ocrRawText) this.ocrRawText = draft.ocrRawText;
+                    if (draft.photoPreviewUrl) this.photoPreviewUrl = draft.photoPreviewUrl;
+
+                    this.hasRestoredDraft = true;
+                    this.lastSavedText = 'Draf dipulihkan otomatis (' + (draft._savedAt || 'tersimpan sebelumnya') + ')';
+                    this.autoSaveStatus = 'saved';
+                } catch (e) {
+                    console.warn('Load draft error', e);
+                }
+            },
+
+            clearDraftAndReset() {
+                if (confirm('Kosongkan draf otomatis dan mulai dari formulir bersih?')) {
+                    try {
+                        localStorage.removeItem('spv_staging_create_draft_v1');
+                    } catch (e) {}
+                    window.location.reload();
+                }
+            },
+
+            clearAutoSaveDraft() {
+                try {
+                    localStorage.removeItem('spv_staging_create_draft_v1');
+                } catch (e) {}
+            },
+            initDatePicker() {
+                const self = this;
+                const el = document.getElementById('waktu_kedatangan_container');
+                if (el && typeof flatpickr !== 'undefined') {
+                    this.fpKedatangan = flatpickr(el, {
+                        enableTime: true,
+                        time_24hr: true,
+                        dateFormat: 'Y-m-d H:i',
+                        altInput: true,
+                        altFormat: 'd/m/Y H:i',
+                        altInputClass: 'field-input flatpickr-custom-input',
+                        locale: (typeof flatpickr !== 'undefined' && flatpickr.l10ns && flatpickr.l10ns.id) ? flatpickr.l10ns.id : 'default',
+                        disableMobile: true,
+                        allowInput: true,
+                        monthSelectorType: 'static',
+                        defaultDate: this.waktuKedatangan || null,
+                        onChange(selectedDates, dateStr) {
+                            self.waktuKedatangan = dateStr || '';
+                        },
+                        onClose(selectedDates, dateStr) {
+                            self.waktuKedatangan = dateStr || '';
+                        }
+                    });
+                }
+            },
+            setNowKedatangan() {
+                const now = new Date();
+                const y = now.getFullYear();
+                const m = String(now.getMonth() + 1).padStart(2, '0');
+                const d = String(now.getDate()).padStart(2, '0');
+                const hh = String(now.getHours()).padStart(2, '0');
+                const mm = String(now.getMinutes()).padStart(2, '0');
+                const val = `${y}-${m}-${d} ${hh}:${mm}`;
+                this.waktuKedatangan = val;
+                if (this.fpKedatangan) {
+                    this.fpKedatangan.setDate(val, true);
+                }
+            },
+            karyawans: {{ Js::from($karyawans->map(fn($k) => ['id' => (string) $k->id, 'nama' => $k->nama, 'nomor_induk' => $k->nomor_induk, 'position' => $k->position_label ?? ucfirst($k->position ?? 'Operator')])) }},
+
+            sanitizeDigits(val) {
+                return String(val || '').replace(/\D/g, '').slice(0, 9);
+            },
+
+            toggleKaryawan(id) {
+                const sId = String(id);
+                const idx = this.selectedKaryawanIds.indexOf(sId);
+                if (idx > -1) {
+                    this.selectedKaryawanIds.splice(idx, 1);
+                } else {
+                    this.selectedKaryawanIds.push(sId);
+                }
+            },
+            isKaryawanSelected(id) {
+                return this.selectedKaryawanIds.includes(String(id));
+            },
+            removeKaryawan(id) {
+                this.selectedKaryawanIds = this.selectedKaryawanIds.filter(item => item !== String(id));
+            },
+            selectAllFiltered() {
+                this.filteredKaryawans.forEach(item => {
+                    const sId = String(item.id);
+                    if (!this.selectedKaryawanIds.includes(sId)) {
+                        this.selectedKaryawanIds.push(sId);
+                    }
+                });
+            },
+            clearSelected() {
+                this.selectedKaryawanIds = [];
+            },
+            get selectedKaryawans() {
+                return this.karyawans.filter(k => this.selectedKaryawanIds.includes(String(k.id)));
+            },
+            get filteredKaryawans() {
+                if (!this.searchKaryawan.trim()) return this.karyawans;
+                const q = this.searchKaryawan.toLowerCase();
+                return this.karyawans.filter(k => k.nama.toLowerCase().includes(q) || k.nomor_induk.toLowerCase().includes(q) || (k.position && k.position.toLowerCase().includes(q)));
+            },
+
+            // Validasi 9 digit angka
+            get isPackingListValid() {
+                return this.packingListNo.trim().length === 9;
+            },
+            get isShipmentGroupValid() {
+                return this.shipmentGroup.trim().length === 9;
+            },
+            get isShipmentNoValid() {
+                return this.shipmentNo.trim().length === 9;
+            },
+
+            get isProductValid() {
+                if (this.productChoice === 'others') {
+                    return this.customProductText.trim().length > 0;
+                }
+                return (this.productChoice || '').trim().length > 0;
+            },
+
+            get isWarehouseValid() {
+                if (this.whType === 'external') {
+                    return this.whExternal.trim().length > 0;
+                }
+                return ['atas', 'tengah', 'bawah'].includes(this.whInternal);
+            },
+
+            get isValid() {
+                return this.isPackingListValid &&
+                       this.isShipmentGroupValid &&
+                       this.isShipmentNoValid &&
+                       this.nomorContainer.trim().length > 0 &&
+                       this.platNomor.trim().length > 0 &&
+                       this.selectedKaryawanIds.length > 0 &&
+                       this.isProductValid &&
+                       this.isWarehouseValid;
+            },
+            get missingFields() {
+                const missing = [];
+                if (this.packingListNo.length === 0) {
+                    missing.push('No. Surat Jalan / Delivery / Packing List (9 digit)');
+                } else if (this.packingListNo.length < 9) {
+                    missing.push('No. Surat Jalan (baru ' + this.packingListNo.length + '/9 digit)');
+                }
+
+                if (this.shipmentGroup.length === 0) {
+                    missing.push('Shipment Group (9 digit)');
+                } else if (this.shipmentGroup.length < 9) {
+                    missing.push('Shipment Group (baru ' + this.shipmentGroup.length + '/9 digit)');
+                }
+
+                if (this.shipmentNo.length === 0) {
+                    missing.push('Shipment No (9 digit)');
+                } else if (this.shipmentNo.length < 9) {
+                    missing.push('Shipment No (baru ' + this.shipmentNo.length + '/9 digit)');
+                }
+
+                if (!this.platNomor.trim()) missing.push('Plat Nomor');
+                if (!this.nomorContainer.trim()) missing.push('No. Container');
+                if (this.selectedKaryawanIds.length === 0) missing.push('Petugas Lapangan (minimal 1)');
+                if (!this.isProductValid) missing.push('Ketik Nama Produk (Others)');
+                if (!this.isWarehouseValid) {
+                    if (this.whType === 'external') {
+                        missing.push('Nama PT Pemilik Warehouse Eksternal');
+                    } else {
+                        missing.push('Pilih Lokasi Warehouse Internal (Atas/Tengah/Bawah)');
+                    }
+                }
+                return missing;
+            },
+            handlePhotoChange(event) {
+                const input = event.target;
+                if (!input.files || !input.files[0]) return;
+                const file = input.files[0];
+
+                // Instant high-performance local preview URL
+                if (this.photoPreviewUrl && this.photoPreviewUrl.startsWith('blob:')) {
+                    URL.revokeObjectURL(this.photoPreviewUrl);
+                }
+                this.photoPreviewUrl = URL.createObjectURL(file);
+                this.isOcrLoading = true;
+                this.ocrStatus = 'loading';
+                this.ocrMessage = 'Membaca dokumen Shipment Order dengan OCR (Tesseract)...';
+
+                // Fast client-side scaling to 1600px max before upload (reduces 12MB photo to ~350KB in milliseconds)
+                this.scaleImageForUpload(file, 1600, 0.85).then(optimizedBlob => {
+                    const formData = new FormData();
+                    formData.append('image', optimizedBlob, 'shipment_order.jpg');
+                    formData.append('_token', '{{ csrf_token() }}');
+
+                    fetch('{{ route('field-app.ocr.shipment-order', [], false) }}', {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'ngrok-skip-browser-warning': 'true'
+                        },
+                        body: formData
+                    })
+                    .then(res => {
+                        if (!res.ok) throw new Error('HTTP ' + res.status);
+                        return res.json();
+                    })
+                    .then(data => {
+                        this.isOcrLoading = false;
+                        this.ocrRawText = data.raw_text || '';
+
+                        let extractedItems = [];
+                        if (data.packing_list_no || data.delivery_no) {
+                            const plVal = this.sanitizeDigits(data.packing_list_no || data.delivery_no);
+                            this.packingListNo = plVal;
+                            extractedItems.push('Delivery/SJ: ' + plVal);
+                        }
+                        if (data.shipment_group) {
+                            const sgVal = this.sanitizeDigits(data.shipment_group);
+                            this.shipmentGroup = sgVal;
+                            extractedItems.push('Shipment Group: ' + sgVal);
+                        }
+                        if (data.shipment_no) {
+                            const snVal = this.sanitizeDigits(data.shipment_no);
+                            this.shipmentNo = snVal;
+                            extractedItems.push('Shipment No: ' + snVal);
+                        }
+                        if (data.plat_nomor) {
+                            this.platNomor = data.plat_nomor;
+                            extractedItems.push('Plat: ' + data.plat_nomor);
+                        }
+                        if (data.container_no) {
+                            this.nomorContainer = data.container_no;
+                            extractedItems.push('Container: ' + data.container_no);
+                        }
+                        if (data.nama_sopir) {
+                            this.namaSopir = data.nama_sopir;
+                            extractedItems.push('Sopir: ' + data.nama_sopir);
+                        }
+                        if (data.nomor_seal) {
+                            this.nomorSeal = data.nomor_seal;
+                            extractedItems.push('Seal: ' + data.nomor_seal);
+                        }
+                        if (data.agen_forwarding) {
+                            this.agenForwarding = data.agen_forwarding;
+                            extractedItems.push('Forwarder: ' + data.agen_forwarding);
+                        }
+                        if (data.tujuan_pengiriman) {
+                            this.tujuanPengiriman = data.tujuan_pengiriman;
+                            extractedItems.push('Tujuan: ' + data.tujuan_pengiriman);
+                        }
+
+                        if (extractedItems.length > 0) {
+                            this.ocrStatus = 'success';
+                            this.ocrMessage = 'OCR Berhasil! ' + extractedItems.length + ' data berhasil diekstrak otomatis.';
+                            this.ocrExtractedSummary = extractedItems.join(' • ');
+                        } else {
+                            this.ocrStatus = 'warning';
+                            this.ocrMessage = 'Dokumen terunggah. Teks dokumen tidak terdeteksi otomatis, silakan lengkapi form atau pilih dari riwayat.';
+                        }
+                    })
+                    .catch(err => {
+                        this.isOcrLoading = false;
+                        this.ocrStatus = 'warning';
+                        this.ocrMessage = 'Foto tersimpan. Sistem tidak dapat membaca teks otomatis, silakan lengkapi form secara manual.';
+                        console.warn('OCR error:', err);
+                    });
+                });
+            },
+            scaleImageForUpload(file, maxDimension, quality) {
+                return new Promise((resolve) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        let width = img.width;
+                        let height = img.height;
+                        if (width > maxDimension || height > maxDimension) {
+                            if (width > height) {
+                                height = Math.round((height * maxDimension) / width);
+                                width = maxDimension;
+                            } else {
+                                width = Math.round((width * maxDimension) / height);
+                                height = maxDimension;
+                            }
+                        }
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        canvas.toBlob((blob) => {
+                            resolve(blob || file);
+                        }, 'image/jpeg', quality);
+                    };
+                    img.onerror = () => resolve(file);
+                    img.src = URL.createObjectURL(file);
+                });
+            },
+            removePhoto() {
+                if (this.photoPreviewUrl && this.photoPreviewUrl.startsWith('blob:')) {
+                    URL.revokeObjectURL(this.photoPreviewUrl);
+                }
+                this.photoPreviewUrl = '';
+                this.ocrStatus = 'idle';
+                this.ocrMessage = '';
+                this.ocrExtractedSummary = '';
+                this.ocrRawText = '';
+                if (this.$refs.orderCameraInput) {
+                    this.$refs.orderCameraInput.value = '';
+                }
+                if (this.$refs.orderGalleryInput) {
+                    this.$refs.orderGalleryInput.value = '';
+                }
+            },
+            // ── Barcode Scanner Helpers ───────────────────────────
+            openBarcodeScanner(targetField) {
+                this.barcodeTarget = targetField;
+                this.barcodeScanning = true;
+                this.$nextTick(() => {
+                    this.startBarcodeScan();
+                });
+            },
+            async startBarcodeScan() {
+                // Opsi 1: Menggunakan Html5Qrcode (universal: Android, iOS Safari, desktop)
+                if (typeof Html5Qrcode !== 'undefined') {
+                    try {
+                        const readerEl = document.getElementById('barcode-reader-view');
+                        if (readerEl) {
+                            readerEl.innerHTML = '';
+                            this.html5Scanner = new Html5Qrcode('barcode-reader-view');
+                            const config = {
+                                fps: 15,
+                                qrbox: { width: 280, height: 120 },
+                                aspectRatio: 1.333333
+                            };
+                            await this.html5Scanner.start(
+                                { facingMode: 'environment' },
+                                config,
+                                (decodedText) => {
+                                    this.handleBarcodeResult(decodedText);
+                                },
+                                () => {} // scan frame ignored
+                            );
+                            return;
+                        }
+                    } catch (err) {
+                        console.warn('Html5Qrcode scanner failed, fallback to native BarcodeDetector:', err);
+                    }
+                }
+
+                // Opsi 2: Fallback ke native BarcodeDetector API jika tersedia
+                const video = this.$refs.barcodeVideo;
+                if (video && ('BarcodeDetector' in window)) {
+                    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+                        .then(stream => {
+                            this.barcodeStream = stream;
+                            video.style.display = 'block';
+                            video.srcObject = stream;
+                            video.play();
+                            const detector = new BarcodeDetector({ formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'itf', 'qr_code', 'data_matrix'] });
+                            const scan = () => {
+                                if (!this.barcodeScanning) return;
+                                detector.detect(video).then(codes => {
+                                    if (codes.length > 0) {
+                                        this.handleBarcodeResult(codes[0].rawValue);
+                                    } else {
+                                        requestAnimationFrame(scan);
+                                    }
+                                }).catch(() => requestAnimationFrame(scan));
+                            };
+                            requestAnimationFrame(scan);
+                        })
+                        .catch(() => {
+                            this.barcodeScanning = false;
+                            alert('Tidak dapat membuka kamera. Pastikan izin kamera diberikan, atau gunakan scanner USB/Bluetooth — arahkan kursor ke field lalu scan.');
+                        });
+                } else {
+                    alert('Scanner kamera tidak tersedia. Anda dapat menggunakan scanner USB/Bluetooth — klik pada kolom lalu lakukan scan.');
+                    this.closeBarcodeScanner();
+                }
+            },
+            async closeBarcodeScanner() {
+                this.barcodeScanning = false;
+                if (this.html5Scanner) {
+                    try {
+                        await this.html5Scanner.stop();
+                        this.html5Scanner.clear();
+                    } catch (e) {}
+                    this.html5Scanner = null;
+                }
+                if (this.barcodeStream) {
+                    this.barcodeStream.getTracks().forEach(t => t.stop());
+                    this.barcodeStream = null;
+                }
+                const video = this.$refs.barcodeVideo;
+                if (video) {
+                    video.style.display = 'none';
+                    video.srcObject = null;
+                }
+            },
+            handleBarcodeResult(raw) {
+                const cleaned = (raw || '').trim();
+                const digitsOnly = cleaned.replace(/\D/g, '').slice(0, 9);
+                switch (this.barcodeTarget) {
+                    case 'packing_list_no':   this.packingListNo  = digitsOnly; break;
+                    case 'shipment_group':    this.shipmentGroup  = digitsOnly; break;
+                    case 'shipment_no':       this.shipmentNo     = digitsOnly; break;
+                    case 'nomor_seal':        this.nomorSeal      = cleaned;   break;
+                    case 'nomor_container':   this.nomorContainer = cleaned.toUpperCase(); break;
+                    default: break;
+                }
+                this.closeBarcodeScanner();
+            }
+        };
+    }
+    </script>
+
     <form action="{{ isset($shipment) ? route('field-app.update', $shipment->id, false) : route('field-app.store', [], false) }}" method="POST" enctype="multipart/form-data"
-          x-data="{
-              nomorContainer: {{ Js::from((string) old('nomor_container_atau_plat', $shipment->nomor_container_atau_plat ?? '')) }},
-              shipmentGroup: {{ Js::from((string) old('shipment_group', $shipment->shipment_group ?? '')) }},
-              shipmentNo: {{ Js::from((string) old('shipment_no', $shipment->shipment_no ?? '')) }},
-              agenForwarding: {{ Js::from((string) old('agen_forwarding', $shipment->agen_forwarding ?? '')) }},
-              tujuanPengiriman: {{ Js::from((string) old('tujuan_pengiriman', $shipment->tujuan_pengiriman ?? '')) }},
-              platNomor: {{ Js::from((string) old('plat_nomor', $shipment->plat_nomor ?? '')) }},
-              namaSopir: {{ Js::from((string) old('nama_sopir', $shipment->nama_sopir ?? '')) }},
-              nomorSeal: {{ Js::from((string) old('nomor_seal', $shipment->nomor_seal ?? '')) }},
-              selectedKaryawanIds: {{ Js::from(array_map('strval', (array) old('karyawan_ids', isset($shipment) ? ($shipment->karyawans->pluck('id')->map('strval')->all() ?: ($shipment->karyawan_id ? [(string) $shipment->karyawan_id] : [])) : (old('karyawan_id') ? [(string) old('karyawan_id')] : [])))) }},
-              packingListNo: {{ Js::from((string) old('packing_list_no', $shipment->packing_list_no ?? '')) }},
-              productChoice: {{ Js::from($initProductSelect) }},
-              customProductText: {{ Js::from($initCustomText) }},
-              whType: {{ Js::from($existingWhType) }},
-              whInternal: {{ Js::from($initWhInternal) }},
-              whExternal: {{ Js::from($initWhExternal) }},
-              dropdownOpen: false,
-              searchKaryawan: '',
-              photoPreviewUrl: '',
-              isOcrLoading: false,
-              ocrStatus: 'idle', // idle, loading, success, warning, error
-              ocrMessage: '',
-              ocrExtractedSummary: '',
-              ocrRawText: '',
-              showRawText: false,
-              zoomModalOpen: false,
-              karyawans: {{ Js::from($karyawans->map(fn($k) => ['id' => (string) $k->id, 'nama' => $k->nama, 'nomor_induk' => $k->nomor_induk, 'position' => $k->position_label ?? ucfirst($k->position ?? 'Operator')])) }},
-
-              sanitizeDigits(val) {
-                  return String(val || '').replace(/\D/g, '').slice(0, 9);
-              },
-
-              toggleKaryawan(id) {
-                  const sId = String(id);
-                  const idx = this.selectedKaryawanIds.indexOf(sId);
-                  if (idx > -1) {
-                      this.selectedKaryawanIds.splice(idx, 1);
-                  } else {
-                      this.selectedKaryawanIds.push(sId);
-                  }
-              },
-              isKaryawanSelected(id) {
-                  return this.selectedKaryawanIds.includes(String(id));
-              },
-              removeKaryawan(id) {
-                  this.selectedKaryawanIds = this.selectedKaryawanIds.filter(item => item !== String(id));
-              },
-              selectAllFiltered() {
-                  this.filteredKaryawans.forEach(item => {
-                      const sId = String(item.id);
-                      if (!this.selectedKaryawanIds.includes(sId)) {
-                          this.selectedKaryawanIds.push(sId);
-                      }
-                  });
-              },
-              clearSelected() {
-                  this.selectedKaryawanIds = [];
-              },
-              get selectedKaryawans() {
-                  return this.karyawans.filter(k => this.selectedKaryawanIds.includes(String(k.id)));
-              },
-              get filteredKaryawans() {
-                  if (!this.searchKaryawan.trim()) return this.karyawans;
-                  const q = this.searchKaryawan.toLowerCase();
-                  return this.karyawans.filter(k => k.nama.toLowerCase().includes(q) || k.nomor_induk.toLowerCase().includes(q) || (k.position && k.position.toLowerCase().includes(q)));
-              },
-
-              // Validasi 9 digit angka
-              get isPackingListValid() {
-                  return this.packingListNo.trim().length === 9;
-              },
-              get isShipmentGroupValid() {
-                  return this.shipmentGroup.trim().length === 9;
-              },
-              get isShipmentNoValid() {
-                  return this.shipmentNo.trim().length === 9;
-              },
-
-              get isProductValid() {
-                  if (this.productChoice === 'others') {
-                      return this.customProductText.trim().length > 0;
-                  }
-                  return (this.productChoice || '').trim().length > 0;
-              },
-
-              get isWarehouseValid() {
-                  if (this.whType === 'external') {
-                      return this.whExternal.trim().length > 0;
-                  }
-                  return ['atas', 'tengah', 'bawah'].includes(this.whInternal);
-              },
-
-              get isValid() {
-                  return this.isPackingListValid &&
-                         this.isShipmentGroupValid &&
-                         this.isShipmentNoValid &&
-                         this.nomorContainer.trim().length > 0 &&
-                         this.platNomor.trim().length > 0 &&
-                         this.selectedKaryawanIds.length > 0 &&
-                         this.isProductValid &&
-                         this.isWarehouseValid;
-              },
-              get missingFields() {
-                  const missing = [];
-                  if (this.packingListNo.length === 0) {
-                      missing.push('No. Surat Jalan / Delivery / Packing List (9 digit)');
-                  } else if (this.packingListNo.length < 9) {
-                      missing.push('No. Surat Jalan (baru ' + this.packingListNo.length + '/9 digit)');
-                  }
-
-                  if (this.shipmentGroup.length === 0) {
-                      missing.push('Shipment Group (9 digit)');
-                  } else if (this.shipmentGroup.length < 9) {
-                      missing.push('Shipment Group (baru ' + this.shipmentGroup.length + '/9 digit)');
-                  }
-
-                  if (this.shipmentNo.length === 0) {
-                      missing.push('Shipment No (9 digit)');
-                  } else if (this.shipmentNo.length < 9) {
-                      missing.push('Shipment No (baru ' + this.shipmentNo.length + '/9 digit)');
-                  }
-
-                  if (!this.platNomor.trim()) missing.push('Plat Nomor');
-                  if (!this.nomorContainer.trim()) missing.push('No. Container');
-                  if (this.selectedKaryawanIds.length === 0) missing.push('Petugas Lapangan (minimal 1)');
-                  if (!this.isProductValid) missing.push('Ketik Nama Produk (Others)');
-                  if (!this.isWarehouseValid) {
-                      if (this.whType === 'external') {
-                          missing.push('Nama PT Pemilik Warehouse Eksternal');
-                      } else {
-                          missing.push('Pilih Lokasi Warehouse Internal (Atas/Tengah/Bawah)');
-                      }
-                  }
-                  return missing;
-              },
-              handlePhotoChange(event) {
-                  const input = event.target;
-                  if (!input.files || !input.files[0]) return;
-                  const file = input.files[0];
-
-                  // Instant high-performance local preview URL
-                  if (this.photoPreviewUrl && this.photoPreviewUrl.startsWith('blob:')) {
-                      URL.revokeObjectURL(this.photoPreviewUrl);
-                  }
-                  this.photoPreviewUrl = URL.createObjectURL(file);
-                  this.isOcrLoading = true;
-                  this.ocrStatus = 'loading';
-                  this.ocrMessage = 'Membaca dokumen Shipment Order dengan OCR (Tesseract)...';
-
-                  // Fast client-side scaling to 1600px max before upload (reduces 12MB photo to ~350KB in milliseconds)
-                  this.scaleImageForUpload(file, 1600, 0.85).then(optimizedBlob => {
-                      const formData = new FormData();
-                      formData.append('image', optimizedBlob, 'shipment_order.jpg');
-                      formData.append('_token', '{{ csrf_token() }}');
-
-                      fetch('{{ route('field-app.ocr.shipment-order', [], false) }}', {
-                          method: 'POST',
-                          headers: {
-                              'Accept': 'application/json',
-                              'X-Requested-With': 'XMLHttpRequest',
-                              'ngrok-skip-browser-warning': 'true'
-                          },
-                          body: formData
-                      })
-                      .then(res => {
-                          if (!res.ok) throw new Error('HTTP ' + res.status);
-                          return res.json();
-                      })
-                      .then(data => {
-                          this.isOcrLoading = false;
-                          this.ocrRawText = data.raw_text || '';
-
-                          let extractedItems = [];
-                          if (data.packing_list_no || data.delivery_no) {
-                              const plVal = this.sanitizeDigits(data.packing_list_no || data.delivery_no);
-                              this.packingListNo = plVal;
-                              extractedItems.push('Delivery/SJ: ' + plVal);
-                          }
-                          if (data.shipment_group) {
-                              const sgVal = this.sanitizeDigits(data.shipment_group);
-                              this.shipmentGroup = sgVal;
-                              extractedItems.push('Shipment Group: ' + sgVal);
-                          }
-                          if (data.shipment_no) {
-                              const snVal = this.sanitizeDigits(data.shipment_no);
-                              this.shipmentNo = snVal;
-                              extractedItems.push('Shipment No: ' + snVal);
-                          }
-                          if (data.plat_nomor) {
-                              this.platNomor = data.plat_nomor;
-                              extractedItems.push('Plat: ' + data.plat_nomor);
-                          }
-                          if (data.container_no) {
-                              this.nomorContainer = data.container_no;
-                              extractedItems.push('Container: ' + data.container_no);
-                          }
-                          if (data.nama_sopir) {
-                              this.namaSopir = data.nama_sopir;
-                              extractedItems.push('Sopir: ' + data.nama_sopir);
-                          }
-                          if (data.nomor_seal) {
-                              this.nomorSeal = data.nomor_seal;
-                              extractedItems.push('Seal: ' + data.nomor_seal);
-                          }
-                          if (data.agen_forwarding) {
-                              this.agenForwarding = data.agen_forwarding;
-                              extractedItems.push('Forwarder: ' + data.agen_forwarding);
-                          }
-                          if (data.tujuan_pengiriman) {
-                              this.tujuanPengiriman = data.tujuan_pengiriman;
-                              extractedItems.push('Tujuan: ' + data.tujuan_pengiriman);
-                          }
-
-                          if (extractedItems.length > 0) {
-                              this.ocrStatus = 'success';
-                              this.ocrMessage = 'OCR Berhasil! ' + extractedItems.length + ' data berhasil diekstrak otomatis.';
-                              this.ocrExtractedSummary = extractedItems.join(' • ');
-                          } else {
-                              this.ocrStatus = 'warning';
-                              this.ocrMessage = 'Dokumen terunggah. Teks dokumen tidak terdeteksi otomatis, silakan lengkapi form atau pilih dari riwayat.';
-                          }
-                      })
-                      .catch(err => {
-                          this.isOcrLoading = false;
-                          this.ocrStatus = 'warning';
-                          this.ocrMessage = 'Foto tersimpan. Sistem tidak dapat membaca teks otomatis, silakan lengkapi form secara manual.';
-                          console.warn('OCR error:', err);
-                      });
-                  });
-              },
-              scaleImageForUpload(file, maxDimension, quality) {
-                  return new Promise((resolve) => {
-                      const img = new Image();
-                      img.onload = () => {
-                          let width = img.width;
-                          let height = img.height;
-                          if (width > maxDimension || height > maxDimension) {
-                              if (width > height) {
-                                  height = Math.round((height * maxDimension) / width);
-                                  width = maxDimension;
-                              } else {
-                                  width = Math.round((width * maxDimension) / height);
-                                  height = maxDimension;
-                              }
-                          }
-                          const canvas = document.createElement('canvas');
-                          canvas.width = width;
-                          canvas.height = height;
-                          const ctx = canvas.getContext('2d');
-                          ctx.drawImage(img, 0, 0, width, height);
-                          canvas.toBlob((blob) => {
-                              resolve(blob || file);
-                          }, 'image/jpeg', quality);
-                      };
-                      img.onerror = () => resolve(file);
-                      img.src = URL.createObjectURL(file);
-                  });
-              },
-              removePhoto() {
-                  if (this.photoPreviewUrl && this.photoPreviewUrl.startsWith('blob:')) {
-                      URL.revokeObjectURL(this.photoPreviewUrl);
-                  }
-                  this.photoPreviewUrl = '';
-                  this.ocrStatus = 'idle';
-                  this.ocrMessage = '';
-                  this.ocrExtractedSummary = '';
-                  this.ocrRawText = '';
-                  if (this.$refs.orderCameraInput) {
-                      this.$refs.orderCameraInput.value = '';
-                  }
-                  if (this.$refs.orderGalleryInput) {
-                      this.$refs.orderGalleryInput.value = '';
-                  }
-              }
-          }"
-
+          x-data="stagingFormData()"
+          @submit="clearAutoSaveDraft()"
           style="display: flex; flex-direction: column; gap: 14px;">
         @csrf
         @if(isset($shipment))
@@ -350,6 +656,122 @@
         @endif
 
         <input type="hidden" name="ocr_raw_text" :value="ocrRawText">
+
+        <!-- ═══════════════════════════════════════════════════════════ -->
+        <!-- GOOGLE FORM STYLE REALTIME AUTO-SAVE STATUS & RECOVERY BAR   -->
+        <!-- ═══════════════════════════════════════════════════════════ -->
+        @if(!isset($shipment))
+            <div style="background: white; border: 1.5px solid #e2e8f0; border-radius: 14px; padding: 10px 14px; box-shadow: 0 1px 4px rgba(40,84,145,0.04); display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 11px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <template x-if="autoSaveStatus === 'saving'">
+                        <span style="display: inline-flex; align-items: center; gap: 6px; color: #2563eb; font-weight: 700;">
+                            <i class="ph-bold ph-arrows-clockwise" style="animation: spin 1s linear infinite; font-size: 14px;"></i>
+                            Menyimpan draf...
+                        </span>
+                    </template>
+                    <template x-if="autoSaveStatus === 'saved'">
+                        <span style="display: inline-flex; align-items: center; gap: 6px; color: #059e3d; font-weight: 700;">
+                            <i class="ph-fill ph-cloud-check" style="font-size: 17px; color: #059e3d;"></i>
+                            <span x-text="lastSavedText || 'Semua perubahan tersimpan otomatis'"></span>
+                        </span>
+                    </template>
+                    <template x-if="autoSaveStatus === 'idle'">
+                        <span style="display: inline-flex; align-items: center; gap: 6px; color: #64748b; font-weight: 500;">
+                            <i class="ph-bold ph-cloud" style="font-size: 15px; color: #94a3b8;"></i>
+                            Auto-Save Aktif: Isian form otomatis tersimpan saat Anda mengetik
+                        </span>
+                    </template>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <template x-if="autoSaveStatus === 'saved' || hasRestoredDraft">
+                        <button type="button" @click="clearDraftAndReset()"
+                                title="Kosongkan draf otomatis dan mulai dari formulir bersih"
+                                style="background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; border-radius: 8px; padding: 4px 9px; font-size: 10px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: all 0.15s;"
+                                onmouseover="this.style.background='#fee2e2'"
+                                onmouseout="this.style.background='#fef2f2'">
+                            <i class="ph-bold ph-trash"></i>
+                            Reset Draf
+                        </button>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Banner Notifikasi Saat Draf Berhasil Dipulihkan Dari Sesi Sebelumnya -->
+            <div x-cloak x-show="hasRestoredDraft" x-transition
+                 style="background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 14px; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 32px; height: 32px; border-radius: 10px; background: #2563eb; color: white; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: 0 2px 6px rgba(37,99,235,0.25);">
+                        <i class="ph-bold ph-arrow-counter-clockwise" style="font-size: 18px;"></i>
+                    </div>
+                    <div>
+                        <p style="font-size: 12px; font-weight: 700; color: #1e40af; margin: 0;">
+                            Draf Formulir Sebelumnya Berhasil Dipulihkan!
+                        </p>
+                        <p style="font-size: 11px; color: #3b82f6; margin: 2px 0 0 0;">
+                            Data yang Anda ketik sebelum sesi tertutup/ter-logout telah otomatis dimuat kembali. Anda dapat langsung melanjutkan pengisian form.
+                        </p>
+                    </div>
+                </div>
+                <button type="button" @click="hasRestoredDraft = false"
+                        style="background: transparent; border: none; color: #94a3b8; cursor: pointer; padding: 4px; font-size: 18px; display: flex; align-items: center;"
+                        title="Tutup pemberitahuan">
+                    <i class="ph-bold ph-x"></i>
+                </button>
+            </div>
+        @endif
+
+        <!-- ═══════════════════════════════════════════════════════════ -->
+        <!-- WAKTU MULAI STAGING (Di Awal Form, Default Sekarang & Editable) -->
+        <!-- ═══════════════════════════════════════════════════════════ -->
+        <div class="section-card" style="margin-bottom: 2px;">
+            <div class="section-card-header" style="background: linear-gradient(90deg, rgba(5,158,61,0.08), transparent);">
+                <div style="width: 34px; height: 34px; border-radius: 10px; background: #e1f8eb; border: 1px solid #bbf7d0; display: flex; align-items: center; justify-content: center; flex-shrink:0;">
+                    <i class="ph-bold ph-play-circle" style="font-size: 20px; color: #059e3d;"></i>
+                </div>
+                <div style="flex: 1;">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <p style="font-size: 13px; font-weight: 700; color: #1f2937;">Waktu Mulai Staging Container</p>
+                        <span style="font-size: 10px; font-weight: 700; color: #059e3d; background:#e1f8eb; border:1px solid #bbf7d0; border-radius: 6px; padding: 1px 7px;">⏱ FORMAT 24 JAM</span>
+                    </div>
+                    <p style="font-size: 10px; color: #64748b;">Waktu kedatangan container / proses staging dimulai (otomatis terisi &amp; dapat diedit)</p>
+                </div>
+            </div>
+            <div class="section-card-body" style="padding: 14px;">
+                <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px; transition: all 0.2s;"
+                     :style="waktuKedatangan ? 'border-color: #86efac; background: #f0fdf4;' : ''">
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+                        <label class="field-label" style="margin-bottom:0; display:flex; align-items:center; gap:5px; font-weight:700; color:#1e293b;">
+                            <i class="ph-bold ph-calendar-check" style="color:#059e3d; font-size:16px;"></i>
+                            Waktu Mulai Staging <span style="color:#ef4444;">*</span>
+                            <span style="font-size:10px; font-weight:700; color:#285491; background:#e0ecfb; border:1px solid #bfcfe8; border-radius:6px; padding:1px 6px; margin-left:4px;">
+                                Format 24 Jam
+                            </span>
+                        </label>
+                        <button type="button" @click="setNowKedatangan()"
+                                style="font-size:10px; font-weight:700; color:#059e3d; background:#e1f8eb; border:1px solid #bbf7d0; border-radius:6px; padding:3px 8px; cursor:pointer; display:flex; align-items:center; gap:3px; transition:background 0.15s;"
+                                onmouseover="this.style.background='#cbf4dc'"
+                                onmouseout="this.style.background='#e1f8eb'">
+                            <i class="ph-bold ph-clock"></i> Set Sekarang
+                        </button>
+                    </div>
+                    <div style="position:relative;">
+                        <input type="text" id="waktu_kedatangan_container" name="waktu_kedatangan_container"
+                               value="{{ old('waktu_kedatangan_container', isset($shipment) && $shipment->waktu_kedatangan_container ? $shipment->waktu_kedatangan_container->format('Y-m-d H:i') : now('Asia/Jakarta')->format('Y-m-d H:i')) }}"
+                               placeholder="Pilih tanggal & jam format 24 jam (contoh: {{ now('Asia/Jakarta')->format('d/m/Y H:i') }})..."
+                               class="field-input flatpickr-custom-input"
+                               style="width:100%; box-sizing:border-box; background:white; font-size:13px; font-weight:600; padding-right:38px; cursor:pointer;"
+                               required>
+                        <div style="position:absolute; right:12px; top:50%; transform:translateY(-50%); pointer-events:none; color:#059e3d; display:flex; align-items:center;">
+                            <i class="ph-bold ph-calendar-blank" style="font-size:17px;"></i>
+                        </div>
+                    </div>
+                    <p style="font-size:10px; color:#64748b; margin-top:4px;">
+                        Waktu saat container tiba di lokasi (format 24 jam: 00:00 - 23:59 WIB). Otomatis terisi saat form dibuka dan dapat diubah.
+                    </p>
+                </div>
+            </div>
+        </div>
 
         <!-- SECTION 1 (DI TARUH DEPAN SEMUA): Dokumen Shipment Order (OCR) & 5 Data Utama -->
         <div class="section-card" x-data="{ open: true }">
@@ -521,10 +943,17 @@
                                 <i class="ph-bold ph-barcode" style="color:#285491; font-size:15px;"></i>
                                 No. Surat Jalan / Delivery / Packing List <span style="color:#ef4444;">*</span>
                             </label>
-                            <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center;"
-                                  :style="packingListNo.length === 9 ? 'background:#dcfce7; color:#15803d; border:1px solid #86efac;' : (packingListNo.length > 0 ? 'background:#fef3c7; color:#b45309; border:1px solid #fde68a;' : 'background:#eff4fc; color:#285491; border:1px solid #bfcfe8;')">
-                                <span x-text="packingListNo.length"></span>/9 Digit
-                            </span>
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <button type="button" @click="openBarcodeScanner('packing_list_no')"
+                                        style="display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:700; color:#285491; background:#e0ecfb; border:1px solid #bfcfe8; border-radius:6px; padding:2px 7px; cursor:pointer;"
+                                        title="Scan Barcode Batang Surat Jalan">
+                                    <i class="ph-bold ph-barcode"></i> Scan
+                                </button>
+                                <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center;"
+                                      :style="packingListNo.length === 9 ? 'background:#dcfce7; color:#15803d; border:1px solid #86efac;' : (packingListNo.length > 0 ? 'background:#fef3c7; color:#b45309; border:1px solid #fde68a;' : 'background:#eff4fc; color:#285491; border:1px solid #bfcfe8;')">
+                                    <span x-text="packingListNo.length"></span>/9 Digit
+                                </span>
+                            </div>
                         </div>
 
                         <input type="text"
@@ -586,10 +1015,17 @@
                                 <label class="field-label" style="display:flex; align-items:center; gap:4px; margin-bottom:0;">
                                     <i class="ph-bold ph-hash" style="color:#285491; font-size:12px;"></i>Shipment Group <span style="color:#ef4444;">*</span>
                                 </label>
-                                <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center;"
-                                      :style="shipmentGroup.length === 9 ? 'background:#dcfce7; color:#15803d; border:1px solid #86efac;' : (shipmentGroup.length > 0 ? 'background:#fef3c7; color:#b45309; border:1px solid #fde68a;' : 'background:#eff4fc; color:#285491; border:1px solid #bfcfe8;')">
-                                    <span x-text="shipmentGroup.length"></span>/9 Digit
-                                </span>
+                                <div style="display:flex; align-items:center; gap:4px;">
+                                    <button type="button" @click="openBarcodeScanner('shipment_group')"
+                                            style="display:inline-flex; align-items:center; gap:2px; font-size:9px; font-weight:700; color:#285491; background:#eff4fc; border:1px solid #bfcfe8; border-radius:5px; padding:2px 5px; cursor:pointer;"
+                                            title="Scan Barcode Batang">
+                                        <i class="ph-bold ph-barcode"></i> Scan
+                                    </button>
+                                    <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center;"
+                                          :style="shipmentGroup.length === 9 ? 'background:#dcfce7; color:#15803d; border:1px solid #86efac;' : (shipmentGroup.length > 0 ? 'background:#fef3c7; color:#b45309; border:1px solid #fde68a;' : 'background:#eff4fc; color:#285491; border:1px solid #bfcfe8;')">
+                                        <span x-text="shipmentGroup.length"></span>/9 Digit
+                                    </span>
+                                </div>
                             </div>
 
                             <input type="text"
@@ -644,10 +1080,17 @@
                                 <label class="field-label" style="display:flex; align-items:center; gap:4px; margin-bottom:0;">
                                     <i class="ph-bold ph-hash" style="color:#285491; font-size:12px;"></i>Shipment No. <span style="color:#ef4444;">*</span>
                                 </label>
-                                <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center;"
-                                      :style="shipmentNo.length === 9 ? 'background:#dcfce7; color:#15803d;' : (shipmentNo.length > 0 ? 'background:#fef3c7; color:#b45309;' : 'background:#eff4fc; color:#285491; border:1px solid #bfcfe8;')">
-                                    <span x-text="shipmentNo.length"></span>/9 Digit
-                                </span>
+                                <div style="display:flex; align-items:center; gap:4px;">
+                                    <button type="button" @click="openBarcodeScanner('shipment_no')"
+                                            style="display:inline-flex; align-items:center; gap:2px; font-size:9px; font-weight:700; color:#285491; background:#eff4fc; border:1px solid #bfcfe8; border-radius:5px; padding:2px 5px; cursor:pointer;"
+                                            title="Scan Barcode Batang">
+                                        <i class="ph-bold ph-barcode"></i> Scan
+                                    </button>
+                                    <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center;"
+                                          :style="shipmentNo.length === 9 ? 'background:#dcfce7; color:#15803d;' : (shipmentNo.length > 0 ? 'background:#fef3c7; color:#b45309;' : 'background:#eff4fc; color:#285491; border:1px solid #bfcfe8;')">
+                                        <span x-text="shipmentNo.length"></span>/9 Digit
+                                    </span>
+                                </div>
                             </div>
 
                             <input type="text"
@@ -794,9 +1237,16 @@
 
                         <!-- Nomor Container -->
                         <div>
-                            <label class="field-label" style="display:flex; align-items:center; gap:4px; margin-bottom: 3px;">
-                                <i class="ph-bold ph-truck" style="color:#285491; font-size:12px;"></i>No. Container <span style="color:#ef4444;">*</span>
-                            </label>
+                            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 3px;">
+                                <label class="field-label" style="display:flex; align-items:center; gap:4px; margin-bottom: 0;">
+                                    <i class="ph-bold ph-truck" style="color:#285491; font-size:12px;"></i>No. Container <span style="color:#ef4444;">*</span>
+                                </label>
+                                <button type="button" @click="openBarcodeScanner('nomor_container')"
+                                        style="display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:700; color:#285491; background:#eff4fc; border:1px solid #bfcfe8; border-radius:6px; padding:2px 7px; cursor:pointer;"
+                                        title="Scan Barcode Container">
+                                    <i class="ph-bold ph-barcode"></i> Scan
+                                </button>
+                            </div>
                             <input type="text" id="nomor_container_atau_plat" name="nomor_container_atau_plat"
                                    x-model="nomorContainer"
                                    list="history-container"
@@ -864,9 +1314,16 @@
 
                         <!-- Nomor Seal -->
                         <div>
-                            <label class="field-label" style="display:flex; align-items:center; gap:4px;">
-                                <i class="ph-bold ph-lock-key" style="color:#285491; font-size:12px;"></i>Nomor Seal 
-                            </label>
+                            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 3px;">
+                                <label class="field-label" style="display:flex; align-items:center; gap:4px; margin-bottom: 0;">
+                                    <i class="ph-bold ph-lock-key" style="color:#285491; font-size:12px;"></i>Nomor Seal 
+                                </label>
+                                <button type="button" @click="openBarcodeScanner('nomor_seal')"
+                                        style="display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:700; color:#285491; background:#eff4fc; border:1px solid #bfcfe8; border-radius:6px; padding:2px 7px; cursor:pointer;"
+                                        title="Scan Barcode Seal">
+                                    <i class="ph-bold ph-barcode"></i> Scan
+                                </button>
+                            </div>
                             <input type="text" id="nomor_seal" name="nomor_seal" x-model="nomorSeal"
                                    list="history-seal"
                                    placeholder="Contoh: ML-ID12345 / Segel" class="field-input" style="font-size:12px; font-weight: 600; text-transform:uppercase;">
@@ -940,35 +1397,49 @@
                     </div>
                     <div>
                         <label class="field-label">Jenis Pengiriman</label>
-                        <select name="jenis_pengiriman" class="field-input">
-                            <option value="export" {{ old('jenis_pengiriman', $shipment->jenis_pengiriman ?? 'export') === 'export' ? 'selected' : '' }}>Export</option>
-                            <option value="lokal" {{ old('jenis_pengiriman', $shipment->jenis_pengiriman ?? 'export') === 'lokal' ? 'selected' : '' }}>Lokal</option>
+                        <select name="jenis_pengiriman" x-model="jenisPengiriman" class="field-input">
+                            <option value="export">Export</option>
+                            <option value="lokal">Lokal</option>
                         </select>
                     </div>
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                     <div>
                         <label class="field-label">Cuaca</label>
-                        <select name="cuaca" class="field-input">
-                            <option value="kering" {{ old('cuaca', $shipment->cuaca ?? 'kering') === 'kering' ? 'selected' : '' }}>☀️ Kering</option>
-                            <option value="mendung" {{ old('cuaca', $shipment->cuaca ?? 'kering') === 'mendung' ? 'selected' : '' }}>☁️ Mendung</option>
-                            <option value="hujan" {{ old('cuaca', $shipment->cuaca ?? 'kering') === 'hujan' ? 'selected' : '' }}>🌧️ Hujan</option>
-                            <option value="gerimis" {{ old('cuaca', $shipment->cuaca ?? 'kering') === 'gerimis' ? 'selected' : '' }}>🌦️ Gerimis</option>
+                        <select name="cuaca" x-model="cuaca" class="field-input">
+                            <option value="kering">☀️ Kering</option>
+                            <option value="mendung">☁️ Mendung</option>
+                            <option value="hujan">🌧️ Hujan</option>
+                            <option value="gerimis">🌦️ Gerimis</option>
                         </select>
                     </div>
                     <div>
                         <label class="field-label">Waktu</label>
-                        <select name="waktu" class="field-input">
-                            <option value="siang" {{ old('waktu', $shipment->waktu ?? 'siang') === 'siang' ? 'selected' : '' }}>🌤️ Siang</option>
-                            <option value="sore" {{ old('waktu', $shipment->waktu ?? 'siang') === 'sore' ? 'selected' : '' }}>🌅 Sore</option>
-                            <option value="malam" {{ old('waktu', $shipment->waktu ?? 'siang') === 'malam' ? 'selected' : '' }}>🌙 Malam</option>
+                        <select name="waktu" x-model="waktu" class="field-input">
+                            <option value="siang">🌤️ Siang</option>
+                            <option value="sore">🌅 Sore</option>
+                            <option value="malam">🌙 Malam</option>
                         </select>
                     </div>
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 2px;">
                     <div>
-                        <label class="field-label">Tanggal Staging <span style="color:#ef4444;">*</span></label>
-                        <input type="date" name="tanggal_staging" required value="{{ old('tanggal_staging', isset($shipment) && $shipment->tanggal_staging ? $shipment->tanggal_staging->format('Y-m-d') : date('Y-m-d')) }}" class="field-input">
+                        <label class="field-label" style="display:flex; align-items:center; gap:5px;">
+                            <i class="ph-bold ph-calendar-check" style="color:#059e3d; font-size:13px;"></i>
+                            Tanggal Staging <span style="color:#ef4444;">*</span>
+                        </label>
+                        <input type="date"
+                               name="tanggal_staging"
+                               x-model="tanggalStaging"
+                               required
+                               min="{{ date('Y-m-d') }}"
+                               class="field-input"
+                               style="font-weight: 700;"
+                               title="Tanggal staging tidak boleh mundur dari hari ini">
+                        <p style="font-size: 10px; color: #059e3d; margin-top: 3px; display: flex; align-items: center; gap: 4px; font-weight: 600;">
+                            <i class="ph-bold ph-lock" style="font-size: 11px;"></i>
+                            Tanggal tidak bisa dipilih mundur (backdate)
+                        </p>
                     </div>
                     <div>
                         <label class="field-label">Kategori Warehouse <span style="color:#ef4444;">*</span></label>
@@ -994,6 +1465,7 @@
                 <!-- Hidden inputs to submit unified warehouse data -->
                 <input type="hidden" name="warehouse_type" :value="whType">
                 <input type="hidden" name="warehouse_lokasi" :value="whType === 'internal' ? whInternal : whExternal">
+                <input type="hidden" name="warehouse_lokasi_external" :value="whExternal">
 
                 <!-- 1. Dropdown Lokasi Warehouse Internal (HANYA MUNCUL KETIKA WAREHOUSE INTERNAL SPV DIPILIH) -->
                 <div x-show="whType === 'internal'" x-transition style="margin-top: 2px;">
@@ -1006,41 +1478,50 @@
                     <p style="font-size: 10px; color: #64748b; margin-top: 4px;">Pilih salah satu zona gudang internal PT SPV (Atas, Tengah, atau Bawah).</p>
                 </div>
 
-                <!-- 2. Input Teks Warehouse Eksternal (HANYA MUNCUL KETIKA WAREHOUSE EKSTERNAL DIPILIH) + RIWAYAT -->
+                <!-- 2. Dropdown Master Warehouse Eksternal (HANYA MUNCUL KETIKA WAREHOUSE EKSTERNAL DIPILIH) -->
                 <div x-cloak x-show="whType === 'external'" x-transition style="margin-top: 2px;">
-                    <label class="field-label" style="display: flex; align-items: center; justify-content: space-between;">
-                        <span>Nama PT / Pemilik Warehouse Eksternal <span style="color:#ef4444;">*</span></span>
-                        <span style="font-size: 10px; color: #285491; font-weight: 700;">Wajib ketik nama PT / gudang</span>
-                    </label>
-                    <input type="text"
-                           name="warehouse_lokasi_external"
-                           x-model="whExternal"
-                           list="history-warehouse-external"
-                           placeholder="Ketik nama PT pemilik warehouse eksternal..."
-                           class="field-input"
-                           style="border-color: #285491; background: #f8fafc; font-weight: 600;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 4px;">
+                        <label class="field-label" style="display:flex; align-items:center; gap:5px; margin-bottom: 0;">
+                            <i class="ph-bold ph-warehouse" style="color:#285491; font-size:14px;"></i>
+                            Nama PT / Pemilik Warehouse Eksternal <span style="color:#ef4444;">*</span>
+                        </label>
+                        <!-- <span style="font-size: 10px; font-weight: 700; color: #285491; background: #eff4fc; border: 1px solid #bfcfe8; border-radius: 6px; padding: 2px 7px;">
+                            Dropdown Master Data
+                        </span> -->
+                    </div>
 
-                    <datalist id="history-warehouse-external">
-                        @foreach($history['external_warehouse'] ?? [] as $item)
-                            <option value="{{ $item }}">
-                        @endforeach
-                    </datalist>
-
-                    @if(count($history['external_warehouse'] ?? []) > 0)
-                        <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:6px;">
-                            <span style="font-size:9px; color:#9ca3af; align-self:center;">Riwayat:</span>
-                            @foreach(($history['external_warehouse'] ?? collect())->take(4) as $rec)
-                                <button type="button" 
-                                        @click="whExternal = '{{ addslashes($rec) }}'"
-                                        title="Klik untuk memilih: {{ $rec }}"
-                                        style="font-size:10px; font-weight: 600; padding:2px 7px; border-radius:10px; background:#fff; color:#285491; border:1px solid #bfcfe8; cursor:pointer;"
-                                        onmouseover="this.style.background='#eff4fc'" onmouseout="this.style.background='#fff'">
-                                    {{ $rec }}
-                                </button>
+                    <div style="position: relative;">
+                        <select x-model="whExternalSelect"
+                                @change="handleWhExternalSelectChange()"
+                                class="field-input"
+                                style="border-color: #285491; background: white; font-weight: 600; cursor: pointer;">
+                            <option value="">-- Pilih Warehouse Eksternal --</option>
+                            @foreach($externalWarehouses ?? ($history['external_warehouse'] ?? []) as $extWh)
+                                <option value="{{ $extWh }}">{{ $extWh }}</option>
                             @endforeach
-                        </div>
-                    @endif
-                    <p style="font-size: 10px; color: #64748b; margin-top: 4px;">Tuliskan nama PT atau vendor pemilik gudang eksternal (contoh: PT Kamadjaja Logistics, PT Dunia Express Transindo).</p>
+                            <option value="__custom__">➕ Lainnya (Ketik Nama PT Baru)</option>
+                        </select>
+                    </div>
+
+                    <!-- Input Manual jika memilih 'Lainnya (Ketik Nama PT Baru)' -->
+                    <div x-cloak x-show="whExternalSelect === '__custom__'" x-transition style="margin-top: 8px;">
+                        <label class="field-label" style="font-size: 11px; color: #059e3d; display: flex; align-items: center; gap: 4px; margin-bottom: 3px;">
+                            <i class="ph-bold ph-pencil-line"></i> Ketik Nama PT / Rekanan Eksternal Baru <span style="color:#ef4444;">*</span>
+                        </label>
+                        <input type="text"
+                               id="wh-custom-input"
+                               x-model="whExternalCustom"
+                               placeholder="Contoh: PT Surya Logistik Sentosa..."
+                               class="field-input"
+                               style="border-color: #059e3d; background: #fff; font-weight: 600;">
+                        <p style="font-size: 10px; color: #059e3d; margin-top: 3px; display: flex; align-items: center; gap: 4px;">
+                            <i class="ph-bold ph-check"></i> Nama PT baru ini akan otomatis tercatat dan tersimpan di database.
+                        </p>
+                    </div>
+
+                    <p style="font-size: 10px; color: #64748b; margin-top: 5px;">
+                        Pilih dari daftar master rekanan gudang eksternal atau pilih "Lainnya" untuk mengetik nama PT baru.
+                    </p>
                 </div>
             </div>
         </div>
@@ -1255,6 +1736,7 @@
             @endif
         </button>
 
+
         <!-- LIGHTBOX MODAL: Zoom Full Foto Dokumen -->
         <div x-cloak x-show="zoomModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
              @click="zoomModalOpen = false">
@@ -1270,6 +1752,55 @@
                 </div>
             </div>
         </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <!-- MODAL BARCODE SCANNER (Kamera Realtime)                        -->
+        <!-- ═══════════════════════════════════════════════════════════════ -->
+        <div x-cloak x-show="barcodeScanning"
+             style="position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; padding: 16px;"
+             @keydown.escape.window="closeBarcodeScanner()">
+            <div style="background: #0f172a; border-radius: 20px; overflow: hidden; width: 100%; max-width: 420px; box-shadow: 0 20px 60px rgba(0,0,0,0.6); border: 1px solid rgba(40,84,145,0.4);" @click.stop>
+                <!-- Header -->
+                <div style="padding: 14px 16px; background: linear-gradient(135deg, #285491, #0d5950); display: flex; align-items: center; justify-content: space-between;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <i class="ph-bold ph-barcode" style="font-size: 20px; color: white;"></i>
+                        <div>
+                            <p style="font-size: 13px; font-weight: 700; color: white;">Scan Barcode</p>
+                            <p style="font-size: 10px; color: rgba(255,255,255,0.75);" x-text="barcodeTarget ? 'Mengisi: ' + barcodeTarget.replace(/_/g,' ').toUpperCase() : ''"></p>
+                        </div>
+                    </div>
+                    <button type="button" @click="closeBarcodeScanner()"
+                            style="background: rgba(255,255,255,0.15); border: none; color: white; border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 12px; font-weight: 700;">
+                        ✕ Tutup
+                    </button>
+                </div>
+
+                <!-- Camera Viewfinder -->
+                <div style="position: relative; width: 100%; min-height: 260px; background: black; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                    <div id="barcode-reader-view" style="width: 100%;"></div>
+                    <video x-ref="barcodeVideo" autoplay playsinline muted
+                           style="width: 100%; display: none; max-height: 320px; object-fit: cover;"></video>
+                </div>
+
+                <!-- Info -->
+                <div style="padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.08);">
+                    <p style="font-size: 11px; color: rgba(255,255,255,0.6); text-align: center; line-height: 1.5;">
+                        Arahkan kamera ke <strong style="color: white;">barcode batang</strong> pada dokumen.<br>
+                        Hasil scan akan otomatis mengisi field yang dipilih.
+                    </p>
+                    <p style="font-size: 10px; color: #60a5fa; text-align: center; margin-top: 6px; font-weight: 600;">
+                        💡 Tip: Scanner USB/Bluetooth cukup klik field lalu scan — tanpa buka modal ini.
+                    </p>
+                </div>
+            </div>
+        </div>
+        <style>
+            @keyframes scanLine {
+                0%   { top: 0; opacity: 1; }
+                50%  { top: calc(100% - 2px); opacity: 0.8; }
+                100% { top: 0; opacity: 1; }
+            }
+        </style>
 
     </form>
 

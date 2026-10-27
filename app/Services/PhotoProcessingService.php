@@ -15,6 +15,49 @@ class PhotoProcessingService
     protected string $disk = 'local'; // Maps to storage/app/private
 
     /**
+     * Batas ukuran file foto yang disimpan di storage (bytes).
+     * Default: 2MB = 2 * 1024 * 1024
+     */
+    const MAX_FILE_BYTES = 2 * 1024 * 1024; // 2 MB
+
+    /**
+     * Kompres gambar GD resource ke JPEG binary yang ukurannya ≤ MAX_FILE_BYTES.
+     * Strategi: turunkan quality bertahap (88→75→60→45→30), lalu downscale resolusi
+     * jika masih melebihi batas setelah semua quality dicoba.
+     *
+     * @param  resource  $imageResource  GD image resource (sudah dikoreksi EXIF)
+     * @param  int       $maxBytes       Ukuran maksimal output dalam byte
+     * @return string                    JPEG binary yang sudah dikompres
+     */
+    protected function compressToMaxSize($imageResource, int $maxBytes = self::MAX_FILE_BYTES): string
+    {
+        // ─────────────────────────────────────────────────────────────────
+        // STRATEGI: Hanya turunkan quality JPEG, JANGAN pernah downscale
+        // resolusi agar foto tetap bisa di-zoom dan teks/nomor tetap tajam.
+        //
+        // Jika quality terbawah (25) masih menghasilkan file > maxBytes,
+        // foto disimpan apa adanya — lebih baik sedikit besar daripada pecah.
+        // ─────────────────────────────────────────────────────────────────
+        $qualities = [88, 80, 72, 60, 48, 35, 25];
+
+        foreach ($qualities as $quality) {
+            ob_start();
+            imagejpeg($imageResource, null, $quality);
+            $data = ob_get_clean();
+
+            if (strlen($data) <= $maxBytes) {
+                return $data;
+            }
+        }
+
+        // Semua quality sudah dicoba, tapi foto masih > batas —
+        // simpan dengan quality 25 (tanpa downscale) agar resolusi tidak rusak.
+        ob_start();
+        imagejpeg($imageResource, null, 25);
+        return ob_get_clean();
+    }
+
+    /**
      * Memproses upload sementara:
      * 1. Hitung SHA-256 dan ukuran file asli.
      * 2. Koreksi rotasi EXIF.
@@ -56,16 +99,8 @@ class PhotoProcessingService
         $stampedAt = Carbon::now('Asia/Jakarta');
         $stampedAtFormatted = $stampedAt->format('d/m/Y H:i:s').' WIB';
 
-        // 2. Info file asli
-        $sha256 = hash_file('sha256', $filePath);
-        $size = filesize($filePath);
+        // 2. Load image resource di GD untuk koreksi EXIF, kompresi, burn-in, dan thumbnail
         $mime = $file->getMimeType() ?: 'image/jpeg';
-
-        // Simpan file asli tanpa perubahan sama sekali
-        $originalRelPath = "{$tempDir}/original.jpg";
-        Storage::disk($this->disk)->put($originalRelPath, file_get_contents($filePath));
-
-        // 3. Load image resource di GD untuk burn-in dan thumbnail
         $imageResource = $this->createImageResource($filePath, $mime);
         if (! $imageResource) {
             throw new RuntimeException('Format gambar tidak didukung atau file gambar rusak.');
@@ -74,7 +109,18 @@ class PhotoProcessingService
         // Koreksi orientasi EXIF jika ada
         $imageResource = $this->fixExifOrientation($imageResource, $exif);
 
-        // 4. Burn-in timestamp
+        // 3. Kompres file "original" ke maksimal MAX_FILE_BYTES (default 2 MB)
+        //    File yang disimpan adalah hasil kompresi (bukan ukuran kamera asli).
+        $compressedOriginalData = $this->compressToMaxSize($imageResource, self::MAX_FILE_BYTES);
+
+        $originalRelPath = "{$tempDir}/original.jpg";
+        Storage::disk($this->disk)->put($originalRelPath, $compressedOriginalData);
+
+        // SHA-256 dan ukuran dihitung dari hasil kompresi yang benar-benar disimpan
+        $sha256 = hash('sha256', $compressedOriginalData);
+        $size   = strlen($compressedOriginalData);
+
+        // 4. Burn-in timestamp (gunakan imageResource yang masih ada di memori)
         $pointLabel = $attributes['point_label'] ?? 'Evidence';
         $pointNo = isset($attributes['point_no']) && $attributes['point_no'] !== null ? (int) $attributes['point_no'] : null;
         $isExtra = (bool) ($attributes['is_extra'] ?? false);
@@ -88,12 +134,11 @@ class PhotoProcessingService
             $capturedAt ? $capturedAt->format('d/m/Y H:i:s').' WIB' : null
         );
 
-        // Simpan stamped image
+        // Simpan stamped image — juga dikompres agar tidak melebihi batas
         $stampedRelPath = "{$tempDir}/stamped.jpg";
-        $stampedTempFile = tempnam(sys_get_temp_dir(), 'stmp_');
-        imagejpeg($stampedResource, $stampedTempFile, 88);
-        Storage::disk($this->disk)->put($stampedRelPath, file_get_contents($stampedTempFile));
-        @unlink($stampedTempFile);
+        $stampedData    = $this->compressToMaxSize($stampedResource, self::MAX_FILE_BYTES);
+        Storage::disk($this->disk)->put($stampedRelPath, $stampedData);
+        unset($stampedData);
 
         // 5. Generate thumbnail (max 500x500 mempertahankan rasio)
         $thumbnailResource = $this->createThumbnail($stampedResource, 500);
@@ -465,8 +510,11 @@ class PhotoProcessingService
             @imagestring($img, 5, $paddingX, $yLine2, $line2, $gold);
         }
 
-        $saved = @imagejpeg($img, $targetPath, 88);
+        // Kompres output akhir ke maksimal MAX_FILE_BYTES (default 2 MB)
+        $compressedData = $this->compressToMaxSize($img, self::MAX_FILE_BYTES);
         imagedestroy($img);
+
+        $saved = (bool) @file_put_contents($targetPath, $compressedData);
 
         if (! $saved || ! file_exists($targetPath)) {
             copy($sourcePath, $targetPath);

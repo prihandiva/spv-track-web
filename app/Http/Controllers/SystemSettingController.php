@@ -49,6 +49,7 @@ class SystemSettingController extends Controller
         $locations = array_values(array_filter(array_map('trim', explode(',', $validated['warehouse_locations']))));
         SystemSetting::set('warehouse_locations', $locations);
 
+
         // Process product types (split comma)
         $products = array_values(array_filter(array_map('trim', explode(',', $validated['product_types']))));
         SystemSetting::set('product_types', $products);

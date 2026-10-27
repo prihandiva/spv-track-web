@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ExternalWarehouse;
 use App\Models\Role;
 use App\Models\SopPhotoPoint;
 use App\Models\SystemSetting;
@@ -28,6 +29,9 @@ class SettingController extends Controller
         $totalSopOcr = SopPhotoPoint::where('perlu_ocr_container', true)->count();
         $totalSopAi = SopPhotoPoint::where('perlu_deteksi_orang', true)->orWhere('perlu_deteksi_barcode', true)->count();
 
+        $totalExternalWarehouses = ExternalWarehouse::count();
+        $totalExternalWarehousesActive = ExternalWarehouse::where('status', 'aktif')->count();
+
         $settings = SystemSetting::all();
 
         return view('settings.index', compact(
@@ -41,6 +45,8 @@ class SettingController extends Controller
             'totalSopWajib',
             'totalSopOcr',
             'totalSopAi',
+            'totalExternalWarehouses',
+            'totalExternalWarehousesActive',
             'settings'
         ));
     }

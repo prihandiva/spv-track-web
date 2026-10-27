@@ -22,6 +22,7 @@
             $locationsStr = (string)$locations;
         }
 
+
         $products = $settings['product_types']->value ?? '["Fiber", "Sodium"]';
         if (is_string($products) && str_starts_with($products, '[')) {
             $productsArr = json_decode($products, true) ?: ['Fiber', 'Sodium'];
@@ -92,11 +93,33 @@
 
                 <div class="space-y-4">
                     <div>
-                        <label class="block text-xs font-bold text-gray-700 mb-1.5">Daftar Lokasi Staging Warehouse <span class="text-red-500">*</span></label>
+                        <label class="block text-xs font-bold text-gray-700 mb-1.5">Daftar Lokasi Staging Warehouse Internal <span class="text-red-500">*</span></label>
                         <input type="text" name="warehouse_locations" value="{{ old('warehouse_locations', $locationsStr) }}" required
                                placeholder="Pisahkan dengan koma: Atas, Tengah, Bawah"
                                class="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-spv-blue focus:border-spv-blue outline-none transition-all">
                         <p class="text-[10px] text-gray-400 mt-1">Pisahkan tiap opsi dengan tanda koma (misal: Atas, Tengah, Bawah).</p>
+                    </div>
+
+                    <!-- Master Data Warehouse Eksternal (Dedicated CRUD) -->
+                    <div class="p-4 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50/60 border border-blue-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-spv-blue text-white flex items-center justify-center font-bold shrink-0 shadow-sm">
+                                <i class="ph-bold ph-warehouse text-lg"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-xs font-bold text-gray-800 flex items-center gap-2">
+                                    <span>Master Data Warehouse Eksternal</span>
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-spv-blue">Modul CRUD</span>
+                                </h4>
+                                <p class="text-[11px] text-gray-500 mt-0.5">Kelola data master rekanan PT logistik, kode, alamat depo, kontak PIC, dan status aktif secara penuh.</p>
+                            </div>
+                        </div>
+                        <a href="{{ route('settings.external-warehouses.index') }}"
+                           class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-spv-blue hover:bg-blue-800 text-white text-xs font-bold transition-all shrink-0 shadow-sm">
+                            <i class="ph-bold ph-sliders-horizontal"></i>
+                            <span>Buka Kelola CRUD</span>
+                            <i class="ph-bold ph-arrow-right text-xs"></i>
+                        </a>
                     </div>
 
                     <div>

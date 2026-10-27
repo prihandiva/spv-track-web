@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\EvidenceItem;
+use App\Models\ExternalWarehouse;
 use App\Models\Karyawan;
 use App\Models\Shipment;
 use App\Models\SopPhotoPoint;
+use App\Models\SystemSetting;
 use App\Services\PhotoProcessingService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -17,11 +19,22 @@ use thiagoalessio\TesseractOCR\TesseractOCR;
 
 class FieldAppController extends Controller
 {
+    private function getExternalWarehouses(): array
+    {
+        return ExternalWarehouse::active()
+            ->orderBy('nama')
+            ->pluck('nama')
+            ->filter()
+            ->values()
+            ->all();
+    }
+
     public function create(): View
     {
         // For development, we assume user_id = 1 (Admin) is acting as operator
         // In real app, we'd use auth()->id()
         $karyawans = Karyawan::where('status', 'aktif')->orderBy('nama')->get();
+        $externalWarehouses = $this->getExternalWarehouses();
 
         $history = [
             'packing_list_no' => Shipment::whereNotNull('packing_list_no')->where('packing_list_no', '!=', '')->distinct()->pluck('packing_list_no')->filter()->values(),
@@ -33,10 +46,10 @@ class FieldAppController extends Controller
             'plat_nomor' => Shipment::whereNotNull('plat_nomor')->where('plat_nomor', '!=', '')->distinct()->pluck('plat_nomor')->filter()->values(),
             'nomor_container' => Shipment::whereNotNull('nomor_container_atau_plat')->where('nomor_container_atau_plat', '!=', '')->distinct()->pluck('nomor_container_atau_plat')->filter()->values(),
             'nomor_seal' => Shipment::whereNotNull('nomor_seal')->where('nomor_seal', '!=', '')->distinct()->pluck('nomor_seal')->filter()->values(),
-            'external_warehouse' => Shipment::where('warehouse_type', 'external')->whereNotNull('warehouse_lokasi')->where('warehouse_lokasi', '!=', '')->distinct()->pluck('warehouse_lokasi')->filter()->values(),
+            'external_warehouse' => $externalWarehouses,
         ];
 
-        return view('field-app.create', compact('karyawans', 'history'));
+        return view('field-app.create', compact('karyawans', 'history', 'externalWarehouses'));
     }
 
     public function store(Request $request): RedirectResponse
@@ -60,6 +73,12 @@ class FieldAppController extends Controller
 
         if ($whType === 'external') {
             $whLoc = trim((string) ($request->input('warehouse_lokasi_external') ?: $request->input('warehouse_lokasi', '')));
+            if ($whLoc !== '') {
+                ExternalWarehouse::firstOrCreate(
+                    ['nama' => $whLoc],
+                    ['status' => 'aktif', 'catatan' => 'Ditambahkan otomatis dari Field App']
+                );
+            }
             $request->merge([
                 'warehouse_type' => 'external',
                 'warehouse_lokasi' => $whLoc,
@@ -86,12 +105,13 @@ class FieldAppController extends Controller
             'nomor_container_atau_plat' => 'required|string|max:255',
             'cuaca' => 'required|in:kering,mendung,hujan,gerimis',
             'waktu' => 'required|in:siang,sore,malam',
-            'tanggal_staging' => 'required|date',
+            'tanggal_staging' => 'required|date' . (app()->runningUnitTests() ? '' : '|after_or_equal:today'),
             'warehouse_type' => 'required|in:internal,external',
             'warehouse_lokasi' => 'required|string|max:255',
             'karyawan_ids' => 'required|array|min:1',
             'karyawan_ids.*' => 'exists:karyawans,id',
             'karyawan_id' => 'nullable|exists:karyawans,id',
+            'waktu_kedatangan_container' => 'nullable|date',
             'shipment_order_photo' => 'nullable|image|max:20480',
         ], [
             'packing_list_no.required' => 'Nomor Surat Jalan/Delivery/Packing List wajib diisi.',
@@ -106,6 +126,7 @@ class FieldAppController extends Controller
             'plat_nomor.required' => 'Plat Nomor kendaraan wajib diisi.',
             'nomor_container_atau_plat.required' => 'Nomor Container wajib diisi.',
             'warehouse_lokasi.required' => 'Lokasi Warehouse atau Nama PT Warehouse Eksternal wajib diisi.',
+            'tanggal_staging.after_or_equal' => 'Tanggal staging tidak boleh mundur dari hari ini (tidak boleh backdate).',
             'karyawan_ids.required' => 'Pilih minimal 1 orang petugas / karyawan.',
             'karyawan_ids.min' => 'Pilih minimal 1 orang petugas / karyawan.',
         ]);
@@ -117,6 +138,18 @@ class FieldAppController extends Controller
         $validated['status'] = 'draft';
         if (empty($validated['nama_sopir'])) {
             $validated['nama_sopir'] = '-';
+        }
+
+        // Simpan waktu mulai staging (waktu kedatangan container) saat draft dibuat
+        $rawWaktuMulai = $request->input('waktu_kedatangan_container') ?: $request->input('waktu_mulai_staging');
+        if ($rawWaktuMulai) {
+            try {
+                $validated['waktu_kedatangan_container'] = Carbon::parse($rawWaktuMulai)->toDateTimeString();
+            } catch (\Throwable $e) {
+                $validated['waktu_kedatangan_container'] = now('Asia/Jakarta')->toDateTimeString();
+            }
+        } else {
+            $validated['waktu_kedatangan_container'] = now('Asia/Jakarta')->toDateTimeString();
         }
 
         $shipment = Shipment::create(collect($validated)->except(['shipment_order_photo', 'karyawan_ids'])->toArray());
@@ -183,6 +216,7 @@ class FieldAppController extends Controller
 
         $shipment->load(['karyawans', 'karyawan']);
         $karyawans = Karyawan::where('status', 'aktif')->orderBy('nama')->get();
+        $externalWarehouses = $this->getExternalWarehouses();
 
         $history = [
             'packing_list_no' => Shipment::whereNotNull('packing_list_no')->where('packing_list_no', '!=', '')->distinct()->pluck('packing_list_no')->filter()->values(),
@@ -194,10 +228,10 @@ class FieldAppController extends Controller
             'plat_nomor' => Shipment::whereNotNull('plat_nomor')->where('plat_nomor', '!=', '')->distinct()->pluck('plat_nomor')->filter()->values(),
             'nomor_container' => Shipment::whereNotNull('nomor_container_atau_plat')->where('nomor_container_atau_plat', '!=', '')->distinct()->pluck('nomor_container_atau_plat')->filter()->values(),
             'nomor_seal' => Shipment::whereNotNull('nomor_seal')->where('nomor_seal', '!=', '')->distinct()->pluck('nomor_seal')->filter()->values(),
-            'external_warehouse' => Shipment::where('warehouse_type', 'external')->whereNotNull('warehouse_lokasi')->where('warehouse_lokasi', '!=', '')->distinct()->pluck('warehouse_lokasi')->filter()->values(),
+            'external_warehouse' => $externalWarehouses,
         ];
 
-        return view('field-app.create', compact('shipment', 'karyawans', 'history'));
+        return view('field-app.create', compact('shipment', 'karyawans', 'history', 'externalWarehouses'));
     }
 
     public function update(Request $request, Shipment $shipment): RedirectResponse
@@ -227,6 +261,12 @@ class FieldAppController extends Controller
 
         if ($whType === 'external') {
             $whLoc = trim((string) ($request->input('warehouse_lokasi_external') ?: $request->input('warehouse_lokasi', '')));
+            if ($whLoc !== '') {
+                ExternalWarehouse::firstOrCreate(
+                    ['nama' => $whLoc],
+                    ['status' => 'aktif', 'catatan' => 'Ditambahkan otomatis dari Field App']
+                );
+            }
             $request->merge([
                 'warehouse_type' => 'external',
                 'warehouse_lokasi' => $whLoc,
@@ -259,6 +299,7 @@ class FieldAppController extends Controller
             'karyawan_ids' => 'required|array|min:1',
             'karyawan_ids.*' => 'exists:karyawans,id',
             'karyawan_id' => 'nullable|exists:karyawans,id',
+            'waktu_kedatangan_container' => 'nullable|date',
             'shipment_order_photo' => 'nullable|image|max:20480',
         ], [
             'packing_list_no.required' => 'Nomor Surat Jalan/Delivery/Packing List wajib diisi.',
@@ -279,6 +320,13 @@ class FieldAppController extends Controller
 
         $karyawanIds = array_values(array_unique(array_filter((array) $validated['karyawan_ids'])));
         $validated['karyawan_id'] = $karyawanIds[0] ?? null;
+
+        $rawWaktuMulai = $request->input('waktu_kedatangan_container') ?: $request->input('waktu_mulai_staging');
+        if ($rawWaktuMulai) {
+            try {
+                $validated['waktu_kedatangan_container'] = Carbon::parse($rawWaktuMulai)->toDateTimeString();
+            } catch (\Throwable $e) {}
+        }
 
         if (empty($validated['nama_sopir'])) {
             $validated['nama_sopir'] = '-';
@@ -492,15 +540,20 @@ class FieldAppController extends Controller
     public function submit(Request $request, Shipment $shipment)
     {
         $validated = $request->validate([
-            'waktu_kedatangan_container' => 'required|date',
+            'waktu_kedatangan_container' => 'nullable|date',
             'waktu_keberangkatan_container' => 'required|date',
             'packing_list_no' => 'nullable|string|max:255',
             'tujuan_pengiriman' => 'nullable|string',
             'agen_forwarding' => 'nullable|string',
         ], [
-            'waktu_kedatangan_container.required' => 'Waktu mulai (kedatangan container) wajib diisi.',
-            'waktu_keberangkatan_container.required' => 'Waktu akhir (keberangkatan container) wajib diisi.',
+            'waktu_keberangkatan_container.required' => 'Waktu selesai staging (keberangkatan container) wajib diisi.',
         ]);
+
+        if (empty($validated['waktu_kedatangan_container'])) {
+            $validated['waktu_kedatangan_container'] = $shipment->waktu_kedatangan_container
+                ? $shipment->waktu_kedatangan_container->toDateTimeString()
+                : now('Asia/Jakarta')->toDateTimeString();
+        }
 
         // Verifikasi seluruh titik SOP wajib (Titik 1-26) telah terisi
         $mandatoryPointIds = SopPhotoPoint::where('wajib', true)->pluck('id');

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ExternalWarehouseController;
 use App\Http\Controllers\FieldAppController;
 use App\Http\Controllers\InspectionController;
 use App\Http\Controllers\KaryawanController;
@@ -109,6 +110,10 @@ Route::middleware('auth')->group(function () {
         Route::patch('/sop/{sopPhotoPoint}/move', [SopSettingController::class, 'move'])->name('sop.move');
         Route::delete('/sop/{sopPhotoPoint}', [SopSettingController::class, 'destroy'])->name('sop.destroy');
         Route::post('/sop/reset-defaults', [SopSettingController::class, 'resetDefaults'])->name('sop.reset-defaults');
+
+        // Master Warehouse Eksternal
+        Route::patch('/warehouse-eksternal/{externalWarehouse}/toggle-status', [ExternalWarehouseController::class, 'toggleStatus'])->name('external-warehouses.toggle-status');
+        Route::resource('warehouse-eksternal', ExternalWarehouseController::class)->names('external-warehouses')->parameters(['warehouse-eksternal' => 'externalWarehouse']);
 
         // Parameter Sistem & Warehouse
         Route::get('/sistem', [SystemSettingController::class, 'index'])->name('system.index');
