@@ -133,12 +133,14 @@
             barcodeWarning: '',
             barcodeSuccess: '',
             barcodeProcessing: false,
+            barcodeHiResTimer: null,
+            nativeDetector: null,
 
             get barcodeTargetTitle() {
                 switch (this.barcodeTarget) {
-                    case 'packing_list_no': return 'No. Surat Jalan / Packing List (9 Digit Angka)';
-                    case 'shipment_group':  return 'Shipment Group (9 Digit Angka)';
-                    case 'shipment_no':     return 'Shipment No (9 Digit Angka)';
+                    case 'packing_list_no': return 'No. Surat Jalan / Packing List (Code 128 - 9 Digit Angka)';
+                    case 'shipment_group':  return 'Shipment Group (Code 128 - 9 Digit Angka)';
+                    case 'shipment_no':     return 'Nomor Shipment / Delivery (Code 128 - 9 Digit Angka)';
                     case 'nomor_container': return 'Nomor Container (Plat/Kode)';
                     case 'nomor_seal':      return 'Nomor Seal (Segel)';
                     default: return (this.barcodeTarget || '').toUpperCase();
@@ -593,48 +595,71 @@
                     }
                 }
 
-                // Format 1D & 2D logistik: Code 128 (SAP standard), Code 39, Code 93, ITF, EAN-13, UPC-A, QR, DataMatrix
-                const supportedFormats = (typeof Html5QrcodeSupportedFormats !== 'undefined') ? [
-                    Html5QrcodeSupportedFormats.CODE_128,
-                    Html5QrcodeSupportedFormats.CODE_39,
-                    Html5QrcodeSupportedFormats.CODE_93,
-                    Html5QrcodeSupportedFormats.ITF,
-                    Html5QrcodeSupportedFormats.EAN_13,
-                    Html5QrcodeSupportedFormats.UPC_A,
-                    Html5QrcodeSupportedFormats.QR_CODE,
-                    Html5QrcodeSupportedFormats.DATA_MATRIX
-                ] : undefined;
-
-                // Opsi 1: Html5Qrcode Scanner (Memindai 100% Full-Frame Tanpa Memotong Barcode)
+                // Opsi 1: Html5Qrcode Scanner (Universal & Terbukti Stabil)
                 if (typeof Html5Qrcode !== 'undefined') {
                     try {
                         const readerEl = document.getElementById('barcode-reader-view');
                         if (readerEl) {
                             readerEl.innerHTML = '';
+                            
+                            // Format logistik prioritas tinggi agar pemindaian sangat responsif dan tidak membebani CPU
+                            const fmt = window.Html5QrcodeSupportedFormats || (window.__Html5QrcodeLibrary__ && window.__Html5QrcodeLibrary__.Html5QrcodeSupportedFormats) || {};
+                            const priorityFormats = [
+                                fmt.CODE_128 ?? 5,
+                                fmt.CODE_39 ?? 3,
+                                fmt.CODE_93 ?? 4,
+                                fmt.ITF ?? 8,
+                                fmt.EAN_13 ?? 9,
+                                fmt.UPC_A ?? 14,
+                                fmt.QR_CODE ?? 0
+                            ];
+
                             this.html5Scanner = new Html5Qrcode('barcode-reader-view', {
-                                formatsToSupport: supportedFormats,
+                                formatsToSupport: priorityFormats,
                                 experimentalFeatures: {
-                                    useBarCodeDetectorIfSupported: true // Google ML Kit hardware acceleration bila tersedia
+                                    useBarCodeDetectorIfSupported: true
                                 },
                                 verbose: false
                             });
 
-                            // PENTING: JANGAN gunakan qrbox!
-                            // Tanpa qrbox, Html5Qrcode memindai SELURUH FRAME KAMERA 100% secara utuh,
-                            // sehingga barcode panjang tidak terpotong tepi/bawah dan terbaca secepat aplikasi scanner HP.
+                            // Bidang pandang lapang agar seluruh garis barcode panjang dan margin putih (quiet zone) tidak terpotong
                             const scanConfig = {
-                                fps: 15
+                                fps: 20,
+                                qrbox: (viewfinderWidth, viewfinderHeight) => {
+                                    const w = Math.min(Math.floor(viewfinderWidth * 0.94), 380);
+                                    const h = Math.min(Math.floor(viewfinderHeight * 0.75), 180);
+                                    return { width: Math.max(w, 280), height: Math.max(h, 130) };
+                                },
+                                aspectRatio: 1.333333
                             };
 
                             const startCamera = async (facing) => {
-                                return await this.html5Scanner.start(
-                                    { facingMode: facing },
-                                    scanConfig,
-                                    (decodedText) => {
-                                        this.handleBarcodeResult(decodedText);
-                                    },
-                                    () => {} // frame tanpa barcode diabaikan
-                                );
+                                // Meminta resolusi HD/Full HD ke driver kamera agar garis-garis barcode Delivery yang rapat tetap tajam
+                                const constraints = {
+                                    facingMode: facing,
+                                    width: { min: 1280, ideal: 1920 },
+                                    height: { min: 720, ideal: 1080 }
+                                };
+                                try {
+                                    return await this.html5Scanner.start(
+                                        { facingMode: facing },
+                                        { ...scanConfig, videoConstraints: constraints },
+                                        (decodedText) => {
+                                            this.handleBarcodeResult(decodedText);
+                                        },
+                                        () => {}
+                                    );
+                                } catch (hdErr) {
+                                    console.warn('HD stream constraint not supported, fallback to standard stream:', hdErr);
+                                    return await this.html5Scanner.start(
+                                        { facingMode: facing },
+                                        scanConfig,
+                                        (decodedText) => {
+                                            this.handleBarcodeResult(decodedText);
+                                        },
+                                        () => {}
+                                    );
+                                }
                             };
 
                             try {
@@ -644,6 +669,61 @@
                                 this.barcodeFacingMode = 'user';
                                 await startCamera('user');
                             }
+
+                            // ── Mesin Decoder HD Beresolusi Penuh (Bypass Downsampling Canvas) ──
+                            // Html5Qrcode secara default mengecilkan canvas ke lebar CSS elemen (340px)
+                            // yang membuat garis tipis barcode Delivery tampak buram/pecah di webcam laptop.
+                            // Interval ini memproses frame langsung dari elemen <video> pada resolusi hardware asli (1080p/720p).
+                            if (this.barcodeHiResTimer) clearInterval(this.barcodeHiResTimer);
+                            const hiResCanvas = document.createElement('canvas');
+                            const hiResCtx = hiResCanvas.getContext('2d', { willReadFrequently: true });
+
+                            this.barcodeHiResTimer = setInterval(async () => {
+                                if (!this.barcodeScanning || this.barcodeProcessing) return;
+                                const video = document.querySelector('#barcode-reader-view video');
+                                if (!video || !video.videoWidth || !video.videoHeight || video.readyState < 2) return;
+
+                                // ── Prioritas 1: Akselerasi Hardware Native BarcodeDetector (Chrome Android / HP) ──
+                                // Sangat responsif membaca barcode batang Code 128 langsung dari stream GPU video
+                                if (window.BarcodeDetector) {
+                                    try {
+                                        if (!this.nativeDetector) {
+                                            this.nativeDetector = new BarcodeDetector({
+                                                formats: ['code_128', 'code_39', 'code_93', 'itf', 'ean_13', 'qr_code']
+                                            });
+                                        }
+                                        const codes = await this.nativeDetector.detect(video);
+                                        if (codes && codes.length > 0 && codes[0].rawValue) {
+                                            this.handleBarcodeResult(codes[0].rawValue);
+                                            return;
+                                        }
+                                    } catch (detErr) {
+                                        // BarcodeDetector error / not supported for this frame, continue to canvas fallback
+                                    }
+                                }
+
+                                const vw = video.videoWidth;
+                                const vh = video.videoHeight;
+                                const cropW = Math.round(vw * 0.94);
+                                const cropH = Math.round(vh * 0.60);
+                                const cropX = Math.round((vw - cropW) / 2);
+                                const cropY = Math.round((vh - cropH) / 2);
+
+                                hiResCanvas.width = cropW;
+                                hiResCanvas.height = cropH;
+                                hiResCtx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+
+                                try {
+                                    if (this.html5Scanner && this.html5Scanner.qrcode) {
+                                        const res = await this.html5Scanner.qrcode.decodeRobustlyAsync(hiResCanvas);
+                                        if (res && res.text) {
+                                            this.handleBarcodeResult(res.text);
+                                        }
+                                    }
+                                } catch (e) {
+                                    // Belum terbaca pada frame ini
+                                }
+                            }, 180);
 
                             // Periksa kemampuan Torch (senter) dan Zoom optik/digital
                             try {
@@ -719,6 +799,11 @@
                 this.barcodeScanning = false;
                 this.barcodeTorchOn = false;
                 this.barcodeZoomLevel = 1;
+                this.nativeDetector = null;
+                if (this.barcodeHiResTimer) {
+                    clearInterval(this.barcodeHiResTimer);
+                    this.barcodeHiResTimer = null;
+                }
                 if (this.html5Scanner) {
                     try {
                         await this.html5Scanner.stop();
@@ -786,16 +871,57 @@
                 if (!file) return;
                 this.barcodeWarning = 'Sedang menganalisis foto barcode...';
                 try {
-                    let scanner = this.html5Scanner;
-                    if (!scanner) {
-                        scanner = new Html5Qrcode('barcode-reader-view');
+                    // Hentikan live scan camera terlebih dahulu agar tidak bentrok
+                    if (this.barcodeHiResTimer) {
+                        clearInterval(this.barcodeHiResTimer);
+                        this.barcodeHiResTimer = null;
                     }
+                    if (this.html5Scanner) {
+                        try {
+                            await this.html5Scanner.stop();
+                        } catch (e) {}
+                    }
+
+                    // Prioritas A: Coba BarcodeDetector native jika didukung (sangat akurat untuk file foto Code 128)
+                    if (window.BarcodeDetector) {
+                        try {
+                            const imgBmp = await createImageBitmap(file);
+                            const detector = new BarcodeDetector({ formats: ['code_128', 'code_39', 'code_93', 'itf', 'ean_13', 'qr_code'] });
+                            const codes = await detector.detect(imgBmp);
+                            if (codes && codes.length > 0 && codes[0].rawValue) {
+                                this.handleBarcodeResult(codes[0].rawValue);
+                                return;
+                            }
+                        } catch (bdErr) {
+                            console.warn('Native BarcodeDetector on image file failed:', bdErr);
+                        }
+                    }
+
+                    const fmt = window.Html5QrcodeSupportedFormats || (window.__Html5QrcodeLibrary__ && window.__Html5QrcodeLibrary__.Html5QrcodeSupportedFormats) || {};
+                    const priorityFormats = [
+                        fmt.CODE_128 ?? 5,
+                        fmt.CODE_39 ?? 3,
+                        fmt.CODE_93 ?? 4,
+                        fmt.ITF ?? 8,
+                        fmt.EAN_13 ?? 9,
+                        fmt.UPC_A ?? 14,
+                        fmt.QR_CODE ?? 0
+                    ];
+                    let scanner = new Html5Qrcode('barcode-reader-view', {
+                        formatsToSupport: priorityFormats,
+                        experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+                        verbose: false
+                    });
                     const result = await scanner.scanFile(file, true);
                     if (result) {
                         this.handleBarcodeResult(result);
                     }
                 } catch (err) {
-                    this.barcodeWarning = 'Barcode tidak terdeteksi pada foto. Pastikan posisi kamera tegak, garis barcode tajam, dan pencahayaan terang.';
+                    this.barcodeWarning = 'Barcode tidak terdeteksi pada foto. Pastikan posisi kamera tegak, barcode tidak buram, dan pencahayaan terang.';
+                    // Jika belum sukses dan modal masih aktif, hidupkan kembali scanner kamera
+                    if (this.barcodeScanning && !this.barcodeSuccess) {
+                        setTimeout(() => this.startBarcodeScan(), 1200);
+                    }
                 } finally {
                     event.target.value = '';
                 }
@@ -807,41 +933,43 @@
 
                 // 1. Target 9 Digit Wajib: packing_list_no, shipment_group, shipment_no
                 if (['packing_list_no', 'shipment_group', 'shipment_no'].includes(this.barcodeTarget)) {
-                    // Ekstrak hanya digit angka
-                    const digitsOnly = cleaned.replace(/\D/g, '');
+                    // Ekstrak semua digit angka
+                    const rawDigits = cleaned.replace(/\D/g, '');
 
-                    // Pola A: Tepat 9 digit angka dalam batas kata (misal: "803282245", "SJ 803282245", "803282245/10")
-                    const match9 = cleaned.match(/\b(\d{9})\b/);
-                    if (match9) {
-                        this.applyBarcodeSuccess(match9[1]);
+                    // Langkah A: Cek pola kata tepat 9 digit yang diawali [1-9] (misal "869026487", "803282245/10", "SJ 869026487")
+                    const matchClean9 = cleaned.match(/\b([1-9]\d{8})\b/);
+                    if (matchClean9) {
+                        this.applyBarcodeSuccess(matchClean9[1]);
                         return;
                     }
 
-                    // Pola B: Seluruh hasil tepat 9 digit angka
-                    if (digitsOnly.length === 9) {
-                        this.applyBarcodeSuccess(digitsOnly);
+                    // Langkah B: Jika barcode mengandung leading zero (khas format 10-digit SAP NUMC / ITF padding)
+                    // Contoh nyata: '0869026487' -> hilangkan '0' di depan -> menghasilkan '869026487' (tepat 9 digit)
+                    // Contoh lain:  '00803282147' -> hilangkan '00' di depan -> menghasilkan '803282147'
+                    const strippedLeadingZeros = rawDigits.replace(/^0+/, '');
+                    if (strippedLeadingZeros.length === 9) {
+                        this.applyBarcodeSuccess(strippedLeadingZeros);
                         return;
                     }
 
-                    // Pola C: Barcode dokumen SAP SPV yang menyertakan nomor item / suffix
-                    // (misal "803282245/10" terbaca digit "80328224510" atau "803282245000010"):
-                    // Ambil 9 digit utama pengiriman yang diawali pola '80'
-                    if (digitsOnly.length > 9 && (digitsOnly.startsWith('80') || digitsOnly.startsWith('8'))) {
-                        this.applyBarcodeSuccess(digitsOnly.substring(0, 9));
+                    // Langkah C: Jika setelah hilangkan leading zero masih lebih dari 9 digit
+                    // (misal barcode dokumen SAP yang menyertakan nomor item / batch, seperti '080328224510' atau '803282245000010'):
+                    // Ambil 9 digit utama nomor pengiriman
+                    if (strippedLeadingZeros.length > 9) {
+                        this.applyBarcodeSuccess(strippedLeadingZeros.substring(0, 9));
                         return;
                     }
 
-                    // Pola D: Cari potongan 9 digit berurutan di dalam teks apapun
-                    const any9 = cleaned.match(/(\d{9})/);
-                    if (any9) {
-                        this.applyBarcodeSuccess(any9[1]);
+                    // Langkah D: Tepat 9 digit angka (jika ada nomor khusus)
+                    if (rawDigits.length === 9) {
+                        this.applyBarcodeSuccess(rawDigits);
                         return;
                     }
 
                     // JIKA BUKAN 9 DIGIT (misal barcode material 8 digit seperti "00917698"):
-                    // JANGAN langsung menutup scanner! Biarkan kamera terus berjalan mencari barcode Surat Jalan 9 digit
-                    this.barcodeLastRead = digitsOnly || cleaned;
-                    this.barcodeWarning = `Terbaca "${cleaned}" (${digitsOnly.length} digit). No. Surat Jalan / Delivery harus tepat 9 digit angka. Kamera terus mencari barcode yang sesuai...`;
+                    // JANGAN langsung menutup scanner! Kamera terus mencari nomor 9 digit Surat Jalan / Delivery
+                    this.barcodeLastRead = strippedLeadingZeros || rawDigits || cleaned;
+                    this.barcodeWarning = `Terbaca "${cleaned}" (${(strippedLeadingZeros || rawDigits).length} digit). Kolom ini butuh 9 digit nomor pengiriman. Kamera terus mencari...`;
                     return;
                 }
 
@@ -897,7 +1025,15 @@
             },
             forceApplyBarcode(val) {
                 if (!val) return;
-                const digits = val.replace(/\D/g, '').slice(0, 9);
+                let digits = val.replace(/\D/g, '');
+                if (['packing_list_no', 'shipment_group', 'shipment_no'].includes(this.barcodeTarget)) {
+                    const stripped = digits.replace(/^0+/, '');
+                    if (stripped.length >= 9) {
+                        digits = stripped.slice(0, 9);
+                    } else if (digits.length > 9) {
+                        digits = digits.slice(0, 9);
+                    }
+                }
                 switch (this.barcodeTarget) {
                     case 'packing_list_no': this.packingListNo  = digits || val; break;
                     case 'shipment_group':  this.shipmentGroup  = digits || val; break;
@@ -1592,7 +1728,7 @@
                             </div>
                             <input type="text" id="nomor_seal" name="nomor_seal" x-model="nomorSeal"
                                    list="history-seal"
-                                   placeholder="Contoh: ML-ID12345 / Segel" class="field-input" style="font-size:12px; font-weight: 600; text-transform:uppercase;">
+                                   placeholder="Contoh: S000123 / Segel" class="field-input" style="font-size:12px; font-weight: 600; text-transform:uppercase;">
                             <datalist id="history-seal">
                                 @foreach($history['nomor_seal'] ?? [] as $item)
                                     <option value="{{ $item }}">
@@ -2022,114 +2158,120 @@
         <!-- ═══════════════════════════════════════════════════════════════ -->
         <!-- MODAL BARCODE SCANNER (Kamera Realtime Logistik SPV)           -->
         <!-- ═══════════════════════════════════════════════════════════════ -->
-        <div x-cloak x-show="barcodeScanning"
-             style="position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; padding: 12px;"
-             @keydown.escape.window="closeBarcodeScanner()">
-            <div style="background: #0f172a; border-radius: 20px; overflow: hidden; width: 100%; max-width: 440px; box-shadow: 0 20px 60px rgba(0,0,0,0.7); border: 1.5px solid rgba(59,130,246,0.3);" @click.stop>
-                
-                <!-- Modal Header -->
-                <div style="padding: 12px 16px; background: linear-gradient(135deg, #1e3a8a, #0d5950); display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-                    <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
-                        <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(255,255,255,0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                            <i class="ph-bold ph-barcode" style="font-size: 18px; color: white;"></i>
-                        </div>
-                        <div style="min-width: 0;">
-                            <p style="font-size: 13px; font-weight: 700; color: white; line-height: 1.2;">Pemindai Barcode Surat Jalan</p>
-                            <p style="font-size: 10px; color: #93c5fd; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" x-text="barcodeTargetTitle"></p>
-                        </div>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
-                        <!-- Tombol Ganti Kamera (Depan/Belakang) -->
-                        <button type="button" x-show="barcodeMultipleCameras" @click="switchBarcodeCamera()"
-                                style="background: rgba(255,255,255,0.15); border: none; color: white; border-radius: 8px; padding: 5px 8px; cursor: pointer; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;"
-                                title="Beralih Kamera">
-                            <i class="ph-bold ph-arrows-clockwise"></i>
-                            <span x-text="barcodeFacingMode === 'environment' ? 'Kamera Belakang' : 'Kamera Depan'"></span>
-                        </button>
-                        <!-- Tombol Zoom 1x / 2x -->
-                        <button type="button" x-show="barcodeZoomAvailable" @click="toggleBarcodeZoom()"
-                                style="background: rgba(255,255,255,0.15); border: none; color: white; border-radius: 8px; padding: 5px 8px; cursor: pointer; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 3px;"
-                                title="Zoom Kamera">
-                            <i class="ph-bold ph-magnifying-glass-plus"></i>
-                            <span x-text="barcodeZoomLevel + 'x'"></span>
-                        </button>
-                        <!-- Tombol Senter / Torch (Aktif jika perangkat mendukung) -->
-                        <button type="button" x-show="barcodeTorchAvailable" @click="toggleBarcodeTorch()"
-                                style="border: none; border-radius: 8px; padding: 5px 8px; cursor: pointer; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; transition: all 0.15s;"
-                                :style="barcodeTorchOn ? 'background: #eab308; color: #0f172a;' : 'background: rgba(255,255,255,0.15); color: white;'">
-                            <i class="ph-bold" :class="barcodeTorchOn ? 'ph-flashlight-fill' : 'ph-flashlight'"></i>
-                            <span x-text="barcodeTorchOn ? 'Senter ON' : 'Senter'"></span>
-                        </button>
-                        <button type="button" @click="closeBarcodeScanner()"
-                                style="background: rgba(255,255,255,0.15); border: none; color: white; border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 12px; font-weight: 700;">
-                            ✕ Tutup
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Camera Viewfinder with Scanner Frame -->
-                <div style="position: relative; width: 100%; min-height: 290px; background: black; display: flex; align-items: center; justify-content: center; overflow: hidden;">
-                    <div id="barcode-reader-view" style="width: 100%;"></div>
-                    <video x-ref="barcodeVideo" autoplay playsinline muted
-                           style="width: 100%; display: none; max-height: 340px; object-fit: cover;"></video>
+        <template x-teleport="body">
+            <div x-cloak x-show="barcodeScanning"
+                 style="position: fixed; inset: 0; z-index: 999999; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; padding: 20px 16px; overflow-y: auto;"
+                 @keydown.escape.window="closeBarcodeScanner()">
+                <div style="background: #0f172a; border-radius: 20px; overflow: hidden; width: 100%; max-width: 440px; margin: auto; box-shadow: 0 25px 60px rgba(0,0,0,0.8); border: 1.5px solid rgba(59,130,246,0.3);" @click.stop>
                     
-                    <!-- Scanner Laser & Guide Overlay (Tinggi 180px, Tidak memotong gambar kamera) -->
-                    <div style="position: absolute; inset: 0; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                        <div style="width: 90%; max-width: 360px; height: 180px; border: 2px dashed rgba(56,189,248,0.8); border-radius: 14px; position: relative; box-shadow: 0 0 0 9999px rgba(0,0,0,0.22);">
-                            <!-- Laser line -->
-                            <div style="position: absolute; left: 8px; right: 8px; height: 2px; background: linear-gradient(90deg, transparent, #22c55e, #38bdf8, #22c55e, transparent); box-shadow: 0 0 10px #22c55e; animation: scanLine 2s infinite ease-in-out;"></div>
-                            <!-- Pojok styling -->
-                            <div style="position: absolute; top: -2px; left: -2px; width: 18px; height: 18px; border-top: 3.5px solid #38bdf8; border-left: 3.5px solid #38bdf8; border-radius: 4px 0 0 0;"></div>
-                            <div style="position: absolute; top: -2px; right: -2px; width: 18px; height: 18px; border-top: 3.5px solid #38bdf8; border-right: 3.5px solid #38bdf8; border-radius: 0 4px 0 0;"></div>
-                            <div style="position: absolute; bottom: -2px; left: -2px; width: 18px; height: 18px; border-bottom: 3.5px solid #38bdf8; border-left: 3.5px solid #38bdf8; border-radius: 0 0 0 4px;"></div>
-                            <div style="position: absolute; bottom: -2px; right: -2px; width: 18px; height: 18px; border-bottom: 3.5px solid #38bdf8; border-right: 3.5px solid #38bdf8; border-radius: 0 0 4px 0;"></div>
+                    <!-- Modal Header -->
+                    <div style="padding: 12px 16px; background: linear-gradient(135deg, #1e3a8a, #0d5950); display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px; min-width: 0;">
+                            <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(255,255,255,0.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                <i class="ph-bold ph-barcode" style="font-size: 18px; color: white;"></i>
+                            </div>
+                            <div style="min-width: 0;">
+                                <p style="font-size: 13px; font-weight: 700; color: white; line-height: 1.2;">Pemindai Barcode Surat Jalan</p>
+                                <p style="font-size: 10px; color: #93c5fd; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" x-text="barcodeTargetTitle"></p>
+                            </div>
                         </div>
-                        <p style="font-size: 11px; color: rgba(255,255,255,0.92); font-weight: 600; margin-top: 10px; background: rgba(0,0,0,0.65); padding: 3px 12px; border-radius: 12px; letter-spacing: 0.02em;">
-                            Arahkan kamera ke barcode batang (pastikan seluruh garis terlihat utuh)
-                        </p>
+                        <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                            <!-- Tombol Ganti Kamera (Depan/Belakang) -->
+                            <button type="button" x-show="barcodeMultipleCameras" @click="switchBarcodeCamera()"
+                                    style="background: rgba(255,255,255,0.15); border: none; color: white; border-radius: 8px; padding: 5px 8px; cursor: pointer; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;"
+                                    title="Beralih Kamera">
+                                <i class="ph-bold ph-arrows-clockwise"></i>
+                                <span x-text="barcodeFacingMode === 'environment' ? 'Kamera Belakang' : 'Kamera Depan'"></span>
+                            </button>
+                            <!-- Tombol Zoom 1x / 2x -->
+                            <button type="button" x-show="barcodeZoomAvailable" @click="toggleBarcodeZoom()"
+                                    style="background: rgba(255,255,255,0.15); border: none; color: white; border-radius: 8px; padding: 5px 8px; cursor: pointer; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 3px;"
+                                    title="Zoom Kamera">
+                                <i class="ph-bold ph-magnifying-glass-plus"></i>
+                                <span x-text="barcodeZoomLevel + 'x'"></span>
+                            </button>
+                            <!-- Tombol Senter / Torch (Aktif jika perangkat mendukung) -->
+                            <button type="button" x-show="barcodeTorchAvailable" @click="toggleBarcodeTorch()"
+                                    style="border: none; border-radius: 8px; padding: 5px 8px; cursor: pointer; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; transition: all 0.15s;"
+                                    :style="barcodeTorchOn ? 'background: #eab308; color: #0f172a;' : 'background: rgba(255,255,255,0.15); color: white;'">
+                                <i class="ph-bold" :class="barcodeTorchOn ? 'ph-flashlight-fill' : 'ph-flashlight'"></i>
+                                <span x-text="barcodeTorchOn ? 'Senter ON' : 'Senter'"></span>
+                            </button>
+                            <button type="button" @click="closeBarcodeScanner()"
+                                    style="background: rgba(255,255,255,0.15); border: none; color: white; border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 12px; font-weight: 700;">
+                                ✕ Tutup
+                            </button>
+                        </div>
                     </div>
-                </div>
 
-                <!-- Feedback Banner Status -->
-                <!-- 1. Success Banner -->
-                <div x-cloak x-show="barcodeSuccess"
-                     style="padding: 10px 14px; background: #052e16; border-top: 1px solid #166534; display: flex; align-items: center; gap: 10px;">
-                    <i class="ph-fill ph-check-circle" style="color: #22c55e; font-size: 22px; flex-shrink: 0;"></i>
-                    <div>
-                        <p style="font-size: 11px; font-weight: 700; color: #86efac;">Barcode Valid Terbaca!</p>
-                        <p style="font-size: 14px; font-weight: 800; color: white; letter-spacing: 0.05em; font-family: monospace;" x-text="barcodeSuccess"></p>
+                    <!-- Camera Viewfinder with Scanner Frame -->
+                    <div style="position: relative; width: 100%; min-height: 290px; background: black; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                        <div id="barcode-reader-view" style="width: 100%;"></div>
+                        <video x-ref="barcodeVideo" autoplay playsinline muted
+                               style="width: 100%; display: none; max-height: 340px; object-fit: cover;"></video>
+                        
+                        <!-- Scanner Laser & Guide Overlay (Tinggi 160px beresolusi tinggi, pas untuk barcode dokumen) -->
+                        <div style="position: absolute; inset: 0; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                            <div style="width: 88%; max-width: 340px; height: 160px; border: 2px dashed rgba(56,189,248,0.85); border-radius: 14px; position: relative; box-shadow: 0 0 0 9999px rgba(0,0,0,0.25);">
+                                <!-- Barcode badge -->
+                                <div style="position: absolute; top: 6px; left: 10px; font-size: 9px; font-weight: 800; font-family: monospace; color: #38bdf8; background: rgba(15,23,42,0.7); padding: 2px 6px; border-radius: 4px; letter-spacing: 0.05em;">
+                                    |||| CODE_128 1D
+                                </div>
+                                <!-- Laser line -->
+                                <div style="position: absolute; left: 8px; right: 8px; height: 2px; background: linear-gradient(90deg, transparent, #22c55e, #38bdf8, #22c55e, transparent); box-shadow: 0 0 10px #22c55e; animation: scanLine 2s infinite ease-in-out;"></div>
+                                <!-- Pojok styling -->
+                                <div style="position: absolute; top: -2px; left: -2px; width: 18px; height: 18px; border-top: 3.5px solid #38bdf8; border-left: 3.5px solid #38bdf8; border-radius: 4px 0 0 0;"></div>
+                                <div style="position: absolute; top: -2px; right: -2px; width: 18px; height: 18px; border-top: 3.5px solid #38bdf8; border-right: 3.5px solid #38bdf8; border-radius: 0 4px 0 0;"></div>
+                                <div style="position: absolute; bottom: -2px; left: -2px; width: 18px; height: 18px; border-bottom: 3.5px solid #38bdf8; border-left: 3.5px solid #38bdf8; border-radius: 0 0 0 4px;"></div>
+                                <div style="position: absolute; bottom: -2px; right: -2px; width: 18px; height: 18px; border-bottom: 3.5px solid #38bdf8; border-right: 3.5px solid #38bdf8; border-radius: 0 0 4px 0;"></div>
+                            </div>
+                            <p style="font-size: 11px; color: rgba(255,255,255,0.92); font-weight: 600; margin-top: 10px; background: rgba(0,0,0,0.65); padding: 4px 14px; border-radius: 12px; letter-spacing: 0.02em; text-align: center;">
+                                Posisikan barcode batang horizontal di dalam kotak (jarak 20–30 cm & tahan diam agar fokus tajam)
+                            </p>
+                        </div>
                     </div>
-                </div>
 
-                <!-- 2. Warning / Salah Baca Filter Banner (Ketika kamera membaca barcode yang salah misal 8 digit) -->
-                <div x-cloak x-show="barcodeWarning && !barcodeSuccess"
-                     style="padding: 10px 14px; background: #451a03; border-top: 1px solid #92400e; display: flex; flex-direction: column; gap: 6px;">
-                    <div style="display: flex; align-items: flex-start; gap: 8px;">
-                        <i class="ph-fill ph-warning" style="color: #f59e0b; font-size: 18px; flex-shrink: 0; margin-top: 1px;"></i>
-                        <p style="font-size: 11px; color: #fed7aa; line-height: 1.4; margin: 0;" x-text="barcodeWarning"></p>
+                    <!-- Feedback Banner Status -->
+                    <!-- 1. Success Banner -->
+                    <div x-cloak x-show="barcodeSuccess"
+                         style="padding: 10px 14px; background: #052e16; border-top: 1px solid #166534; display: flex; align-items: center; gap: 10px;">
+                        <i class="ph-fill ph-check-circle" style="color: #22c55e; font-size: 22px; flex-shrink: 0;"></i>
+                        <div>
+                            <p style="font-size: 11px; font-weight: 700; color: #86efac;">Barcode Valid Terbaca!</p>
+                            <p style="font-size: 14px; font-weight: 800; color: white; letter-spacing: 0.05em; font-family: monospace;" x-text="barcodeSuccess"></p>
+                        </div>
                     </div>
-                    <div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 2px;">
-                        <button type="button" @click="forceApplyBarcode(barcodeLastRead)"
-                                style="font-size: 11px; font-weight: 700; background: #ea580c; color: white; border: none; border-radius: 6px; padding: 4px 10px; cursor: pointer;">
-                            Pakai "<span x-text="barcodeLastRead"></span>" Tetap
-                        </button>
-                    </div>
-                </div>
 
-                <!-- Footer Action & Secondary Fallbacks -->
-                <div style="padding: 10px 16px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: space-between; gap: 10px;">
-                    <!-- Upload File / Galeri foto alternatif -->
-                    <label style="display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: #93c5fd; background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; padding: 6px 10px; cursor: pointer;">
-                        <i class="ph-bold ph-image" style="font-size: 14px;"></i>
-                        <span>Unggah / Foto Barcode</span>
-                        <input type="file" accept="image/*" style="display: none;" @change="scanBarcodeFromFile($event)">
-                    </label>
-                    <span style="font-size: 10px; color: rgba(255,255,255,0.5); text-align: right;">
-                        Jaga jarak 15–25 cm agar barcode tajam
-                    </span>
+                    <!-- 2. Warning / Salah Baca Filter Banner (Ketika kamera membaca barcode yang salah misal 8 digit) -->
+                    <div x-cloak x-show="barcodeWarning && !barcodeSuccess"
+                         style="padding: 10px 14px; background: #451a03; border-top: 1px solid #92400e; display: flex; flex-direction: column; gap: 6px;">
+                        <div style="display: flex; align-items: flex-start; gap: 8px;">
+                            <i class="ph-fill ph-warning" style="color: #f59e0b; font-size: 18px; flex-shrink: 0; margin-top: 1px;"></i>
+                            <p style="font-size: 11px; color: #fed7aa; line-height: 1.4; margin: 0;" x-text="barcodeWarning"></p>
+                        </div>
+                        <div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 2px;">
+                            <button type="button" @click="forceApplyBarcode(barcodeLastRead)"
+                                     style="font-size: 11px; font-weight: 700; background: #ea580c; color: white; border: none; border-radius: 6px; padding: 4px 10px; cursor: pointer;">
+                                Pakai "<span x-text="barcodeLastRead"></span>" Tetap
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Footer Action & Secondary Fallbacks -->
+                    <div style="padding: 10px 16px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                        <!-- Upload File / Galeri foto alternatif -->
+                        <label style="display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: #93c5fd; background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; padding: 6px 10px; cursor: pointer;">
+                            <i class="ph-bold ph-image" style="font-size: 14px;"></i>
+                            <span>Unggah / Foto Barcode</span>
+                            <input type="file" accept="image/*" style="display: none;" @change="scanBarcodeFromFile($event)">
+                        </label>
+                        <span style="font-size: 10px; color: rgba(255,255,255,0.65); text-align: right; line-height: 1.3;">
+                            Jarak 20–30 cm & diam sebentar agar fokus tajam
+                        </span>
+                    </div>
                 </div>
             </div>
-        </div>
+        </template>
         <style>
             #barcode-reader-view video { width: 100% !important; object-fit: cover !important; border-radius: 0 !important; }
             #barcode-reader-view img { display: none !important; }

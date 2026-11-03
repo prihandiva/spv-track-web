@@ -4,33 +4,84 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
     /**
-     * Seed the application's database.
+     * Seed the application's database for initial setup & production deployment.
      */
     public function run(): void
     {
-        // 1. Seed Karyawan (Petugas Lapangan)
-        $karyawans = [
-            ['nama' => 'Budi Santoso', 'nomor_induk' => 'KRY001', 'status' => 'aktif', 'created_at' => now(), 'updated_at' => now()],
-            ['nama' => 'Agus Supriyadi', 'nomor_induk' => 'KRY002', 'status' => 'aktif', 'created_at' => now(), 'updated_at' => now()],
-            ['nama' => 'Hendra Wijaya', 'nomor_induk' => 'KRY003', 'status' => 'aktif', 'created_at' => now(), 'updated_at' => now()],
+        // 1. Seed Default Users (Akun Akses Sistem: Superadmin, Admin Warehouse, Operator Lapangan)
+        $users = [
+            [
+                'nama_warehouse' => 'Super Administrator',
+                'username' => 'superadmin',
+                'email' => 'superadmin@spvtrack.com',
+                'password' => Hash::make('password'),
+                'role' => 'superadmin',
+            ],
+            [
+                'nama_warehouse' => 'Admin Warehouse',
+                'username' => 'admin',
+                'email' => 'admin@spvtrack.com',
+                'password' => Hash::make('password'),
+                'role' => 'admin',
+            ],
+            [
+                'nama_warehouse' => 'Operator Lapangan',
+                'username' => 'operator',
+                'email' => 'operator@spvtrack.com',
+                'password' => Hash::make('password'),
+                'role' => 'operator',
+            ],
         ];
-        DB::table('karyawans')->insert($karyawans);
 
-        // 2. Seed Admin User
-        DB::table('users')->insert([
-            'nama_warehouse' => 'Warehouse A',
-            'email' => 'admin@spvtrack.com',
-            'password' => bcrypt('password'),
-            'role' => 'admin',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        foreach ($users as $u) {
+            $userExists = DB::table('users')->where('email', $u['email'])->first();
+            if (!$userExists) {
+                DB::table('users')->insert(array_merge($u, [
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]));
+            } else {
+                DB::table('users')->where('email', $u['email'])->update([
+                    'nama_warehouse' => $u['nama_warehouse'],
+                    'username' => $u['username'],
+                    'role' => $u['role'],
+                    'updated_at' => now(),
+                ]);
+            }
+        }
 
-        // 3. Seed SOP Photo Points (27 Titik)
+        // 2. Seed Karyawan (Petugas Lapangan & Helper Aktif)
+        $karyawans = [
+            ['nama' => 'Budi Santoso', 'nomor_induk' => 'KRY001', 'position' => 'operator', 'status' => 'aktif'],
+            ['nama' => 'Agus Supriyadi', 'nomor_induk' => 'KRY002', 'position' => 'operator', 'status' => 'aktif'],
+            ['nama' => 'Hendra Wijaya', 'nomor_induk' => 'KRY003', 'position' => 'operator', 'status' => 'aktif'],
+            ['nama' => 'Fitria Ramadhani Prihandiva', 'nomor_induk' => '357308973', 'position' => 'helper', 'status' => 'aktif'],
+        ];
+
+        foreach ($karyawans as $k) {
+            $karyawanExists = DB::table('karyawans')->where('nomor_induk', $k['nomor_induk'])->first();
+            if (!$karyawanExists) {
+                DB::table('karyawans')->insert(array_merge($k, [
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]));
+            } else {
+                DB::table('karyawans')->where('nomor_induk', $k['nomor_induk'])->update([
+                    'nama' => $k['nama'],
+                    'position' => $k['position'],
+                    'status' => $k['status'],
+                    'updated_at' => now(),
+                ]);
+            }
+        }
+
+        // 3. Seed SOP Photo Points (27 Titik SOP Standar Terkini)
+        // Format tuple: [urutan, nama_titik, deskripsi, tipe_item, wajib, perlu_ocr_container, perlu_deteksi_orang, perlu_deteksi_barcode]
         $points = [
             [1, 'Plat Nomor', 'Foto plat nomor truck/container', 'foto', true, false, false, false],
             [2, 'Foto di Loading Area', 'Photo Fiber/Sodium di loading/staging area yang sudah dikumpulkan', 'foto', true, false, false, false],
@@ -52,21 +103,18 @@ class DatabaseSeeder extends Seeder
             [18, 'Terisi Penuh', 'Photo terisi fiber/bales penuh dan tersegel', 'foto', true, false, false, false],
             [19, 'Satu Pintu Tertutup', 'Photo tertutup satu pintu, nomor container harus terbaca', 'foto', true, true, false, false],
             [20, 'Tertutup Terkunci', 'Photo container tertutup dan terkunci', 'foto', true, false, false, false],
-            [21, 'Tampak Segel & Plat', 'Photo pintu tertutup tampak segel container dan beacukai, nomor container, plat nomor
-', 'foto', true, true, false, false],
-            [22, 'Foto Segel Pelayaran di zoom', 'Foto Segel Pelayaran', 'foto', true, false, false, false],
+            [21, 'Tampak Segel & Plat', 'Photo pintu tertutup tampak segel container dan beacukai, nomor container, plat nomor', 'foto', true, false, false, false],
+            [22, 'Foto Segel Pelayaran (Zoomable)', 'Foto segel pelayaran', 'foto', true, false, false, false],
             [23, 'Ban Diganjal', 'Photo 2 ban diganjal stopper', 'foto', true, false, false, false],
-            [24, 'Checklist Document', 'Truck Checklist (Lokal) / Container Checklist (Export)', 'foto', true, false, false, false],
-            [25, 'Bales Inspection Ball', 'Bales Inspection Ball', 'foto', true, false, false, false],
-            [26, 'Surat Jalan dan Scanner OK', 'Surat Jalan dan Scanner OK', 'foto', true, false, false, false],
-            [27, 'Video Singkat', 'Video singkat', 'video', false, false, false, false], // tidak wajib
+            [24, 'Checklist Document', 'Truck Checklist (Lokal) / Container Checklist (Export)', 'foto', false, false, false, false], // Opsional
+            [25, 'Bales Inspection Ball', 'Bales Inspection Ball', 'foto', false, false, false, false], // Opsional
+            [26, 'Surat Jalan dan scanner OK', 'Surat Jalan dan scanner OK', 'foto', true, false, false, false],
+            [27, 'Video Singkat', 'Video singkat', 'video', false, false, false, false], // Opsional
         ];
 
-        $insertPoints = [];
         foreach ($points as $p) {
-            $insertPoints[] = [
+            $pointData = [
                 'jenis_pengiriman' => 'both',
-                'urutan' => $p[0],
                 'nama_titik' => $p[1],
                 'deskripsi' => $p[2],
                 'tipe_item' => $p[3],
@@ -74,11 +122,18 @@ class DatabaseSeeder extends Seeder
                 'perlu_ocr_container' => $p[5],
                 'perlu_deteksi_orang' => $p[6],
                 'perlu_deteksi_barcode' => $p[7],
-                'created_at' => now(),
                 'updated_at' => now(),
             ];
-        }
 
-        DB::table('sop_photo_points')->insert($insertPoints);
+            $pointExists = DB::table('sop_photo_points')->where('urutan', $p[0])->exists();
+            if (!$pointExists) {
+                DB::table('sop_photo_points')->insert(array_merge([
+                    'urutan' => $p[0],
+                    'created_at' => now(),
+                ], $pointData));
+            } else {
+                DB::table('sop_photo_points')->where('urutan', $p[0])->update($pointData);
+            }
+        }
     }
 }

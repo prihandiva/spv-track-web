@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Test User Delivery Photo with Patched ZXing</title>
+    <script src="/vendor/html5-qrcode.min.js?v=patched"></script>
+</head>
+<body style="font-family: sans-serif; padding: 20px;">
+    <h2>Patched ZXing Barcode Test</h2>
+    <div id="reader" style="width: 500px;"></div>
+    <div id="logs" style="font-family: monospace; font-size: 14px; margin-top: 15px; white-space: pre-wrap; background: #1e1e1e; color: #00ff66; padding: 15px; border-radius: 8px;"></div>
+
+    <script>
+    async function test() {
+        const log = (msg) => {
+            document.getElementById('logs').innerText += msg + '\n';
+            console.log(msg);
+        };
+
+        log('Loading /user_delivery_photo.png...');
+        const resp = await fetch('/user_delivery_photo.png');
+        const blob = await resp.blob();
+        const file = new File([blob], 'user_delivery_photo.png', { type: 'image/png' });
+
+        const formats = [
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.CODE_39,
+            Html5QrcodeSupportedFormats.CODE_93,
+            Html5QrcodeSupportedFormats.ITF,
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.QR_CODE
+        ];
+
+        try {
+            const scanner = new Html5Qrcode('reader', { formatsToSupport: formats, verbose: true });
+            log('Scanning user delivery photo...');
+            const result = await scanner.scanFile(file, true);
+            log('RESULT: ' + result);
+        } catch (e) {
+            log('FAILED: ' + e);
+        }
+    }
+    window.onload = test;
+    </script>
+</body>
+</html>

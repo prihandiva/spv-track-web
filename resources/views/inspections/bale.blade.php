@@ -74,7 +74,12 @@
                         const readerEl = document.getElementById('bale-barcode-reader');
                         if (readerEl) {
                             readerEl.innerHTML = '';
-                            this.html5Scanner = new Html5Qrcode('bale-barcode-reader');
+                            const fmt = window.Html5QrcodeSupportedFormats || (window.__Html5QrcodeLibrary__ && window.__Html5QrcodeLibrary__.Html5QrcodeSupportedFormats) || {};
+                            const priorityFormats = [fmt.CODE_128 ?? 5, fmt.CODE_39 ?? 3, fmt.EAN_13 ?? 9, fmt.ITF ?? 8, fmt.QR_CODE ?? 0];
+                            this.html5Scanner = new Html5Qrcode('bale-barcode-reader', {
+                                formatsToSupport: priorityFormats,
+                                experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+                            });
                             const config = {
                                 fps: 15,
                                 qrbox: { width: 300, height: 120 },
