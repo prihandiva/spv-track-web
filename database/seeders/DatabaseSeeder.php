@@ -135,5 +135,8 @@ class DatabaseSeeder extends Seeder
                 DB::table('sop_photo_points')->where('urutan', $p[0])->update($pointData);
             }
         }
+        $this->call([
+            DemoUsersSeeder::class,
+        ]);
     }
 }
