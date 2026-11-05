@@ -138,8 +138,8 @@ class ShipmentZipDownloadTest extends TestCase
         $zip = new ZipArchive;
         $this->assertTrue($zip->open($tempZip));
         $entryName = $zip->getNameIndex(0);
-        // Container was '0', so image name uses plat nomor: B9876XYZ
-        $this->assertStringStartsWith('B9876XYZ_Titik_02_Loading_Area', $entryName);
+        // Container was '0', so image name uses plat nomor: B_9876_XYZ
+        $this->assertStringStartsWith('B_9876_XYZ_Titik_02_Loading_Area', $entryName);
         $zip->close();
         @unlink($tempZip);
     }

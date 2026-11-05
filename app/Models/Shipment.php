@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Helpers\FormatHelper;
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -45,12 +48,66 @@ class Shipment extends Model
         ];
     }
 
+    public static function formatPlatNomor(?string $plate): string
+    {
+        return FormatHelper::formatPlatNomor($plate);
+    }
+
+    protected function platNomor(): Attribute
+    {
+        return Attribute::make(
+            get: fn (?string $value) => $value ? FormatHelper::formatPlatNomor($value) : $value,
+            set: fn (?string $value) => $value ? FormatHelper::formatPlatNomor($value) : $value,
+        );
+    }
+
+    protected function namaSopir(): Attribute
+    {
+        return Attribute::make(
+            get: fn (?string $value) => $value ? FormatHelper::toUpper($value) : $value,
+            set: fn (?string $value) => $value ? FormatHelper::toUpper($value) : $value,
+        );
+    }
+
+    protected function nomorContainerAtauPlat(): Attribute
+    {
+        return Attribute::make(
+            get: fn (?string $value) => $value ? FormatHelper::toUpper($value) : $value,
+            set: fn (?string $value) => $value ? FormatHelper::toUpper($value) : $value,
+        );
+    }
+
+    protected function nomorSeal(): Attribute
+    {
+        return Attribute::make(
+            get: fn (?string $value) => $value ? FormatHelper::toUpper($value) : $value,
+            set: fn (?string $value) => $value ? FormatHelper::toUpper($value) : $value,
+        );
+    }
+
+    protected function agenForwarding(): Attribute
+    {
+        return Attribute::make(
+            get: fn (?string $value) => $value ? FormatHelper::toUpper($value) : $value,
+            set: fn (?string $value) => $value ? FormatHelper::toUpper($value) : $value,
+        );
+    }
+
+    protected function tujuanPengiriman(): Attribute
+    {
+        return Attribute::make(
+            get: fn (?string $value) => $value ? FormatHelper::toUpper($value) : $value,
+            set: fn (?string $value) => $value ? FormatHelper::toUpper($value) : $value,
+        );
+    }
+
     public function getWarehouseLabelAttribute(): string
     {
         if (($this->warehouse_type ?? 'internal') === 'external') {
-            return $this->warehouse_lokasi ? ($this->warehouse_lokasi . ' (Eksternal)') : 'Warehouse Eksternal';
+            return $this->warehouse_lokasi ? ($this->warehouse_lokasi.' (Eksternal)') : 'Warehouse Eksternal';
         }
-        return 'Gudang ' . ucfirst($this->warehouse_lokasi ?: 'Atas');
+
+        return 'Gudang '.ucfirst(strtolower($this->warehouse_lokasi ?: 'atas'));
     }
 
     public function getIsWarehouseInternalAttribute(): bool
@@ -61,15 +118,15 @@ class Shipment extends Model
     /**
      * Waktu awal staging (prioritas: waktu_kedatangan_container, fallback: created_at).
      */
-    public function getWaktuAwalStagingAttribute(): ?\Carbon\Carbon
+    public function getWaktuAwalStagingAttribute(): ?Carbon
     {
-        return $this->waktu_kedatangan_container ?: ($this->created_at ? \Carbon\Carbon::parse($this->created_at) : null);
+        return $this->waktu_kedatangan_container ?: ($this->created_at ? Carbon::parse($this->created_at) : null);
     }
 
     /**
      * Waktu akhir staging (prioritas: waktu_keberangkatan_container, fallback: submitted_at jika status submitted).
      */
-    public function getWaktuAkhirStagingAttribute(): ?\Carbon\Carbon
+    public function getWaktuAkhirStagingAttribute(): ?Carbon
     {
         if ($this->waktu_keberangkatan_container) {
             return $this->waktu_keberangkatan_container;
@@ -77,6 +134,7 @@ class Shipment extends Model
         if ($this->status === 'submitted' && $this->submitted_at) {
             return $this->submitted_at;
         }
+
         return null;
     }
 
@@ -93,6 +151,7 @@ class Shipment extends Model
         }
 
         $minutes = (int) $start->diffInMinutes($end, false);
+
         return abs($minutes);
     }
 

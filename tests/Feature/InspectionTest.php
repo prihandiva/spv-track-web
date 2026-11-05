@@ -2,8 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\BaleInspection;
-use App\Models\ContainerInspection;
 use App\Models\Karyawan;
 use App\Models\Role;
 use App\Models\Shipment;
@@ -17,7 +15,9 @@ class InspectionTest extends TestCase
     use RefreshDatabase;
 
     protected User $user;
+
     protected Karyawan $karyawan;
+
     protected Shipment $shipment;
 
     protected function setUp(): void
@@ -125,8 +125,8 @@ class InspectionTest extends TestCase
             'shipment_id' => $this->shipment->id,
             'nomor_kontainer' => 'TGHU1234567',
             'kesimpulan' => 'layak',
-            'pintu_catatan' => 'Pintu luar & dalam bersih, tidak bolong, swab test bersih',
-            'lantai_catatan' => 'Lantai rata, bersih, bebas benda tajam/paku',
+            'pintu_catatan' => 'PINTU LUAR & DALAM BERSIH, TIDAK BOLONG, SWAB TEST BERSIH',
+            'lantai_catatan' => 'LANTAI RATA, BERSIH, BEBAS BENDA TAJAM/PAKU',
         ]);
     }
 
@@ -208,7 +208,7 @@ class InspectionTest extends TestCase
             'first_eye_jabatan' => 'Operator Lapangan',
             'first_eye_tanggal' => now()->toDateString(),
             'second_eye_status' => 'disetujui',
-            'second_eye_catatan' => 'Semua bale telah diperiksa dan disetujui untuk loading.',
+            'second_eye_catatan' => 'SEMUA BALE TELAH DIPERIKSA DAN DISETUJUI UNTUK LOADING.',
             'second_eye_nama' => 'Agus SPV',
             'second_eye_jabatan' => 'Supervisor',
             'second_eye_tanggal' => now()->toDateString(),
@@ -227,7 +227,7 @@ class InspectionTest extends TestCase
         $this->assertDatabaseHas('bale_inspections', [
             'shipment_id' => $this->shipment->id,
             'nomor_surat_jalan' => '900000001',
-            'second_eye_catatan' => 'Semua bale telah diperiksa dan disetujui untuk loading.',
+            'second_eye_catatan' => 'SEMUA BALE TELAH DIPERIKSA DAN DISETUJUI UNTUK LOADING.',
             'kesimpulan_akhir' => 'layak',
         ]);
 
@@ -235,7 +235,7 @@ class InspectionTest extends TestCase
             'item_index' => 1,
             'ada_ketidaksesuaian' => true,
             'jumlah_bale' => 2,
-            'tindakan_perbaikan' => 'diganti',
+            'tindakan_perbaikan' => 'DIGANTI',
         ]);
     }
 

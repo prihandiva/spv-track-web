@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\FormatHelper;
 use App\Models\Karyawan;
 use App\Models\Shipment;
 use Illuminate\Http\RedirectResponse;
@@ -19,9 +20,10 @@ class KaryawanController extends Controller
         $query = Karyawan::withCount('shipments')->latest();
 
         if ($search = $request->input('search')) {
-            $query->where(function ($q) use ($search) {
-                $q->where('nama', 'like', "%{$search}%")
-                    ->orWhere('nomor_induk', 'like', "%{$search}%");
+            $term = '%'.strtolower($search).'%';
+            $query->where(function ($q) use ($term) {
+                $q->whereRaw('LOWER(nama) LIKE ?', [$term])
+                    ->orWhereRaw('LOWER(nomor_induk) LIKE ?', [$term]);
             });
         }
 
@@ -66,6 +68,13 @@ class KaryawanController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+        if ($request->filled('nama')) {
+            $request->merge(['nama' => FormatHelper::toUpper($request->input('nama'))]);
+        }
+        if ($request->filled('nomor_induk')) {
+            $request->merge(['nomor_induk' => FormatHelper::toUpper($request->input('nomor_induk'))]);
+        }
+
         $validated = $request->validate([
             'nama' => ['required', 'string', 'max:255'],
             'nomor_induk' => ['required', 'string', 'max:50', 'unique:karyawans,nomor_induk'],
@@ -79,7 +88,7 @@ class KaryawanController extends Controller
             'status.required' => 'Status petugas wajib dipilih.',
         ]);
 
-        $validated['position'] = !empty($validated['position']) ? $validated['position'] : 'operator';
+        $validated['position'] = ! empty($validated['position']) ? $validated['position'] : 'operator';
 
         $karyawan = Karyawan::create($validated);
 
@@ -118,6 +127,13 @@ class KaryawanController extends Controller
      */
     public function update(Request $request, Karyawan $karyawan): RedirectResponse
     {
+        if ($request->filled('nama')) {
+            $request->merge(['nama' => FormatHelper::toUpper($request->input('nama'))]);
+        }
+        if ($request->filled('nomor_induk')) {
+            $request->merge(['nomor_induk' => FormatHelper::toUpper($request->input('nomor_induk'))]);
+        }
+
         $validated = $request->validate([
             'nama' => ['required', 'string', 'max:255'],
             'nomor_induk' => [
@@ -136,7 +152,7 @@ class KaryawanController extends Controller
             'status.required' => 'Status petugas wajib dipilih.',
         ]);
 
-        $validated['position'] = !empty($validated['position']) ? $validated['position'] : ($karyawan->position ?? 'operator');
+        $validated['position'] = ! empty($validated['position']) ? $validated['position'] : ($karyawan->position ?? 'operator');
 
         $karyawan->update($validated);
 

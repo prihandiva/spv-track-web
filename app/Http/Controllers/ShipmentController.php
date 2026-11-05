@@ -17,16 +17,19 @@ class ShipmentController extends Controller
         $query = Shipment::with(['karyawan', 'karyawans', 'evidenceItems'])->latest();
 
         if ($search = $request->input('search')) {
-            $query->where(function ($q) use ($search) {
-                $q->where('packing_list_no', 'like', "%{$search}%")
-                    ->orWhere('nomor_container_atau_plat', 'like', "%{$search}%")
-                    ->orWhere('plat_nomor', 'like', "%{$search}%")
-                    ->orWhere('shipment_no', 'like', "%{$search}%")
-                    ->orWhere('shipment_group', 'like', "%{$search}%")
-                    ->orWhere('nama_sopir', 'like', "%{$search}%")
-                    ->orWhere('nomor_seal', 'like', "%{$search}%")
-                    ->orWhere('agen_forwarding', 'like', "%{$search}%")
-                    ->orWhere('tujuan_pengiriman', 'like', "%{$search}%");
+            $term = '%'.strtolower($search).'%';
+            $cleanPlateTerm = '%'.strtolower(preg_replace('/\s+/', '', $search)).'%';
+            $query->where(function ($q) use ($term, $cleanPlateTerm) {
+                $q->whereRaw('LOWER(packing_list_no) LIKE ?', [$term])
+                    ->orWhereRaw('LOWER(nomor_container_atau_plat) LIKE ?', [$term])
+                    ->orWhereRaw('LOWER(plat_nomor) LIKE ?', [$term])
+                    ->orWhereRaw("LOWER(REPLACE(plat_nomor, ' ', '')) LIKE ?", [$cleanPlateTerm])
+                    ->orWhereRaw('LOWER(shipment_no) LIKE ?', [$term])
+                    ->orWhereRaw('LOWER(shipment_group) LIKE ?', [$term])
+                    ->orWhereRaw('LOWER(nama_sopir) LIKE ?', [$term])
+                    ->orWhereRaw('LOWER(nomor_seal) LIKE ?', [$term])
+                    ->orWhereRaw('LOWER(agen_forwarding) LIKE ?', [$term])
+                    ->orWhereRaw('LOWER(tujuan_pengiriman) LIKE ?', [$term]);
             });
         }
 
@@ -77,7 +80,7 @@ class ShipmentController extends Controller
             abort(403, 'Hanya Superadmin yang memiliki hak akses untuk menghapus shipment.');
         }
 
-        $identitas = $shipment->packing_list_no ?: ($shipment->nomor_container_atau_plat ?: ('Shipment #' . $shipment->id));
+        $identitas = $shipment->packing_list_no ?: ($shipment->nomor_container_atau_plat ?: ('Shipment #'.$shipment->id));
 
         // Hapus folder penyimpanan file foto fisik di storage
         $storageDir = storage_path("app/public/shipments/{$shipment->id}");
@@ -430,7 +433,7 @@ class ShipmentController extends Controller
         $product = $request->input('jenis_produk', 'all');
 
         if ($product && $product !== 'all') {
-            $query->where('jenis_produk', $product);
+            $query->whereRaw('LOWER(jenis_produk) = ?', [strtolower($product)]);
         }
 
         if ($mode === 'harian') {
@@ -498,13 +501,13 @@ class ShipmentController extends Controller
     {
         $mode = $request->input('mode', 'harian');
         $product = $request->input('jenis_produk', 'all');
-        $productLabel = match ($product) {
+        $productLabel = match (strtolower((string) $product)) {
             'fiber' => '_Fiber',
             'sodium' => '_Sodium',
             'sliver' => '_SLIVER',
             'yarn' => '_YARN',
             'all', '' => '',
-            default => '_' . preg_replace('/[^A-Za-z0-9_\-]/', '_', ucfirst($product)),
+            default => '_'.preg_replace('/[^A-Za-z0-9_\-]/', '_', ucfirst($product)),
         };
 
         if ($mode === 'harian') {

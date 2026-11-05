@@ -28,6 +28,23 @@ class BaleInspectionItem extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::saving(function (BaleInspectionItem $item) {
+            $fields = [
+                'tindakan_perbaikan',
+                'tindakan_lainnya',
+                'nomor_bale_awal',
+                'nomor_bale_pengganti',
+            ];
+            foreach ($fields as $f) {
+                if (! empty($item->{$f})) {
+                    $item->{$f} = mb_strtoupper(trim($item->{$f}), 'UTF-8');
+                }
+            }
+        });
+    }
+
     public function baleInspection(): BelongsTo
     {
         return $this->belongsTo(BaleInspection::class);

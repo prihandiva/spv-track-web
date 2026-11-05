@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Helpers\FormatHelper;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -53,6 +54,35 @@ class BaleInspection extends Model
             'jenis_label' => 'array',
             'stagging_2_rubber_cone' => 'boolean',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (BaleInspection $bale) {
+            $fields = [
+                'nama_petugas_loading',
+                'nomor_surat_jalan',
+                'nama_pelanggan',
+                'first_eye_nama',
+                'first_eye_jabatan',
+                'second_eye_nama',
+                'second_eye_jabatan',
+                'second_eye_tindakan',
+                'second_eye_catatan',
+                'sumber_bale_lainnya',
+                'lokasi_stagging',
+                'stagging_catatan',
+            ];
+            foreach ($fields as $f) {
+                if (! empty($bale->{$f})) {
+                    $bale->{$f} = mb_strtoupper(trim($bale->{$f}), 'UTF-8');
+                }
+            }
+
+            if (! empty($bale->nomor_kontainer_truk)) {
+                $bale->nomor_kontainer_truk = FormatHelper::formatPlatNomor($bale->nomor_kontainer_truk);
+            }
+        });
     }
 
     public function shipment(): BelongsTo

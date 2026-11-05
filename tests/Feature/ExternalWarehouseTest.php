@@ -13,6 +13,7 @@ class ExternalWarehouseTest extends TestCase
     use RefreshDatabase;
 
     protected User $superadmin;
+
     protected User $operator;
 
     protected function setUp(): void
@@ -77,7 +78,7 @@ class ExternalWarehouseTest extends TestCase
             ->get(route('settings.external-warehouses.index'));
 
         $response->assertStatus(200);
-        $response->assertSee('PT Mitra Logistik Unggul');
+        $response->assertSee('PT MITRA LOGISTIK UNGGUL');
         $response->assertSee('MLU');
     }
 
@@ -96,7 +97,7 @@ class ExternalWarehouseTest extends TestCase
 
         $response->assertRedirect(route('settings.external-warehouses.index'));
         $this->assertDatabaseHas('external_warehouses', [
-            'nama' => 'PT Surya Mega Logistik',
+            'nama' => 'PT SURYA MEGA LOGISTIK',
             'kode' => 'SML',
             'status' => 'aktif',
         ]);
@@ -136,7 +137,7 @@ class ExternalWarehouseTest extends TestCase
         $response->assertRedirect(route('settings.external-warehouses.index'));
         $this->assertDatabaseHas('external_warehouses', [
             'id' => $wh->id,
-            'nama' => 'PT Baru Logistics',
+            'nama' => 'PT BARU LOGISTICS',
             'kode' => 'BARU',
         ]);
     }
@@ -190,7 +191,7 @@ class ExternalWarehouseTest extends TestCase
             ->get(route('field-app.create'));
 
         $response->assertStatus(200);
-        $response->assertSee('PT Active Wh Lapangan');
+        $response->assertSee('PT ACTIVE WH LAPANGAN');
         $response->assertDontSee('PT Inactive Wh Tersembunyi');
     }
 }

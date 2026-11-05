@@ -326,7 +326,7 @@ class LaporanController extends Controller
         // Filter Jenis Produk
         $product = $request->input('jenis_produk');
         if ($product && $product !== 'all') {
-            $query->where('jenis_produk', $product);
+            $query->whereRaw('LOWER(jenis_produk) = ?', [strtolower($product)]);
         }
 
         // Filter Jenis Pengiriman
@@ -352,14 +352,17 @@ class LaporanController extends Controller
 
         // Pencarian Teks Bebas
         if ($search = $request->input('search')) {
-            $query->where(function ($q) use ($search) {
-                $q->where('packing_list_no', 'like', "%{$search}%")
-                    ->orWhere('nomor_container_atau_plat', 'like', "%{$search}%")
-                    ->orWhere('plat_nomor', 'like', "%{$search}%")
-                    ->orWhere('nama_sopir', 'like', "%{$search}%")
-                    ->orWhere('nomor_seal', 'like', "%{$search}%")
-                    ->orWhere('shipment_no', 'like', "%{$search}%")
-                    ->orWhere('agen_forwarding', 'like', "%{$search}%");
+            $term = '%'.strtolower($search).'%';
+            $cleanPlateTerm = '%'.strtolower(preg_replace('/\s+/', '', $search)).'%';
+            $query->where(function ($q) use ($term, $cleanPlateTerm) {
+                $q->whereRaw('LOWER(packing_list_no) LIKE ?', [$term])
+                    ->orWhereRaw('LOWER(nomor_container_atau_plat) LIKE ?', [$term])
+                    ->orWhereRaw('LOWER(plat_nomor) LIKE ?', [$term])
+                    ->orWhereRaw("LOWER(REPLACE(plat_nomor, ' ', '')) LIKE ?", [$cleanPlateTerm])
+                    ->orWhereRaw('LOWER(nama_sopir) LIKE ?', [$term])
+                    ->orWhereRaw('LOWER(nomor_seal) LIKE ?', [$term])
+                    ->orWhereRaw('LOWER(shipment_no) LIKE ?', [$term])
+                    ->orWhereRaw('LOWER(agen_forwarding) LIKE ?', [$term]);
             });
         }
 
@@ -434,11 +437,11 @@ class LaporanController extends Controller
         $total = $shipments->count();
         $submitted = $shipments->where('status', 'submitted')->count();
         $draft = $shipments->where('status', 'draft')->count();
-        $fiber = $shipments->where('jenis_produk', 'fiber')->count();
-        $sodium = $shipments->where('jenis_produk', 'sodium')->count();
-        $sliver = $shipments->filter(fn($s) => strtolower($s->jenis_produk ?? '') === 'sliver')->count();
-        $yarn = $shipments->filter(fn($s) => strtolower($s->jenis_produk ?? '') === 'yarn')->count();
-        $others = $shipments->filter(fn($s) => !in_array(strtolower($s->jenis_produk ?? ''), ['fiber', 'sodium', 'sliver', 'yarn']))->count();
+        $fiber = $shipments->filter(fn ($s) => strtolower($s->jenis_produk ?? '') === 'fiber')->count();
+        $sodium = $shipments->filter(fn ($s) => strtolower($s->jenis_produk ?? '') === 'sodium')->count();
+        $sliver = $shipments->filter(fn ($s) => strtolower($s->jenis_produk ?? '') === 'sliver')->count();
+        $yarn = $shipments->filter(fn ($s) => strtolower($s->jenis_produk ?? '') === 'yarn')->count();
+        $others = $shipments->filter(fn ($s) => ! in_array(strtolower($s->jenis_produk ?? ''), ['fiber', 'sodium', 'sliver', 'yarn']))->count();
         $export = $shipments->where('jenis_pengiriman', 'export')->count();
         $lokal = $shipments->where('jenis_pengiriman', 'lokal')->count();
 
@@ -524,8 +527,8 @@ class LaporanController extends Controller
             $count = $handled->count();
             $completeCount = $handled->where('is_complete', true)->count();
             $avgCompliance = $count > 0 ? round($handled->avg('compliance_rate'), 1) : 0;
-            $fiberCount = $handled->where('jenis_produk', 'fiber')->count();
-            $sodiumCount = $handled->where('jenis_produk', 'sodium')->count();
+            $fiberCount = $handled->filter(fn ($s) => strtolower($s->jenis_produk ?? '') === 'fiber')->count();
+            $sodiumCount = $handled->filter(fn ($s) => strtolower($s->jenis_produk ?? '') === 'sodium')->count();
             $exportCount = $handled->where('jenis_pengiriman', 'export')->count();
             $lokalCount = $handled->where('jenis_pengiriman', 'lokal')->count();
 

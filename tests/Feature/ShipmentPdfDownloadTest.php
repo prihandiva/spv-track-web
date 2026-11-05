@@ -51,7 +51,7 @@ class ShipmentPdfDownloadTest extends TestCase
         $response->assertSee('SG-100');
         $response->assertSee('SH-200');
         $response->assertSee('TGHU1122334');
-        $response->assertSee('B5555XYZ');
+        $response->assertSee('B 5555 XYZ');
     }
 
     public function test_user_can_download_shipment_pdf_report(): void

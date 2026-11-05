@@ -2,11 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Models\EvidenceItem;
 use App\Models\Karyawan;
 use App\Models\Shipment;
 use App\Models\SopPhotoPoint;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 class FieldAppFlowTest extends TestCase
@@ -252,9 +254,9 @@ class FieldAppFlowTest extends TestCase
         // Check show page renders both officers
         $showResponse = $this->get(route('shipments.show', $shipment->id));
         $showResponse->assertStatus(200);
-        $showResponse->assertSee('Budi Santoso');
+        $showResponse->assertSee('BUDI SANTOSO');
         $showResponse->assertSee('NIK-888');
-        $showResponse->assertSee('Siti Aminah');
+        $showResponse->assertSee('SITI AMINAH');
         $showResponse->assertSee('NIK-999');
     }
 
@@ -278,7 +280,7 @@ class FieldAppFlowTest extends TestCase
 
         $shipment = Shipment::where('packing_list_no', '800111222')->first();
         $this->assertNotNull($shipment);
-        $this->assertEquals('sliver', $shipment->jenis_produk);
+        $this->assertEquals('sliver', strtolower($shipment->jenis_produk));
 
         $showResponse = $this->get(route('shipments.show', $shipment->id));
         $showResponse->assertStatus(200);
@@ -386,13 +388,13 @@ class FieldAppFlowTest extends TestCase
         $response->assertStatus(200);
         $response->assertSee('openPointPreview');
         $response->assertSee('Klik untuk Periksa');
-        $response->assertSee('action-bar-' . $point->id);
-        $response->assertSee('camera-input-' . $point->id);
+        $response->assertSee('action-bar-'.$point->id);
+        $response->assertSee('camera-input-'.$point->id);
         $response->assertSee('Stempel Digital SPV-Track');
         $response->assertSee('Pastikan foto/video jelas dan stempel waktu terbaca');
 
         // Test uploading photo 1
-        $file1 = \Illuminate\Http\UploadedFile::fake()->image('point1_first.jpg', 640, 480);
+        $file1 = UploadedFile::fake()->image('point1_first.jpg', 640, 480);
         $uploadResp1 = $this->post(route('field-app.upload-photo', $shipment->id), [
             'sop_photo_point_id' => $point->id,
             'file' => $file1,
@@ -401,13 +403,13 @@ class FieldAppFlowTest extends TestCase
         $uploadResp1->assertStatus(200);
         $uploadResp1->assertJson(['success' => true]);
 
-        $photo1 = \App\Models\EvidenceItem::where('shipment_id', $shipment->id)
+        $photo1 = EvidenceItem::where('shipment_id', $shipment->id)
             ->where('sop_photo_point_id', $point->id)
             ->first();
         $this->assertNotNull($photo1);
 
         // Test retake (re-uploading photo for the same point replaces/updates existing)
-        $file2 = \Illuminate\Http\UploadedFile::fake()->image('point1_retake.jpg', 640, 480);
+        $file2 = UploadedFile::fake()->image('point1_retake.jpg', 640, 480);
         $uploadResp2 = $this->post(route('field-app.upload-photo', $shipment->id), [
             'sop_photo_point_id' => $point->id,
             'file' => $file2,
@@ -418,7 +420,7 @@ class FieldAppFlowTest extends TestCase
 
         $photo1->refresh();
         $this->assertEquals('2026-10-19 09:35:00', $photo1->captured_at->format('Y-m-d H:i:s'));
-        $this->assertStringContainsString('_p' . $point->id . '_2.jpg', $photo1->file_path);
+        $this->assertStringContainsString('_p'.$point->id.'_2.jpg', $photo1->file_path);
     }
 
     public function test_field_app_store_succeeds_with_external_warehouse(): void
@@ -471,7 +473,7 @@ class FieldAppFlowTest extends TestCase
 
     public function test_field_app_update_switches_between_internal_and_external_warehouse(): void
     {
-        $shipment = \App\Models\Shipment::create([
+        $shipment = Shipment::create([
             'user_id' => $this->user->id,
             'karyawan_id' => $this->karyawan->id,
             'jenis_produk' => 'fiber',
@@ -514,5 +516,3 @@ class FieldAppFlowTest extends TestCase
         $this->assertEquals('PT Dunia Express Transindo (Eksternal)', $shipment->warehouse_label);
     }
 }
-
-

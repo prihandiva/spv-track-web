@@ -58,7 +58,7 @@ class LaporanTest extends TestCase
         $response->assertSee('Laporan & Audit Staging', false);
         $response->assertSee('PL-TEST-001');
         $response->assertSee('CONT-998811');
-        $response->assertSee('Budi Santoso');
+        $response->assertSee('BUDI SANTOSO');
     }
 
     public function test_laporan_filters_by_product_and_shipment_type(): void
@@ -165,7 +165,7 @@ class LaporanTest extends TestCase
 
         $response->assertStatus(200);
         $response->assertSee('Rekap Kinerja & Aktivitas Petugas Staging', false);
-        $response->assertSee('Budi Santoso');
+        $response->assertSee('BUDI SANTOSO');
         $response->assertSee('SPV001');
     }
 

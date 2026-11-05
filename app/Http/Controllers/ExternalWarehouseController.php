@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\FormatHelper;
 use App\Models\ExternalWarehouse;
 use App\Models\Shipment;
 use Illuminate\Http\RedirectResponse;
@@ -51,6 +52,10 @@ class ExternalWarehouseController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+        if ($request->filled('nama')) {
+            $request->merge(['nama' => FormatHelper::toUpper($request->input('nama'))]);
+        }
+
         $validated = $request->validate([
             'nama' => ['required', 'string', 'max:255', 'unique:external_warehouses,nama'],
             'kode' => ['nullable', 'string', 'max:50'],
@@ -77,6 +82,10 @@ class ExternalWarehouseController extends Controller
      */
     public function update(Request $request, ExternalWarehouse $externalWarehouse): RedirectResponse
     {
+        if ($request->filled('nama')) {
+            $request->merge(['nama' => FormatHelper::toUpper($request->input('nama'))]);
+        }
+
         $validated = $request->validate([
             'nama' => ['required', 'string', 'max:255', 'unique:external_warehouses,nama,'.$externalWarehouse->id],
             'kode' => ['nullable', 'string', 'max:50'],

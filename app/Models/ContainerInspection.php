@@ -49,6 +49,31 @@ class ContainerInspection extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::saving(function (ContainerInspection $inspection) {
+            $fields = [
+                'nomor_kontainer',
+                'nomor_seal',
+                'nama_emkl_pelayaran',
+                'nama_petugas_inspeksi',
+                'nama_inspektor',
+                'pintu_catatan',
+                'dinding_kanan_catatan',
+                'dinding_kiri_catatan',
+                'dinding_depan_catatan',
+                'atap_catatan',
+                'lantai_catatan',
+                'catatan',
+            ];
+            foreach ($fields as $f) {
+                if (! empty($inspection->{$f})) {
+                    $inspection->{$f} = mb_strtoupper(trim($inspection->{$f}), 'UTF-8');
+                }
+            }
+        });
+    }
+
     public function shipment(): BelongsTo
     {
         return $this->belongsTo(Shipment::class);

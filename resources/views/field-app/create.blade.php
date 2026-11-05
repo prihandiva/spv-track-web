@@ -163,7 +163,30 @@
             lastSavedText: '',
             hasRestoredDraft: false,
 
+            formatPlatNomor(val) {
+                if (!val) return '';
+                val = String(val).toUpperCase().trim();
+                const cleaned = val.replace(/\s+/g, '');
+                const standardMatch = cleaned.match(/^([A-Z]{1,2})([0-9]{1,4})([A-Z]{0,3})$/);
+                if (standardMatch) {
+                    const parts = [standardMatch[1], standardMatch[2]];
+                    if (standardMatch[3]) parts.push(standardMatch[3]);
+                    return parts.join(' ');
+                }
+                const generalMatch = val.match(/^([A-Z]+)\s*([0-9]+)\s*([A-Z]*)$/);
+                if (generalMatch) {
+                    const parts = [generalMatch[1], generalMatch[2]];
+                    if (generalMatch[3]) parts.push(generalMatch[3]);
+                    return parts.join(' ');
+                }
+                return val.replace(/([A-Z])([0-9])/g, '$1 $2')
+                          .replace(/([0-9])([A-Z])/g, '$1 $2')
+                          .replace(/\s+/g, ' ')
+                          .trim();
+            },
+
             init() {
+                if (this.platNomor) this.platNomor = this.formatPlatNomor(this.platNomor);
                 this.initDatePicker();
                 if (!this.isEditMode) {
                     this.loadDraftFromLocalStorage();
@@ -237,11 +260,11 @@
                     if (draft.shipmentGroup) this.shipmentGroup = draft.shipmentGroup;
                     if (draft.shipmentNo) this.shipmentNo = draft.shipmentNo;
                     if (draft.packingListNo) this.packingListNo = draft.packingListNo;
-                    if (draft.platNomor) this.platNomor = draft.platNomor;
-                    if (draft.namaSopir) this.namaSopir = draft.namaSopir;
-                    if (draft.nomorSeal) this.nomorSeal = draft.nomorSeal;
-                    if (draft.agenForwarding) this.agenForwarding = draft.agenForwarding;
-                    if (draft.tujuanPengiriman) this.tujuanPengiriman = draft.tujuanPengiriman;
+                    if (draft.platNomor) this.platNomor = this.formatPlatNomor(draft.platNomor);
+                    if (draft.namaSopir) this.namaSopir = draft.namaSopir.toUpperCase();
+                    if (draft.nomorSeal) this.nomorSeal = draft.nomorSeal.toUpperCase();
+                    if (draft.agenForwarding) this.agenForwarding = draft.agenForwarding.toUpperCase();
+                    if (draft.tujuanPengiriman) this.tujuanPengiriman = draft.tujuanPengiriman.toUpperCase();
                     if (draft.productChoice) this.productChoice = draft.productChoice;
                     if (draft.customProductText) this.customProductText = draft.customProductText;
                     if (draft.jenisPengiriman) this.jenisPengiriman = draft.jenisPengiriman;
@@ -483,8 +506,8 @@
                             extractedItems.push('Shipment No: ' + snVal);
                         }
                         if (data.plat_nomor) {
-                            this.platNomor = data.plat_nomor;
-                            extractedItems.push('Plat: ' + data.plat_nomor);
+                            this.platNomor = this.formatPlatNomor(data.plat_nomor);
+                            extractedItems.push('Plat: ' + this.platNomor);
                         }
                         if (data.container_no) {
                             this.nomorContainer = data.container_no;
@@ -1551,10 +1574,11 @@
                             <textarea id="agen_forwarding"
                                       name="agen_forwarding"
                                       x-model="agenForwarding"
+                                      @input="agenForwarding = $event.target.value.toUpperCase()"
                                       rows="2"
                                       placeholder="Contoh: PT. SAMUDERA LOGISTICS / EMKL..."
                                       class="field-input"
-                                      style="font-size:12px; font-weight: 600; resize: vertical; min-height: 52px; line-height: 1.4;"></textarea>
+                                      style="font-size:12px; font-weight: 600; resize: vertical; min-height: 52px; line-height: 1.4; text-transform:uppercase;"></textarea>
                             @if(count($history['agen_forwarding'] ?? []) > 0)
                                 <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;">
                                     <span style="font-size:9px; color:#9ca3af; align-self:center;">Riwayat:</span>
@@ -1581,10 +1605,11 @@
                             <textarea id="tujuan_pengiriman"
                                       name="tujuan_pengiriman"
                                       x-model="tujuanPengiriman"
+                                      @input="tujuanPengiriman = $event.target.value.toUpperCase()"
                                       rows="2"
                                       placeholder="Contoh: Pelabuhan Tanjung Priok / Gudang Surabaya..."
                                       class="field-input"
-                                      style="font-size:12px; font-weight: 600; resize: vertical; min-height: 52px; line-height: 1.4;"></textarea>
+                                      style="font-size:12px; font-weight: 600; resize: vertical; min-height: 52px; line-height: 1.4; text-transform:uppercase;"></textarea>
                             @if(count($history['tujuan_pengiriman'] ?? []) > 0)
                                 <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;">
                                     <span style="font-size:9px; color:#9ca3af; align-self:center;">Riwayat:</span>
@@ -1612,8 +1637,11 @@
                                 <i class="ph-bold ph-car" style="color:#285491; font-size:12px;"></i>Plat Nomor <span style="color:#ef4444;">*</span>
                             </label>
                             <input type="text" id="plat_nomor" name="plat_nomor" x-model="platNomor"
+                                   @blur="platNomor = formatPlatNomor(platNomor)"
+                                   @change="platNomor = formatPlatNomor(platNomor)"
+                                   @input="platNomor = $event.target.value.toUpperCase()"
                                    list="history-plat"
-                                   required placeholder="Contoh: B 9588 UIY" class="field-input" style="font-size:12px; font-weight: 600; text-transform:uppercase;">
+                                   required placeholder="Contoh: B 8976 UIY" class="field-input" style="font-size:12px; font-weight: 600; text-transform:uppercase;">
                             <datalist id="history-plat">
                                 @foreach($history['plat_nomor'] ?? [] as $item)
                                     <option value="{{ $item }}">
@@ -1624,7 +1652,7 @@
                                     <span style="font-size:9px; color:#9ca3af; align-self:center;">Riwayat:</span>
                                     @foreach(($history['plat_nomor'] ?? collect())->take(2) as $rec)
                                         <button type="button" 
-                                                @click="platNomor = $el.dataset.val"
+                                                @click="platNomor = formatPlatNomor($el.dataset.val)"
                                                 data-val="{{ $rec }}"
                                                 title="Klik untuk mengisi: {{ $rec }}"
                                                 style="font-size:10px; font-weight: 600; padding:2px 7px; border-radius:10px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer;"
@@ -1651,6 +1679,7 @@
                             </div>
                             <input type="text" id="nomor_container_atau_plat" name="nomor_container_atau_plat"
                                    x-model="nomorContainer"
+                                   @input="nomorContainer = $event.target.value.toUpperCase()"
                                    list="history-container"
                                    placeholder="Contoh: MSKU1234567 atau 0" required class="field-input" style="font-size:12px; font-weight: 600; text-transform:uppercase;">
                             <p style="font-size: 10px; color: #64748b; margin-top: 4px; line-height: 1.3;">
@@ -1689,8 +1718,9 @@
                                 <i class="ph-bold ph-user" style="color:#285491; font-size:12px;"></i>Nama Sopir (Opsional)
                             </label>
                             <input type="text" id="nama_sopir" name="nama_sopir" x-model="namaSopir"
+                                   @input="namaSopir = $event.target.value.toUpperCase()"
                                    list="history-sopir"
-                                   placeholder="Nama sopir kendaraan" class="field-input" style="font-size:12px; font-weight: 600; text-transform:capitalize;">
+                                   placeholder="Nama sopir kendaraan" class="field-input" style="font-size:12px; font-weight: 600; text-transform:uppercase;">
                             <datalist id="history-sopir">
                                 @foreach($history['nama_sopir'] ?? [] as $item)
                                     <option value="{{ $item }}">
@@ -1727,6 +1757,7 @@
                                 </button>
                             </div>
                             <input type="text" id="nomor_seal" name="nomor_seal" x-model="nomorSeal"
+                                   @input="nomorSeal = $event.target.value.toUpperCase()"
                                    list="history-seal"
                                    placeholder="Contoh: S000123 / Segel" class="field-input" style="font-size:12px; font-weight: 600; text-transform:uppercase;">
                             <datalist id="history-seal">

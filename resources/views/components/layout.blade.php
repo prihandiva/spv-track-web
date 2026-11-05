@@ -119,7 +119,64 @@
             background: rgba(255,255,255,0.09) !important;
             color: #ffffff !important;
         }
+        /* =========================================================
+           Auto UPPERCASE untuk Form Inputan User
+           Hanya input teks & textarea dari user yang auto uppercase
+           ========================================================= */
+        input:not([type="password"]):not([type="email"]):not([type="file"]):not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="color"]):not([type="range"]):not([type="date"]):not([type="time"]):not([type="datetime-local"]):not(.no-uppercase),
+        textarea:not(.no-uppercase),
+        .field-input:not(.no-uppercase) {
+            text-transform: uppercase;
+        }
+
+        input::placeholder,
+        textarea::placeholder {
+            text-transform: none;
+        }
+
+        /* Pengecualian elemen teknis & sistem: icon, SVG, password, email, flatpickr */
+        i[class*="ph-"],
+        i.ph,
+        .ph,
+        [class^="ph-"],
+        svg,
+        svg *,
+        input[type="password"],
+        input[type="email"],
+        input[type="file"],
+        code,
+        pre,
+        .no-uppercase,
+        .server-clock,
+        .flatpickr-calendar,
+        .flatpickr-calendar * {
+            text-transform: none !important;
+        }
     </style>
+
+    <script>
+        // Auto uppercase real-time untuk input teks dan textarea pengguna (capslock otomatis)
+        document.addEventListener('input', function (e) {
+            const el = e.target;
+            if (!el || !el.tagName) return;
+            const tag = el.tagName.toLowerCase();
+            if (tag === 'input' || tag === 'textarea') {
+                const type = (el.type || 'text').toLowerCase();
+                const excludedTypes = ['password', 'email', 'file', 'checkbox', 'radio', 'color', 'range', 'date', 'time', 'datetime-local', 'hidden'];
+                if (!excludedTypes.includes(type) && !el.classList.contains('no-uppercase')) {
+                    const start = el.selectionStart;
+                    const end = el.selectionEnd;
+                    const upper = el.value.toUpperCase();
+                    if (el.value !== upper) {
+                        el.value = upper;
+                        if (start !== null && end !== null) {
+                            try { el.setSelectionRange(start, end); } catch (err) {}
+                        }
+                    }
+                }
+            }
+        }, true);
+    </script>
 
     <!-- Chart.js (Offline Local Bundle + CDN Fallback) -->
     <script src="{{ asset('vendor/chart.umd.min.js') }}"></script>

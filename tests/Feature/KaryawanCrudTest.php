@@ -49,8 +49,8 @@ class KaryawanCrudTest extends TestCase
         $response = $this->get(route('karyawan.index', ['search' => 'Hendra']));
 
         $response->assertStatus(200);
-        $response->assertSee('Hendra Wijaya');
-        $response->assertDontSee('Agus Supriyadi');
+        $response->assertSee('HENDRA WIJAYA');
+        $response->assertDontSee('AGUS SUPRIYADI');
     }
 
     public function test_it_can_filter_karyawan_by_status(): void
@@ -68,13 +68,13 @@ class KaryawanCrudTest extends TestCase
 
         $response = $this->get(route('karyawan.index', ['status' => 'aktif']));
         $response->assertStatus(200);
-        $response->assertSee('Budi Sedang Bertugas');
-        $response->assertDontSee('Siti Sedang Cuti');
+        $response->assertSee('BUDI SEDANG BERTUGAS');
+        $response->assertDontSee('SITI SEDANG CUTI');
 
         $responseNon = $this->get(route('karyawan.index', ['status' => 'nonaktif']));
         $responseNon->assertStatus(200);
-        $responseNon->assertSee('Siti Sedang Cuti');
-        $responseNon->assertDontSee('Budi Sedang Bertugas');
+        $responseNon->assertSee('SITI SEDANG CUTI');
+        $responseNon->assertDontSee('BUDI SEDANG BERTUGAS');
     }
 
     public function test_it_can_render_create_page(): void
@@ -99,7 +99,7 @@ class KaryawanCrudTest extends TestCase
         $response->assertSessionHas('success');
 
         $this->assertDatabaseHas('karyawans', [
-            'nama' => 'Dedi Setiawan',
+            'nama' => 'DEDI SETIAWAN',
             'nomor_induk' => 'KRY010',
             'status' => 'aktif',
         ]);
@@ -156,7 +156,7 @@ class KaryawanCrudTest extends TestCase
         $response = $this->get(route('karyawan.show', $karyawan->id));
 
         $response->assertStatus(200);
-        $response->assertSee('Rahmat Hidayat');
+        $response->assertSee('RAHMAT HIDAYAT');
         $response->assertSee('KRY015');
         $response->assertSee('CONT-9999');
     }
@@ -170,7 +170,7 @@ class KaryawanCrudTest extends TestCase
         $response = $this->get(route('karyawan.edit', $karyawan->id));
 
         $response->assertStatus(200);
-        $response->assertSee('Agus Priyono');
+        $response->assertSee('AGUS PRIYONO');
     }
 
     public function test_it_can_update_an_existing_karyawan(): void
@@ -191,7 +191,7 @@ class KaryawanCrudTest extends TestCase
         $response->assertSessionHas('success');
 
         $karyawan->refresh();
-        $this->assertSame('Nama Baru', $karyawan->nama);
+        $this->assertSame('NAMA BARU', $karyawan->nama);
         $this->assertSame('KRY-NEW', $karyawan->nomor_induk);
         $this->assertSame('nonaktif', $karyawan->status);
     }
@@ -261,7 +261,7 @@ class KaryawanCrudTest extends TestCase
 
         $response->assertRedirect(route('karyawan.index'));
         $this->assertDatabaseHas('karyawans', [
-            'nama' => 'Siti Nurhaliza',
+            'nama' => 'SITI NURHALIZA',
             'nomor_induk' => 'CHK001',
             'position' => 'checker',
         ]);

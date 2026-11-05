@@ -2,20 +2,20 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\FormatHelper;
 use App\Models\EvidenceItem;
 use App\Models\ExternalWarehouse;
 use App\Models\Karyawan;
 use App\Models\Shipment;
 use App\Models\SopPhotoPoint;
-use App\Models\SystemSetting;
 use App\Services\PhotoProcessingService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
-use thiagoalessio\TesseractOCR\TesseractOCR;
 
 class FieldAppController extends Controller
 {
@@ -42,8 +42,8 @@ class FieldAppController extends Controller
             'shipment_no' => Shipment::whereNotNull('shipment_no')->where('shipment_no', '!=', '')->distinct()->pluck('shipment_no')->filter()->values(),
             'agen_forwarding' => Shipment::whereNotNull('agen_forwarding')->where('agen_forwarding', '!=', '')->distinct()->pluck('agen_forwarding')->filter()->values(),
             'tujuan_pengiriman' => Shipment::whereNotNull('tujuan_pengiriman')->where('tujuan_pengiriman', '!=', '')->distinct()->pluck('tujuan_pengiriman')->filter()->values(),
-            'nama_sopir' => Shipment::whereNotNull('nama_sopir')->where('nama_sopir', '!=', '')->distinct()->pluck('nama_sopir')->filter()->values(),
-            'plat_nomor' => Shipment::whereNotNull('plat_nomor')->where('plat_nomor', '!=', '')->distinct()->pluck('plat_nomor')->filter()->values(),
+            'nama_sopir' => Shipment::whereNotNull('nama_sopir')->where('nama_sopir', '!=', '')->distinct()->pluck('nama_sopir')->map(fn ($v) => FormatHelper::toUpper($v))->unique()->filter()->values(),
+            'plat_nomor' => Shipment::whereNotNull('plat_nomor')->where('plat_nomor', '!=', '')->distinct()->pluck('plat_nomor')->map(fn ($v) => FormatHelper::formatPlatNomor($v))->unique()->filter()->values(),
             'nomor_container' => Shipment::whereNotNull('nomor_container_atau_plat')->where('nomor_container_atau_plat', '!=', '')->distinct()->pluck('nomor_container_atau_plat')->filter()->values(),
             'nomor_seal' => Shipment::whereNotNull('nomor_seal')->where('nomor_seal', '!=', '')->distinct()->pluck('nomor_seal')->filter()->values(),
             'external_warehouse' => $externalWarehouses,
@@ -105,7 +105,7 @@ class FieldAppController extends Controller
             'nomor_container_atau_plat' => 'required|string|max:255',
             'cuaca' => 'required|in:kering,mendung,hujan,gerimis',
             'waktu' => 'required|in:siang,sore,malam',
-            'tanggal_staging' => 'required|date' . (app()->runningUnitTests() ? '' : '|after_or_equal:today'),
+            'tanggal_staging' => 'required|date'.(app()->runningUnitTests() ? '' : '|after_or_equal:today'),
             'warehouse_type' => 'required|in:internal,external',
             'warehouse_lokasi' => 'required|string|max:255',
             'karyawan_ids' => 'required|array|min:1',
@@ -139,6 +139,14 @@ class FieldAppController extends Controller
         if (empty($validated['nama_sopir'])) {
             $validated['nama_sopir'] = '-';
         }
+
+        // Format UPPERCASE dan pisahkan plat nomor dengan spasi untuk inputan form user
+        $validated['plat_nomor'] = FormatHelper::formatPlatNomor($validated['plat_nomor']);
+        $validated['nama_sopir'] = FormatHelper::toUpper($validated['nama_sopir']);
+        $validated['nomor_container_atau_plat'] = FormatHelper::toUpper($validated['nomor_container_atau_plat']);
+        $validated['nomor_seal'] = FormatHelper::toUpper($validated['nomor_seal'] ?? null);
+        $validated['agen_forwarding'] = FormatHelper::toUpper($validated['agen_forwarding'] ?? null);
+        $validated['tujuan_pengiriman'] = FormatHelper::toUpper($validated['tujuan_pengiriman'] ?? null);
 
         // Simpan waktu mulai staging (waktu kedatangan container) saat draft dibuat
         $rawWaktuMulai = $request->input('waktu_kedatangan_container') ?: $request->input('waktu_mulai_staging');
@@ -224,8 +232,8 @@ class FieldAppController extends Controller
             'shipment_no' => Shipment::whereNotNull('shipment_no')->where('shipment_no', '!=', '')->distinct()->pluck('shipment_no')->filter()->values(),
             'agen_forwarding' => Shipment::whereNotNull('agen_forwarding')->where('agen_forwarding', '!=', '')->distinct()->pluck('agen_forwarding')->filter()->values(),
             'tujuan_pengiriman' => Shipment::whereNotNull('tujuan_pengiriman')->where('tujuan_pengiriman', '!=', '')->distinct()->pluck('tujuan_pengiriman')->filter()->values(),
-            'nama_sopir' => Shipment::whereNotNull('nama_sopir')->where('nama_sopir', '!=', '')->distinct()->pluck('nama_sopir')->filter()->values(),
-            'plat_nomor' => Shipment::whereNotNull('plat_nomor')->where('plat_nomor', '!=', '')->distinct()->pluck('plat_nomor')->filter()->values(),
+            'nama_sopir' => Shipment::whereNotNull('nama_sopir')->where('nama_sopir', '!=', '')->distinct()->pluck('nama_sopir')->map(fn ($v) => FormatHelper::toUpper($v))->unique()->filter()->values(),
+            'plat_nomor' => Shipment::whereNotNull('plat_nomor')->where('plat_nomor', '!=', '')->distinct()->pluck('plat_nomor')->map(fn ($v) => FormatHelper::formatPlatNomor($v))->unique()->filter()->values(),
             'nomor_container' => Shipment::whereNotNull('nomor_container_atau_plat')->where('nomor_container_atau_plat', '!=', '')->distinct()->pluck('nomor_container_atau_plat')->filter()->values(),
             'nomor_seal' => Shipment::whereNotNull('nomor_seal')->where('nomor_seal', '!=', '')->distinct()->pluck('nomor_seal')->filter()->values(),
             'external_warehouse' => $externalWarehouses,
@@ -325,12 +333,21 @@ class FieldAppController extends Controller
         if ($rawWaktuMulai) {
             try {
                 $validated['waktu_kedatangan_container'] = Carbon::parse($rawWaktuMulai)->toDateTimeString();
-            } catch (\Throwable $e) {}
+            } catch (\Throwable $e) {
+            }
         }
 
         if (empty($validated['nama_sopir'])) {
             $validated['nama_sopir'] = '-';
         }
+
+        // Format UPPERCASE dan pisahkan plat nomor dengan spasi untuk inputan form user
+        $validated['plat_nomor'] = FormatHelper::formatPlatNomor($validated['plat_nomor']);
+        $validated['nama_sopir'] = FormatHelper::toUpper($validated['nama_sopir']);
+        $validated['nomor_container_atau_plat'] = FormatHelper::toUpper($validated['nomor_container_atau_plat']);
+        $validated['nomor_seal'] = FormatHelper::toUpper($validated['nomor_seal'] ?? null);
+        $validated['agen_forwarding'] = FormatHelper::toUpper($validated['agen_forwarding'] ?? null);
+        $validated['tujuan_pengiriman'] = FormatHelper::toUpper($validated['tujuan_pengiriman'] ?? null);
 
         // Deteksi audit diff perbedaan perubahan nilai field
         $fieldLabels = [
@@ -394,12 +411,12 @@ class FieldAppController extends Controller
 
         $changeCount = count($changes);
         $roleName = $user ? $user->role_display_name : 'Pengguna';
-        $title = $shipment->status === 'submitted' 
-            ? "Dokumen Diubah oleh {$roleName}" 
+        $title = $shipment->status === 'submitted'
+            ? "Dokumen Diubah oleh {$roleName}"
             : "Draft Diperbarui oleh {$roleName}";
-        $desc = $changeCount > 0 
-            ? "Memperbarui {$changeCount} kolom data dokumen pengiriman" 
-            : "Meninjau dan memperbarui dokumen tanpa perubahan data";
+        $desc = $changeCount > 0
+            ? "Memperbarui {$changeCount} kolom data dokumen pengiriman"
+            : 'Meninjau dan memperbarui dokumen tanpa perubahan data';
 
         $shipment->logActivity(
             action: 'updated',
@@ -517,7 +534,7 @@ class FieldAppController extends Controller
                 'captured_at' => $capturedAt->format('Y-m-d H:i:s \W\I\B'),
                 'uploaded_count' => $shipment->evidenceItems()->count(),
             ]);
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validasi gagal: '.implode(', ', array_map(fn ($v) => implode(' ', $v), $e->errors())),
@@ -618,7 +635,7 @@ class FieldAppController extends Controller
                 ]);
             }
         } catch (\Throwable $e) {
-            Log::warning('Gagal sinkronisasi waktu inspeksi pada submit: ' . $e->getMessage());
+            Log::warning('Gagal sinkronisasi waktu inspeksi pada submit: '.$e->getMessage());
         }
 
         // Catat aktivitas Dokumen Disubmit Final
@@ -799,11 +816,11 @@ class FieldAppController extends Controller
             $data['packing_list_no'] = $deliveryNo;
             $data['delivery_no'] = $deliveryNo;
 
-            // 4. Plat Nomor
+            // 4. Plat Nomor (Format UPPERCASE dan pisahkan huruf dan angka dengan spasi)
             if (preg_match('/(?:Plat|No\.?\s*Pol|Polisi|Nopol)[\s\.:]*([A-Z]{1,2}\s*[0-9]{1,4}\s*[A-Z]{1,3})/i', $text, $matches)) {
-                $data['plat_nomor'] = strtoupper(trim(preg_replace('/\s+/', ' ', $matches[1])));
-            } elseif (preg_match('/\b([A-Z]{1,2}\s+[0-9]{1,4}\s+[A-Z]{1,3})\b/', $text, $matches)) {
-                $data['plat_nomor'] = strtoupper(trim(preg_replace('/\s+/', ' ', $matches[1])));
+                $data['plat_nomor'] = FormatHelper::formatPlatNomor($matches[1]);
+            } elseif (preg_match('/\b([A-Z]{1,2}\s*[0-9]{1,4}\s*[A-Z]{1,3})\b/', $text, $matches)) {
+                $data['plat_nomor'] = FormatHelper::formatPlatNomor($matches[1]);
             }
 
             // 5. Nomor Container (ISO format 4 huruf + 7 digit, atau berlabel Container)
@@ -816,33 +833,33 @@ class FieldAppController extends Controller
                 }
             }
 
-            // 6. Nama Sopir (jika tertera)
+            // 6. Nama Sopir (UPPERCASE jika tertera)
             if (preg_match('/(?:Driver|Sopir|Nama\s*Sopir)[\s\.:]*([A-Za-z\s]{3,30})/i', $text, $matches)) {
                 $cleanSopir = trim($matches[1]);
                 if (! preg_match('/(?:Shipment|Vessel|Port|Date|Order)/i', $cleanSopir)) {
-                    $data['nama_sopir'] = ucwords(strtolower($cleanSopir));
+                    $data['nama_sopir'] = FormatHelper::toUpper($cleanSopir);
                 }
             }
 
-            // 7. Agen Forwarding
+            // 7. Agen Forwarding (UPPERCASE)
             if (preg_match('/(?:forwarding agent|forwarder|agen forwarding|agent\s*name)[\s\.:]*(.*?)(?:BANGKOK|via TANJUNG|Seal no|Container no|Port|Vessel|\r|\n|$)/im', $text, $matches)) {
                 $cleanAgent = trim($matches[1]);
                 if (strlen($cleanAgent) >= 3 && ! preg_match('/(?:Shipment|Delivery|Order|Date)/i', $cleanAgent)) {
-                    $data['agen_forwarding'] = $cleanAgent;
+                    $data['agen_forwarding'] = FormatHelper::toUpper($cleanAgent);
                 }
             }
 
-            // 8. Tujuan Pengiriman
+            // 8. Tujuan Pengiriman (UPPERCASE)
             if (preg_match('/(?:tujuan|destination|destinasi|ship to|consignee)[\s\.:]*(.*?)(?:forwarding|seal|container|date|\r|\n|$)/im', $text, $matches)) {
                 $cleanTujuan = trim($matches[1]);
                 if (strlen($cleanTujuan) >= 3 && ! preg_match('/(?:Shipment|Delivery|Order|Date)/i', $cleanTujuan)) {
-                    $data['tujuan_pengiriman'] = $cleanTujuan;
+                    $data['tujuan_pengiriman'] = FormatHelper::toUpper($cleanTujuan);
                 }
             }
 
-            // 9. Nomor Seal
+            // 9. Nomor Seal (UPPERCASE)
             if (preg_match('/(?:Seal\s*No|Seal\s*Number|Nomor\s*Seal|No\.?\s*Seal|Segel)[\s\.:]*([A-Z0-9-]{4,25})/i', $text, $matches)) {
-                $data['nomor_seal'] = strtoupper(trim($matches[1]));
+                $data['nomor_seal'] = FormatHelper::toUpper($matches[1]);
             }
         }
 

@@ -9,7 +9,6 @@ use Carbon\Carbon;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-
 use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
@@ -95,10 +94,10 @@ class DashboardController extends Controller
 
         // 3. Shipment Type & Product distribution
         $typeDistribution = [
-            'export' => $allShipments->where('jenis_pengiriman', 'export')->count(),
-            'lokal' => $allShipments->where('jenis_pengiriman', 'lokal')->count(),
-            'fiber' => $allShipments->where('jenis_produk', 'fiber')->count(),
-            'sodium' => $allShipments->where('jenis_produk', 'sodium')->count(),
+            'export' => $allShipments->filter(fn ($s) => strtolower($s->jenis_pengiriman ?? '') === 'export')->count(),
+            'lokal' => $allShipments->filter(fn ($s) => strtolower($s->jenis_pengiriman ?? '') === 'lokal')->count(),
+            'fiber' => $allShipments->filter(fn ($s) => strtolower($s->jenis_produk ?? '') === 'fiber')->count(),
+            'sodium' => $allShipments->filter(fn ($s) => strtolower($s->jenis_produk ?? '') === 'sodium')->count(),
         ];
 
         // 4. Shift & Location operational distribution
