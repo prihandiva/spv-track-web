@@ -79,6 +79,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/field-app/{shipment}/container-inspection', [InspectionController::class, 'saveContainer'])->name('field-app.container-inspection.save');
     Route::get('/field-app/{shipment}/bale-inspection', [InspectionController::class, 'editBale'])->name('field-app.bale-inspection');
     Route::post('/field-app/{shipment}/bale-inspection', [InspectionController::class, 'saveBale'])->name('field-app.bale-inspection.save');
+    Route::post('/field-app/{shipment}/scan-bale-barcode', [InspectionController::class, 'scanBaleBarcode'])->name('field-app.scan-bale-barcode');
 
     // Cetak & Download PDF Form Satuan (Container & Bale)
     Route::get('/shipments/{shipment}/container-inspection/print', [InspectionController::class, 'printContainer'])->name('shipments.container-inspection.print');

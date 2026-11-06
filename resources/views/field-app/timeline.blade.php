@@ -249,7 +249,8 @@
 </script>
 
 <div x-data="timelineManager"
-     @photo-uploaded.window="addUploadedPoint($event.detail.pointId)">
+     @photo-uploaded.window="addUploadedPoint($event.detail.pointId)"
+     style="display: flex; flex-direction: column; gap: 20px;">
 
     <!-- Shipment Header Card (Packing List as Primary Identifier) -->
     <div style="background: linear-gradient(135deg, #1a3c6e 0%, #285491 60%, #0d5950 100%); border-radius: 16px; padding: 16px; color: white; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 16px rgba(40,84,145,0.3);">
@@ -257,15 +258,20 @@
             <p style="font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px;">No. Surat Jalan / Delivery / Packing List</p>
             <h1 style="font-size: 18px; font-weight: 800; font-family: monospace; letter-spacing: 0.04em; line-height: 1.1;">{{ $shipment->packing_list_no ?: ($shipment->nomor_container_atau_plat ?? 'PL-' . $shipment->id) }}</h1>
             <p style="font-size: 11px; color: rgba(255,255,255,0.85); margin-top: 4px;">
-                Group: <span style="font-weight:700; color:white;">{{ $shipment->shipment_group ?: '-' }}</span> &bull;
+                @if($shipment->jenis_pengiriman === 'export' || $shipment->shipment_group)
+                    Group: <span style="font-weight:700; color:white;">{{ $shipment->shipment_group ?: '-' }}</span> &bull;
+                @endif
                 Shpt: <span style="font-weight:700; color:white;">{{ $shipment->shipment_no ?: '-' }}</span> &bull;
                 Plat: <span style="font-weight:700; color:white;">{{ $shipment->plat_nomor ?: '-' }}</span> &bull;
                 Cont: <span style="font-weight:700; color:white;">{{ $shipment->nomor_container_atau_plat ?: '-' }}</span>
+                @if($shipment->jenis_pengiriman === 'export' && $shipment->nomor_seal)
+                    &bull; Seal: <span style="font-weight:700; color:white;">{{ $shipment->nomor_seal }}</span>
+                @endif
                 @if($shipment->agen_forwarding)
                     &bull; Fwd: <span style="font-weight:700; color:white;">{{ $shipment->agen_forwarding }}</span>
                 @endif
                 @if($shipment->tujuan_pengiriman)
-                    &bull; Tujuan: <span style="font-weight:700; color:white;">{{ $shipment->tujuan_pengiriman }}</span>
+                    &bull; Tujuan (Customer): <span style="font-weight:700; color:white;">{{ $shipment->tujuan_pengiriman }}</span>
                 @endif
             </p>
         </div>
@@ -297,7 +303,7 @@
     </div>
 
     <!-- Rekomendasi Posisi Kamera Horizontal / Landscape -->
-    <div style="background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%); border: 1.5px solid #93c5fd; border-radius: 14px; padding: 12px 14px; box-shadow: 0 2px 8px rgba(37,99,235,0.06); margin-top: 4px;">
+    <div style="background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%); border: 1.5px solid #93c5fd; border-radius: 14px; padding: 12px 14px; box-shadow: 0 2px 8px rgba(37,99,235,0.06);">
         <div style="display: flex; align-items: flex-start; gap: 12px;">
             <div style="width: 38px; height: 38px; border-radius: 10px; background: linear-gradient(135deg, #2563eb, #059e3d); color: white; display: flex; align-items: center; justify-content: center; shrink: 0; box-shadow: 0 2px 6px rgba(37,99,235,0.3);">
                 <i class="ph-bold ph-device-rotate" style="font-size: 20px;"></i>
@@ -317,7 +323,7 @@
     </div>
 
     <!-- 2 Form Inspeksi Wajib (Lenzing Standards) -->
-    <div style="background: white; border-radius: 16px; padding: 14px 16px; border: 1.5px solid #dbeafe; box-shadow: 0 2px 10px rgba(40,84,145,0.06); margin-top: 4px;">
+    <div style="background: white; border-radius: 16px; padding: 14px 16px; border: 1.5px solid #dbeafe; box-shadow: 0 2px 10px rgba(40,84,145,0.06);">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
             <div style="display: flex; align-items: center; gap: 8px;">
                 <div style="width: 28px; height: 28px; border-radius: 8px; background: #285491; color: white; display: flex; align-items: center; justify-content: center; font-size: 14px;">
@@ -390,12 +396,24 @@
         </div>
     </div>
 
-    <!-- Titik Loading Evidence (27 Titik SOP) -->
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; margin-bottom: -2px;">
-        <p style="font-size: 12px; font-weight: 700; color: #1f2937;">Daftar Loading Evidence</p>
-        <span style="font-size: 10px; font-weight: 600; color: #6b7280; background: #e5e7eb; padding: 2px 8px; border-radius: 10px;">27 Titik SOP</span>
-    </div>
-    <div style="display: flex; flex-direction: column; gap: 8px; position: relative; padding-left: 4px;">
+    <!-- Card Container untuk Daftar Loading Evidence (27 Titik SOP) -->
+    <div class="section-card" style="background: white; border-radius: 16px; border: 1px solid #e8edf3; box-shadow: 0 1px 4px rgba(40,84,145,0.05); overflow: hidden;">
+        <div class="section-card-header" style="background: linear-gradient(90deg, rgba(40,84,145,0.06), transparent); padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f0f4f9;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <div style="width: 30px; height: 30px; border-radius: 8px; background: #285491; color: white; display: flex; align-items: center; justify-content: center; font-size: 14px;">
+                    <i class="ph-bold ph-camera"></i>
+                </div>
+                <div>
+                    <h3 style="font-size: 12px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.04em; margin: 0;">Daftar Loading Evidence</h3>
+                    <p style="font-size: 10px; color: #64748b; margin: 1px 0 0;">Dokumentasi foto &amp; video sesuai urutan 27 titik SOP</p>
+                </div>
+            </div>
+            <span style="font-size: 10px; font-weight: 700; color: #285491; background: #eff4fc; border: 1px solid #bfcfe8; padding: 2px 8px; border-radius: 20px;">
+                {{ count($points) }} Titik SOP
+            </span>
+        </div>
+        <div class="section-card-body" style="padding: 14px 16px;">
+            <div style="display: flex; flex-direction: column; gap: 10px; position: relative; padding-left: 4px;">
         <!-- Vertical line -->
         <div style="position: absolute; left: 20px; top: 20px; bottom: 20px; width: 2px; background: linear-gradient(to bottom, #e8edf3, #bfcfe8, #e8edf3); z-index: 0;"></div>
 
@@ -569,10 +587,12 @@
                 Tambah Foto Ekstra
             </button>
         </div>
+            </div>
+        </div>
     </div>
 
     <!-- Surat Jalan Form -->
-    <form action="{{ route('field-app.submit', $shipment->id, false) }}" method="POST" id="submitForm" style="margin-top: 10px; padding-bottom: 120px;">
+    <form action="{{ route('field-app.submit', $shipment->id, false) }}" method="POST" id="submitForm" style="display: flex; flex-direction: column; gap: 20px; padding-bottom: 120px;">
         @csrf
 
         @if($errors->any())
@@ -612,10 +632,6 @@
                     <strong style="color:#1e293b; font-size:13px; font-family:monospace;">{{ $shipment->nomor_container_atau_plat ?: '-' }}</strong>
                 </div>
                 <div style="background:#f8fafc; padding:8px 10px; border-radius:8px; border:1px solid #e2e8f0;">
-                    <span style="color:#64748b; font-size:10px; display:block;">Shipment Group:</span>
-                    <strong style="color:#1e293b; font-size:12px; font-family:monospace;">{{ $shipment->shipment_group ?: '-' }}</strong>
-                </div>
-                <div style="background:#f8fafc; padding:8px 10px; border-radius:8px; border:1px solid #e2e8f0;">
                     <span style="color:#64748b; font-size:10px; display:block;">Shipment No:</span>
                     <strong style="color:#1e293b; font-size:12px; font-family:monospace;">{{ $shipment->shipment_no ?: '-' }}</strong>
                 </div>
@@ -624,9 +640,37 @@
                     <strong style="color:#1e293b; font-size:12px;">{{ $shipment->plat_nomor ?: '-' }}</strong>
                 </div>
                 <div style="background:#f8fafc; padding:8px 10px; border-radius:8px; border:1px solid #e2e8f0;">
+                    <span style="color:#64748b; font-size:10px; display:block;">Jenis Pengiriman:</span>
+                    <strong style="color:#1e293b; font-size:12px; text-transform:uppercase;">{{ $shipment->jenis_pengiriman ?: 'EXPORT' }}</strong>
+                </div>
+                <div style="background:#f8fafc; padding:8px 10px; border-radius:8px; border:1px solid #e2e8f0;">
                     <span style="color:#64748b; font-size:10px; display:block;">Nama Sopir:</span>
                     <strong style="color:#1e293b; font-size:12px;">{{ $shipment->nama_sopir ?: '-' }}</strong>
                 </div>
+
+                @if($shipment->jenis_pengiriman === 'export' || $shipment->shipment_group || $shipment->nomor_seal)
+                    <div style="background:#f8fafc; padding:8px 10px; border-radius:8px; border:1px solid #e2e8f0;">
+                        <span style="color:#64748b; font-size:10px; display:block;">Shipment Group (Export):</span>
+                        <strong style="color:#1e293b; font-size:12px; font-family:monospace;">{{ $shipment->shipment_group ?: '-' }}</strong>
+                    </div>
+                    <div style="background:#f8fafc; padding:8px 10px; border-radius:8px; border:1px solid #e2e8f0;">
+                        <span style="color:#64748b; font-size:10px; display:block;">Nomor Seal (Export):</span>
+                        <strong style="color:#1e293b; font-size:12px; font-family:monospace;">{{ $shipment->nomor_seal ?: '-' }}</strong>
+                    </div>
+                @endif
+
+                @if($shipment->agen_forwarding)
+                    <div style="background:#f8fafc; padding:8px 10px; border-radius:8px; border:1px solid #e2e8f0;">
+                        <span style="color:#64748b; font-size:10px; display:block;">Agen Forwarding:</span>
+                        <strong style="color:#1e293b; font-size:12px;">{{ $shipment->agen_forwarding }}</strong>
+                    </div>
+                @endif
+
+                <div style="background:#f8fafc; padding:8px 10px; border-radius:8px; border:1px solid #e2e8f0; {{ !$shipment->agen_forwarding ? 'grid-column: span 2;' : '' }}">
+                    <span style="color:#64748b; font-size:10px; display:block;">Tujuan Pengiriman (Customer):</span>
+                    <strong style="color:#1e293b; font-size:12px;">{{ $shipment->tujuan_pengiriman ?: '-' }}</strong>
+                </div>
+
                 <div style="grid-column: span 2; background:#f0fdf4; padding:8px 10px; border-radius:8px; border:1px solid #bbf7d0; display:flex; align-items:center; justify-content:space-between;">
                     <div>
                         <span style="color:#166534; font-size:10px; font-weight:600; display:block;">Waktu Mulai Staging Container (Diisi di Form Awal):</span>
@@ -644,7 +688,7 @@
         <!-- ═══════════════════════════════════════════════════════════ -->
         <!-- WAKTU SELESAI STAGING (AKHIR FORM TIMELINE)                -->
         <!-- ═══════════════════════════════════════════════════════════ -->
-        <div class="section-card" style="margin-top: 10px;">
+        <div class="section-card">
             <div class="section-card-header" style="background: linear-gradient(90deg, rgba(40,84,145,0.08), transparent);">
                 <div style="width: 34px; height: 34px; border-radius: 10px; background: #eff4fc; border: 1px solid #bfcfe8; display: flex; align-items: center; justify-content: center; flex-shrink:0;">
                     <i class="ph-fill ph-check-circle" style="font-size: 18px; color: #285491;"></i>

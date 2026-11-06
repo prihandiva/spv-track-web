@@ -9,6 +9,7 @@ use App\Models\Karyawan;
 use App\Models\Shipment;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -428,5 +429,36 @@ class InspectionController extends Controller
             ]);
 
         return $pdf->download($pdfName);
+    }
+
+    /**
+     * Endpoint fallback decoding foto barcode bale dari server
+     */
+    public function scanBaleBarcode(Request $request, Shipment $shipment): JsonResponse
+    {
+        $request->validate(['image' => 'required|image|max:20480']);
+        $file = $request->file('image');
+        $tempPath = $file->getRealPath();
+
+        $scriptPath = base_path('scripts/extract_bale_barcode.py');
+        if (file_exists($scriptPath)) {
+            $cmd = escapeshellcmd("python \"{$scriptPath}\" \"{$tempPath}\"");
+            $output = shell_exec($cmd);
+            if ($output) {
+                $decoded = json_decode(trim($output), true);
+                if (!empty($decoded['success']) && !empty($decoded['barcode'])) {
+                    return response()->json([
+                        'success' => true,
+                        'barcode' => strtoupper(trim($decoded['barcode'])),
+                        'method' => $decoded['method'] ?? 'server',
+                    ]);
+                }
+            }
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Barcode tidak terdeteksi pada server.',
+        ], 422);
     }
 }

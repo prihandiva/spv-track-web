@@ -389,6 +389,8 @@
                 return this.packingListNo.trim().length === 9;
             },
             get isShipmentGroupValid() {
+                // Shipment Group hanya wajib untuk Export. Untuk Lokal tidak wajib.
+                if (this.jenisPengiriman === 'lokal') return true;
                 return this.shipmentGroup.trim().length === 9;
             },
             get isShipmentNoValid() {
@@ -427,10 +429,12 @@
                     missing.push('No. Surat Jalan (baru ' + this.packingListNo.length + '/9 digit)');
                 }
 
-                if (this.shipmentGroup.length === 0) {
-                    missing.push('Shipment Group (9 digit)');
-                } else if (this.shipmentGroup.length < 9) {
-                    missing.push('Shipment Group (baru ' + this.shipmentGroup.length + '/9 digit)');
+                if (this.jenisPengiriman === 'export') {
+                    if (this.shipmentGroup.length === 0) {
+                        missing.push('Shipment Group (9 digit)');
+                    } else if (this.shipmentGroup.length < 9) {
+                        missing.push('Shipment Group (baru ' + this.shipmentGroup.length + '/9 digit)');
+                    }
                 }
 
                 if (this.shipmentNo.length === 0) {
@@ -1074,7 +1078,7 @@
     <form action="{{ isset($shipment) ? route('field-app.update', $shipment->id, false) : route('field-app.store', [], false) }}" method="POST" enctype="multipart/form-data"
           x-data="stagingFormData()"
           @submit="clearAutoSaveDraft()"
-          style="display: flex; flex-direction: column; gap: 14px;">
+          style="display: flex; flex-direction: column; gap: 24px;">
         @csrf
         @if(isset($shipment))
             @method('PUT')
@@ -1147,22 +1151,27 @@
         @endif
 
         <!-- ═══════════════════════════════════════════════════════════ -->
-        <!-- WAKTU MULAI STAGING (Di Awal Form, Default Sekarang & Editable) -->
+        <!-- SECTION 1: DETAIL DATA STAGING                              -->
         <!-- ═══════════════════════════════════════════════════════════ -->
-        <div class="section-card" style="margin-bottom: 2px;">
-            <div class="section-card-header" style="background: linear-gradient(90deg, rgba(5,158,61,0.08), transparent);">
-                <div style="width: 34px; height: 34px; border-radius: 10px; background: #e1f8eb; border: 1px solid #bbf7d0; display: flex; align-items: center; justify-content: center; flex-shrink:0;">
-                    <i class="ph-bold ph-play-circle" style="font-size: 20px; color: #059e3d;"></i>
+        <div class="section-card" x-data="{ open: true }">
+            <div class="section-card-header" @click="open = !open"
+                 style="background: linear-gradient(90deg, rgba(5,158,61,0.06), transparent);">
+                <div style="width: 34px; height: 34px; border-radius: 10px; background: #e1f8eb; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                    <i class="ph-fill ph-package" style="font-size: 18px; color: #059e3d;"></i>
                 </div>
                 <div style="flex: 1;">
-                    <div style="display: flex; align-items: center; justify-content: space-between;">
-                        <p style="font-size: 13px; font-weight: 700; color: #1f2937;">Waktu Mulai Staging Container</p>
-                        <span style="font-size: 10px; font-weight: 700; color: #059e3d; background:#e1f8eb; border:1px solid #bbf7d0; border-radius: 6px; padding: 1px 7px;">⏱ FORMAT 24 JAM</span>
+                    <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                        <p style="font-size: 13px; font-weight: 700; color: #1f2937; margin: 0;">1. Detail Data Staging</p>
+                        <span style="font-size: 10px; font-weight: 700; color: #059e3d; background: #e1f8eb; border: 1px solid #bbf7d0; border-radius: 6px; padding: 1px 7px;">Tahap Awal</span>
                     </div>
-                    <p style="font-size: 10px; color: #64748b;">Waktu kedatangan container / proses staging dimulai (otomatis terisi &amp; dapat diedit)</p>
+                    <p style="font-size: 10px; color: #64748b; margin: 2px 0 0;">Jenis pengiriman, produk, waktu mulai staging, cuaca &amp; lokasi warehouse</p>
                 </div>
+                <i class="ph-bold" :class="open ? 'ph-caret-up' : 'ph-caret-down'" style="font-size: 14px; color: #9ca3af;"></i>
             </div>
-            <div class="section-card-body" style="padding: 14px;">
+
+            <div class="section-card-body" x-show="open" x-collapse style="display: flex; flex-direction: column; gap: 14px;">
+
+                <!-- 1. Waktu Mulai Staging (Container Tiba) -->
                 <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 12px; transition: all 0.2s;"
                      :style="waktuKedatangan ? 'border-color: #86efac; background: #f0fdf4;' : ''">
                     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
@@ -1183,7 +1192,7 @@
                     <div style="position:relative;">
                         <input type="text" id="waktu_kedatangan_container" name="waktu_kedatangan_container"
                                value="{{ old('waktu_kedatangan_container', isset($shipment) && $shipment->waktu_kedatangan_container ? $shipment->waktu_kedatangan_container->format('Y-m-d H:i') : now('Asia/Jakarta')->format('Y-m-d H:i')) }}"
-                               placeholder="Pilih tanggal & jam format 24 jam (contoh: {{ now('Asia/Jakarta')->format('d/m/Y H:i') }})..."
+                               placeholder="Pilih tanggal &amp; jam format 24 jam (contoh: {{ now('Asia/Jakarta')->format('d/m/Y H:i') }})..."
                                class="field-input flatpickr-custom-input"
                                style="width:100%; box-sizing:border-box; background:white; font-size:13px; font-weight:600; padding-right:38px; cursor:pointer;"
                                required>
@@ -1195,621 +1204,28 @@
                         Waktu saat container tiba di lokasi (format 24 jam: 00:00 - 23:59 WIB). Otomatis terisi saat form dibuka dan dapat diubah.
                     </p>
                 </div>
-            </div>
-        </div>
 
-        <!-- SECTION 1 (DI TARUH DEPAN SEMUA): Dokumen Shipment Order (OCR) & 5 Data Utama -->
-        <div class="section-card" x-data="{ open: true }">
-            <div class="section-card-header" @click="open = !open"
-                 style="background: linear-gradient(90deg, rgba(5,158,61,0.06), transparent);">
-                <div style="width: 32px; height: 32px; border-radius: 10px; background: #e1f8eb; display: flex; align-items: center; justify-content: center; shrink: 0;">
-                    <i class="ph-bold ph-scan" style="font-size: 18px; color: #059e3d;"></i>
-                </div>
-                <div style="flex: 1;">
-                    <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-                        <p style="font-size: 13px; font-weight: 700; color: #1f2937;">1. Dokumen Shipment Order</p>
-                        <span style="font-size: 10px; font-weight: 700; color: #059e3d; background: #e1f8eb; padding: 2px 7px; border-radius: 6px;">OCR Auto-Fill</span>
-                    </div>
-                    <p style="font-size: 10px; color: #64748b;">Foto dokumen untuk auto-fill 5 data utama pengiriman otomatis</p>
-                </div>
-                <i class="ph-bold" :class="open ? 'ph-caret-up' : 'ph-caret-down'" style="font-size: 14px; color: #9ca3af;"></i>
-            </div>
-
-            <div class="section-card-body" x-show="open" x-collapse style="display: flex; flex-direction: column; gap: 14px;">
-
-                <!-- Hidden file inputs: 1 for Direct Camera, 1 for Gallery/File Manager -->
-                <input type="file" name="shipment_order_photo" x-ref="orderCameraInput" accept="image/*" capture="environment" style="display: none;" @change="handlePhotoChange($event)">
-                <input type="file" name="shipment_order_photo_gallery" x-ref="orderGalleryInput" accept="image/*" style="display: none;" @change="handlePhotoChange($event)">
-
-                <!-- MODE A: Dropzone Saat Belum Ada Foto (Pilihan Langsung Kamera vs Galeri) -->
-                <div x-show="!photoPreviewUrl"
-                     style="border: 2px dashed #93c5fd; border-radius: 14px; background: #f8fafc; padding: 20px 14px; text-align: center;">
-                    <div style="width: 46px; height: 46px; border-radius: 12px; background: #eff4fc; color: #285491; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; box-shadow: 0 2px 8px rgba(40,84,145,0.08);">
-                        <i class="ph-bold ph-scan" style="font-size: 24px;"></i>
-                    </div>
-                    <p style="font-size: 13px; font-weight: 700; color: #1e293b;">Foto Dokumen Shipment Order</p>
-                    <p style="font-size: 11px; color: #64748b; margin-top: 2px;">
-                        Pilih foto langsung lewat kamera HP atau ambil dari galeri berkas
-                    </p>
-
-                    <!-- Pilihan Tombol Kamera vs Galeri -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; max-width: 420px; margin-left: auto; margin-right: auto;">
-                        <!-- Tombol Buka Kamera Langsung -->
-                        <button type="button" @click="$refs.orderCameraInput.click()"
-                                style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 14px 10px; background: linear-gradient(135deg, #059e3d, #0d5950); color: white; border-radius: 12px; border: none; cursor: pointer; box-shadow: 0 4px 12px rgba(5,158,61,0.25); transition: transform 0.15s;"
-                                onmouseover="this.style.transform='scale(1.02)'"
-                                onmouseout="this.style.transform='scale(1)'">
-                            <i class="ph-bold ph-camera" style="font-size: 24px;"></i>
-                            <span style="font-size: 12px; font-weight: 700;">Buka Kamera</span>
-                            <span style="font-size: 9px; opacity: 0.9;">Ambil foto langsung</span>
-                        </button>
-
-                        <!-- Tombol Galeri / File -->
-                        <button type="button" @click="$refs.orderGalleryInput.click()"
-                                style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 14px 10px; background: #eff4fc; color: #285491; border: 1.5px solid #bfcfe8; border-radius: 12px; cursor: pointer; transition: all 0.15s;"
-                                onmouseover="this.style.borderColor='#285491'; this.style.background='#e0edff'"
-                                onmouseout="this.style.borderColor='#bfcfe8'; this.style.background='#eff4fc'">
-                            <i class="ph-bold ph-folder-open" style="font-size: 24px;"></i>
-                            <span style="font-size: 12px; font-weight: 700;">Pilih Galeri</span>
-                            <span style="font-size: 9px; color: #64748b;">Ambil dari berkas</span>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- MODE B: Preview Foto Jelas & Terbaca Saat Sudah Ada Foto -->
-                <div x-show="photoPreviewUrl" style="display: flex; flex-direction: column; gap: 10px;">
-                    <!-- Preview Image Frame -->
-                    <div style="background: #0f172a; border-radius: 14px; border: 1px solid #1e293b; padding: 8px; position: relative; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.15);">
-                        <!-- Action Bar Top -->
-                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; padding: 2px 4px; flex-wrap: wrap; gap: 6px;">
-                            <span style="display: inline-flex; align-items: center; gap: 5px; background: rgba(5,158,61,0.9); color: white; padding: 4px 10px; border-radius: 20px; font-size: 10px; font-weight: 700;">
-                                <i class="ph-bold ph-check"></i> Foto Shipment Order Siap
-                            </span>
-                            <div style="display: flex; align-items: center; gap: 5px; flex-wrap: wrap;">
-                                <button type="button" @click="zoomModalOpen = true"
-                                        style="background: rgba(255,255,255,0.2); color: white; border: none; border-radius: 8px; padding: 5px 8px; font-size: 10px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 3px;"
-                                        title="Perbesar">
-                                    <i class="ph-bold ph-magnifying-glass-plus"></i> Zoom
-                                </button>
-                                <button type="button" @click="$refs.orderCameraInput.click()"
-                                        style="background: rgba(5,158,61,0.85); color: white; border: none; border-radius: 8px; padding: 5px 8px; font-size: 10px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 3px;"
-                                        title="Foto Ulang via Kamera">
-                                    <i class="ph-bold ph-camera"></i> Kamera
-                                </button>
-                                <button type="button" @click="$refs.orderGalleryInput.click()"
-                                        style="background: rgba(255,255,255,0.2); color: white; border: none; border-radius: 8px; padding: 5px 8px; font-size: 10px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 3px;"
-                                        title="Ganti dari Galeri">
-                                    <i class="ph-bold ph-folder-open"></i> Galeri
-                                </button>
-                                <button type="button" @click="removePhoto()"
-                                        style="background: rgba(239,68,68,0.35); color: #fca5a5; border: none; border-radius: 8px; padding: 5px 7px; font-size: 10px; font-weight: 600; cursor: pointer;"
-                                        title="Hapus Foto">
-                                    <i class="ph-bold ph-trash"></i>
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Real Image with Crisp Contain Scaling -->
-                        <div style="width: 100%; height: 220px; display: flex; align-items: center; justify-content: center; background: #020617; border-radius: 8px; overflow: hidden; cursor: pointer;"
-                             @click="zoomModalOpen = true">
-                            <img :src="photoPreviewUrl" alt="Dokumen Shipment Order"
-                                 style="max-height: 100%; max-width: 100%; object-fit: contain; display: block; border-radius: 4px;">
-                        </div>
-                    </div>
-
-                    <!-- OCR Progress / Feedback Bar -->
-                    <div x-show="isOcrLoading"
-                         style="background: #eff4fc; border: 1px solid #bfcfe8; border-radius: 12px; padding: 12px 14px; display: flex; align-items: center; gap: 10px;">
-                        <i class="ph-bold ph-spinner" style="font-size: 20px; color: #285491; animation: spin 1s linear infinite; flex-shrink: 0;"></i>
-                        <div>
-                            <p style="font-size: 11px; font-weight: 700; color: #285491;">Sedang Menganalisis Dokumen dengan OCR (Tesseract)...</p>
-                            <p style="font-size: 10px; color: #64748b; margin-top: 1px;">Mengekstrak nomor Surat Jalan/Delivery, Shipment Group, Shipment No, Plat, & Container.</p>
-                        </div>
-                    </div>
-
-                    <!-- OCR Success Alert -->
-                    <div x-show="ocrStatus === 'success' && !isOcrLoading"
-                         style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 12px; padding: 12px 14px;">
-                        <div style="display: flex; align-items: flex-start; gap: 8px;">
-                            <i class="ph-fill ph-check-circle" style="color: #059e3d; font-size: 18px; margin-top: 1px; flex-shrink: 0;"></i>
-                            <div style="flex: 1;">
-                                <p style="font-size: 11px; font-weight: 700; color: #065f46;" x-text="ocrMessage"></p>
-                                <p style="font-size: 10px; color: #047857; margin-top: 2px; font-weight: 600;" x-text="ocrExtractedSummary"></p>
-                                <div style="margin-top: 6px;">
-                                    <button type="button" @click="showRawText = !showRawText" style="font-size: 10px; color: #047857; text-decoration: underline; background: none; border: none; padding: 0; cursor: pointer; font-weight: 600;">
-                                        <span x-text="showRawText ? 'Sembunyikan Teks Mentah OCR' : 'Lihat Hasil Bacaan Teks Dokumen (OCR)'"></span>
-                                    </button>
-                                    <div x-show="showRawText" x-collapse style="margin-top: 6px; padding: 8px; background: white; border: 1px solid #d1fae5; border-radius: 8px; max-height: 120px; overflow-y: auto; font-family: monospace; font-size: 10px; color: #374151; white-space: pre-wrap;" x-text="ocrRawText"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- OCR Warning Alert (Partial / Unread) -->
-                    <div x-show="ocrStatus === 'warning' && !isOcrLoading"
-                         style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 12px 14px;">
-                        <div style="display: flex; align-items: flex-start; gap: 8px;">
-                            <i class="ph-fill ph-info" style="color: #d97706; font-size: 18px; margin-top: 1px; flex-shrink: 0;"></i>
-                            <div style="flex: 1;">
-                                <p style="font-size: 11px; font-weight: 700; color: #92400e;" x-text="ocrMessage"></p>
-                                <p style="font-size: 10px; color: #78350f; margin-top: 2px;">
-                                    Anda dapat langsung memeriksa dan melengkapi 5 data di bawah secara manual atau memilih dari riwayat.
-                                </p>
-                                <template x-if="ocrRawText">
-                                    <div style="margin-top: 6px;">
-                                        <button type="button" @click="showRawText = !showRawText" style="font-size: 10px; color: #b45309; text-decoration: underline; background: none; border: none; padding: 0; cursor: pointer;">
-                                            <span x-text="showRawText ? 'Tutup Teks' : 'Lihat Teks yang Terbaca Tesseract'"></span>
-                                        </button>
-                                        <div x-show="showRawText" x-collapse style="margin-top: 6px; padding: 8px; background: white; border: 1px solid #fef3c7; border-radius: 8px; max-height: 120px; overflow-y: auto; font-family: monospace; font-size: 10px; color: #374151; white-space: pre-wrap;" x-text="ocrRawText"></div>
-                                    </div>
-                                </template>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 5 DATA UTAMA PADA SHIPMENT ORDER -->
-                <div style="padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; display: flex; flex-direction: column; gap: 14px;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px;">
-                        <span style="font-size: 12px; font-weight: 700; color: #1e3a8a; display: flex; align-items: center; gap: 6px;">
-                            <i class="ph-bold ph-identification-card" style="font-size: 16px; color: #285491;"></i>
-                            5 Data Wajib Shipment Order
-                        </span>
-                        <span style="font-size: 10px; font-weight: 700; color: #d97706; background: #fffbeb; border: 1px solid #fde68a; padding: 2px 8px; border-radius: 10px;">
-                            Wajib Isi
-                        </span>
-                    </div>
-
-                    <!-- 1. Nomor Surat Jalan / Delivery / Number Packing List (Fix 9 Digit Angka) -->
-                    <div style="background: white; border: 1.5px solid #bfcfe8; border-radius: 12px; padding: 12px;"
-                         :style="packingListNo.length === 9 ? 'border-color:#86efac; background:#f0fdf4;' : (packingListNo.length > 0 ? 'border-color:#fde68a; background:#fffdf5;' : '')">
-                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
-                            <label class="field-label" style="display:flex; align-items:center; gap:5px; font-weight:700; color:#1e3a8a; font-size:12px; margin-bottom:0;">
-                                <i class="ph-bold ph-barcode" style="color:#285491; font-size:15px;"></i>
-                                No. Surat Jalan / Delivery / Packing List <span style="color:#ef4444;">*</span>
-                            </label>
-                            <div style="display:flex; align-items:center; gap:6px;">
-                                <button type="button" @click="openBarcodeScanner('packing_list_no')"
-                                        style="display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:700; color:#285491; background:#e0ecfb; border:1px solid #bfcfe8; border-radius:6px; padding:2px 7px; cursor:pointer;"
-                                        title="Scan Barcode Batang Surat Jalan">
-                                    <i class="ph-bold ph-barcode"></i> Scan
-                                </button>
-                                <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center;"
-                                      :style="packingListNo.length === 9 ? 'background:#dcfce7; color:#15803d; border:1px solid #86efac;' : (packingListNo.length > 0 ? 'background:#fef3c7; color:#b45309; border:1px solid #fde68a;' : 'background:#eff4fc; color:#285491; border:1px solid #bfcfe8;')">
-                                    <span x-text="packingListNo.length"></span>/9 Digit
-                                </span>
-                            </div>
-                        </div>
-
-                        <input type="text"
-                               inputmode="numeric"
-                               pattern="[0-9]*"
-                               maxlength="9"
-                               id="packing_list_no"
-                               name="packing_list_no"
-                               x-model="packingListNo"
-                               @input="packingListNo = $event.target.value.replace(/\D/g, '').slice(0, 9); $event.target.value = packingListNo;"
-                               list="history-packing-list"
-                               required
-                               placeholder="Contoh: 800123456 (Wajib tepat 9 digit angka)"
-                               class="field-input"
-                               style="font-size:14px; font-weight:700; letter-spacing:0.04em; background:white;">
-
-                        <!-- Warning jika kurang dari 9 digit -->
-                        <div x-cloak x-show="packingListNo.length > 0 && packingListNo.length < 9"
-                             style="display:flex; align-items:center; gap:5px; margin-top:6px; padding:5px 8px; border-radius:6px; background:#fffbeb; border:1px solid #fde68a; color:#b45309; font-size:11px; font-weight:600;">
-                            <i class="ph-bold ph-warning" style="font-size:14px; color:#d97706; flex-shrink:0;"></i>
-                            <span>Angka kurang dari 9 digit! (Saat ini: <strong x-text="packingListNo.length"></strong> digit, kurang <strong x-text="9 - packingListNo.length"></strong> digit lagi).</span>
-                        </div>
-
-                        <!-- Status pas 9 digit -->
-                        <div x-cloak x-show="packingListNo.length === 9"
-                             style="display:flex; align-items:center; gap:5px; margin-top:6px; padding:5px 8px; border-radius:6px; background:#ecfdf5; border:1px solid #a7f3d0; color:#065f46; font-size:11px; font-weight:600;">
-                            <i class="ph-bold ph-check-circle" style="font-size:14px; color:#059e3d; flex-shrink:0;"></i>
-                            <span>Format valid (tepat 9 digit angka).</span>
-                        </div>
-
-                        <datalist id="history-packing-list">
-                            @foreach($history['packing_list_no'] ?? [] as $item)
-                                <option value="{{ $item }}">
-                            @endforeach
-                        </datalist>
-                        @if(count($history['packing_list_no'] ?? []) > 0)
-                            <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:6px;">
-                                <span style="font-size:9px; color:#9ca3af; align-self:center;">Riwayat:</span>
-                                @foreach(($history['packing_list_no'] ?? collect())->take(3) as $rec)
-                                    <button type="button" 
-                                            @click="packingListNo = ($el.dataset.val || '').replace(/\D/g, '').slice(0, 9)"
-                                            data-val="{{ $rec }}"
-                                            title="Klik untuk mengisi: {{ $rec }}"
-                                            style="font-size:10px; font-weight: 600; padding:2px 7px; border-radius:10px; background:#fff; color:#285491; border:1px solid #bfcfe8; cursor:pointer;"
-                                            onmouseover="this.style.background='#eff4fc'" onmouseout="this.style.background='#fff'">
-                                        {{ $rec }}
-                                    </button>
-                                @endforeach
-                            </div>
-                        @endif
-                    </div>
-
-                    <!-- 2 & 3. Nomor Shipment Group & Nomor Shipment (Keduanya Fix 9 Digit Angka) -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                        <!-- Nomor Shipment Group -->
-                        <div style="background: white; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 10px;"
-                             :style="shipmentGroup.length === 9 ? 'border-color:#86efac; background:#f0fdf4;' : (shipmentGroup.length > 0 ? 'border-color:#fde68a; background:#fffdf5;' : '')">
-                            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
-                                <label class="field-label" style="display:flex; align-items:center; gap:4px; margin-bottom:0;">
-                                    <i class="ph-bold ph-hash" style="color:#285491; font-size:12px;"></i>Shipment Group <span style="color:#ef4444;">*</span>
-                                </label>
-                                <div style="display:flex; align-items:center; gap:4px;">
-                                    <button type="button" @click="openBarcodeScanner('shipment_group')"
-                                            style="display:inline-flex; align-items:center; gap:2px; font-size:9px; font-weight:700; color:#285491; background:#eff4fc; border:1px solid #bfcfe8; border-radius:5px; padding:2px 5px; cursor:pointer;"
-                                            title="Scan Barcode Batang">
-                                        <i class="ph-bold ph-barcode"></i> Scan
-                                    </button>
-                                    <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center;"
-                                          :style="shipmentGroup.length === 9 ? 'background:#dcfce7; color:#15803d; border:1px solid #86efac;' : (shipmentGroup.length > 0 ? 'background:#fef3c7; color:#b45309; border:1px solid #fde68a;' : 'background:#eff4fc; color:#285491; border:1px solid #bfcfe8;')">
-                                        <span x-text="shipmentGroup.length"></span>/9 Digit
-                                    </span>
-                                </div>
-                            </div>
-
-                            <input type="text"
-                                   inputmode="numeric"
-                                   pattern="[0-9]*"
-                                   maxlength="9"
-                                   id="shipment_group"
-                                   name="shipment_group"
-                                   x-model="shipmentGroup"
-                                   @input="shipmentGroup = $event.target.value.replace(/\D/g, '').slice(0, 9); $event.target.value = shipmentGroup;"
-                                   list="history-shipment-group"
-                                   required
-                                   placeholder="Contoh: 869026487"
-                                   class="field-input"
-                                   style="font-size:13px; font-weight: 700; background:white;">
-
-                            <!-- Warning jika < 9 -->
-                            <div x-cloak x-show="shipmentGroup.length > 0 && shipmentGroup.length < 9"
-                                 style="margin-top:4px; font-size:10px; color:#b45309; display:flex; align-items:center; gap:4px;">
-                                <i class="ph-bold ph-warning"></i> Kurang <span x-text="9 - shipmentGroup.length"></span> digit
-                            </div>
-                            <div x-cloak x-show="shipmentGroup.length === 9"
-                                 style="margin-top:4px; font-size:10px; color:#059e3d; display:flex; align-items:center; gap:4px; font-weight:600;">
-                                <i class="ph-bold ph-check"></i> Pas 9 digit
-                            </div>
-
-                            <datalist id="history-shipment-group">
-                                @foreach($history['shipment_group'] ?? [] as $item)
-                                    <option value="{{ $item }}">
-                                @endforeach
-                            </datalist>
-                            @if(count($history['shipment_group'] ?? []) > 0)
-                                <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;">
-                                    @foreach(($history['shipment_group'] ?? collect())->take(2) as $rec)
-                                        <button type="button" 
-                                                @click="shipmentGroup = ($el.dataset.val || '').replace(/\D/g, '').slice(0, 9)"
-                                                data-val="{{ $rec }}"
-                                                title="Klik untuk mengisi: {{ $rec }}"
-                                                style="font-size:9px; font-weight: 600; padding:2px 6px; border-radius:8px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer;"
-                                                onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff4fc'">
-                                            {{ $rec }}
-                                        </button>
-                                    @endforeach
-                                </div>
-                            @endif
-                        </div>
-
-                        <!-- Nomor Shipment -->
-                        <div style="background: white; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 10px;"
-                             :style="shipmentNo.length === 9 ? 'border-color:#86efac; background:#f0fdf4;' : (shipmentNo.length > 0 ? 'border-color:#fde68a; background:#fffdf5;' : '')">
-                            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
-                                <label class="field-label" style="display:flex; align-items:center; gap:4px; margin-bottom:0;">
-                                    <i class="ph-bold ph-hash" style="color:#285491; font-size:12px;"></i>Shipment No. <span style="color:#ef4444;">*</span>
-                                </label>
-                                <div style="display:flex; align-items:center; gap:4px;">
-                                    <button type="button" @click="openBarcodeScanner('shipment_no')"
-                                            style="display:inline-flex; align-items:center; gap:2px; font-size:9px; font-weight:700; color:#285491; background:#eff4fc; border:1px solid #bfcfe8; border-radius:5px; padding:2px 5px; cursor:pointer;"
-                                            title="Scan Barcode Batang">
-                                        <i class="ph-bold ph-barcode"></i> Scan
-                                    </button>
-                                    <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center;"
-                                          :style="shipmentNo.length === 9 ? 'background:#dcfce7; color:#15803d;' : (shipmentNo.length > 0 ? 'background:#fef3c7; color:#b45309;' : 'background:#eff4fc; color:#285491; border:1px solid #bfcfe8;')">
-                                        <span x-text="shipmentNo.length"></span>/9 Digit
-                                    </span>
-                                </div>
-                            </div>
-
-                            <input type="text"
-                                   inputmode="numeric"
-                                   pattern="[0-9]*"
-                                   maxlength="9"
-                                   id="shipment_no"
-                                   name="shipment_no"
-                                   x-model="shipmentNo"
-                                   @input="shipmentNo = $event.target.value.replace(/\D/g, '').slice(0, 9); $event.target.value = shipmentNo;"
-                                   list="history-shipment-no"
-                                   required
-                                   placeholder="Contoh: 860110918"
-                                   class="field-input"
-                                   style="font-size:13px; font-weight: 700; background:white;">
-
-                            <!-- Warning jika < 9 -->
-                            <div x-cloak x-show="shipmentNo.length > 0 && shipmentNo.length < 9"
-                                 style="margin-top:4px; font-size:10px; color:#b45309; display:flex; align-items:center; gap:4px;">
-                                <i class="ph-bold ph-warning"></i> Kurang <span x-text="9 - shipmentNo.length"></span> digit
-                            </div>
-                            <div x-cloak x-show="shipmentNo.length === 9"
-                                 style="margin-top:4px; font-size:10px; color:#059e3d; display:flex; align-items:center; gap:4px; font-weight:600;">
-                                <i class="ph-bold ph-check"></i> Pas 9 digit
-                            </div>
-
-                            <datalist id="history-shipment-no">
-                                @foreach($history['shipment_no'] ?? [] as $item)
-                                    <option value="{{ $item }}">
-                                @endforeach
-                            </datalist>
-                            @if(count($history['shipment_no'] ?? []) > 0)
-                                <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;">
-                                    @foreach(($history['shipment_no'] ?? collect())->take(2) as $rec)
-                                        <button type="button" 
-                                                @click="shipmentNo = ($el.dataset.val || '').replace(/\D/g, '').slice(0, 9)"
-                                                data-val="{{ $rec }}"
-                                                title="Klik untuk mengisi: {{ $rec }}"
-                                                style="font-size:9px; font-weight: 600; padding:2px 6px; border-radius:8px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer;"
-                                                onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff4fc'">
-                                            {{ $rec }}
-                                        </button>
-                                    @endforeach
-                                </div>
-                            @endif
-                        </div>
-                    </div>
-
-                    <!-- Field Textarea: Agen Forwarding & Tujuan Pengiriman (Setelah Mengisi Nomor-Nomor Shipment) -->
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
-                        <!-- Agen Forwarding -->
-                        <div>
-                            <label class="field-label" style="display:flex; align-items:center; gap:4px; margin-bottom: 4px;">
-                                <i class="ph-bold ph-buildings" style="color:#285491; font-size:12px;"></i>Agen Forwarding (Opsional)
-                            </label>
-                            <textarea id="agen_forwarding"
-                                      name="agen_forwarding"
-                                      x-model="agenForwarding"
-                                      @input="agenForwarding = $event.target.value.toUpperCase()"
-                                      rows="2"
-                                      placeholder="Contoh: PT. SAMUDERA LOGISTICS / EMKL..."
-                                      class="field-input"
-                                      style="font-size:12px; font-weight: 600; resize: vertical; min-height: 52px; line-height: 1.4; text-transform:uppercase;"></textarea>
-                            @if(count($history['agen_forwarding'] ?? []) > 0)
-                                <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;">
-                                    <span style="font-size:9px; color:#9ca3af; align-self:center;">Riwayat:</span>
-                                    @foreach(($history['agen_forwarding'] ?? collect())->take(2) as $rec)
-                                        <button type="button" 
-                                                @click="agenForwarding = $el.dataset.val"
-                                                data-val="{{ $rec }}"
-                                                title="Klik untuk mengisi riwayat ini"
-                                                style="font-size:10px; font-weight: 600; padding:2px 7px; border-radius:10px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer; text-align:left; max-width:100%; word-break:break-word;"
-                                                onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#93c5fd'"
-                                                onmouseout="this.style.background='#eff4fc'; this.style.borderColor='#d0e0f5'">
-                                            {{ $rec }}
-                                        </button>
-                                    @endforeach
-                                </div>
-                            @endif
-                        </div>
-
-                        <!-- Tujuan Pengiriman -->
-                        <div>
-                            <label class="field-label" style="display:flex; align-items:center; gap:4px; margin-bottom: 4px;">
-                                <i class="ph-bold ph-map-pin" style="color:#285491; font-size:12px;"></i>Tujuan Pengiriman (Opsional)
-                            </label>
-                            <textarea id="tujuan_pengiriman"
-                                      name="tujuan_pengiriman"
-                                      x-model="tujuanPengiriman"
-                                      @input="tujuanPengiriman = $event.target.value.toUpperCase()"
-                                      rows="2"
-                                      placeholder="Contoh: Pelabuhan Tanjung Priok / Gudang Surabaya..."
-                                      class="field-input"
-                                      style="font-size:12px; font-weight: 600; resize: vertical; min-height: 52px; line-height: 1.4; text-transform:uppercase;"></textarea>
-                            @if(count($history['tujuan_pengiriman'] ?? []) > 0)
-                                <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;">
-                                    <span style="font-size:9px; color:#9ca3af; align-self:center;">Riwayat:</span>
-                                    @foreach(($history['tujuan_pengiriman'] ?? collect())->take(2) as $rec)
-                                        <button type="button" 
-                                                @click="tujuanPengiriman = $el.dataset.val"
-                                                data-val="{{ $rec }}"
-                                                title="Klik untuk mengisi riwayat ini"
-                                                style="font-size:10px; font-weight: 600; padding:3px 8px; border-radius:10px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer; text-align:left; max-width:100%; word-break:break-word; line-height:1.3;"
-                                                onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#93c5fd'"
-                                                onmouseout="this.style.background='#eff4fc'; this.style.borderColor='#d0e0f5'">
-                                            {{ $rec }}
-                                        </button>
-                                    @endforeach
-                                </div>
-                            @endif
-                        </div>
-                    </div>
-
-                    <!-- 4 & 5. Plat Nomor & Nomor Container -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                        <!-- Plat Nomor -->
-                        <div>
-                            <label class="field-label" style="display:flex; align-items:center; gap:4px;">
-                                <i class="ph-bold ph-car" style="color:#285491; font-size:12px;"></i>Plat Nomor <span style="color:#ef4444;">*</span>
-                            </label>
-                            <input type="text" id="plat_nomor" name="plat_nomor" x-model="platNomor"
-                                   @blur="platNomor = formatPlatNomor(platNomor)"
-                                   @change="platNomor = formatPlatNomor(platNomor)"
-                                   @input="platNomor = $event.target.value.toUpperCase()"
-                                   list="history-plat"
-                                   required placeholder="Contoh: B 8976 UIY" class="field-input" style="font-size:12px; font-weight: 600; text-transform:uppercase;">
-                            <datalist id="history-plat">
-                                @foreach($history['plat_nomor'] ?? [] as $item)
-                                    <option value="{{ $item }}">
-                                @endforeach
-                            </datalist>
-                            @if(count($history['plat_nomor'] ?? []) > 0)
-                                <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;">
-                                    <span style="font-size:9px; color:#9ca3af; align-self:center;">Riwayat:</span>
-                                    @foreach(($history['plat_nomor'] ?? collect())->take(2) as $rec)
-                                        <button type="button" 
-                                                @click="platNomor = formatPlatNomor($el.dataset.val)"
-                                                data-val="{{ $rec }}"
-                                                title="Klik untuk mengisi: {{ $rec }}"
-                                                style="font-size:10px; font-weight: 600; padding:2px 7px; border-radius:10px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer;"
-                                                onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#93c5fd'"
-                                                onmouseout="this.style.background='#eff4fc'; this.style.borderColor='#d0e0f5'">
-                                            {{ $rec }}
-                                        </button>
-                                    @endforeach
-                                </div>
-                            @endif
-                        </div>
-
-                        <!-- Nomor Container -->
-                        <div>
-                            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 3px;">
-                                <label class="field-label" style="display:flex; align-items:center; gap:4px; margin-bottom: 0;">
-                                    <i class="ph-bold ph-truck" style="color:#285491; font-size:12px;"></i>No. Container <span style="color:#ef4444;">*</span>
-                                </label>
-                                <button type="button" @click="openBarcodeScanner('nomor_container')"
-                                        style="display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:700; color:#285491; background:#eff4fc; border:1px solid #bfcfe8; border-radius:6px; padding:2px 7px; cursor:pointer;"
-                                        title="Scan Barcode Container">
-                                    <i class="ph-bold ph-barcode"></i> Scan
-                                </button>
-                            </div>
-                            <input type="text" id="nomor_container_atau_plat" name="nomor_container_atau_plat"
-                                   x-model="nomorContainer"
-                                   @input="nomorContainer = $event.target.value.toUpperCase()"
-                                   list="history-container"
-                                   placeholder="Contoh: MSKU1234567 atau 0" required class="field-input" style="font-size:12px; font-weight: 600; text-transform:uppercase;">
-                            <p style="font-size: 10px; color: #64748b; margin-top: 4px; line-height: 1.3;">
-                                Jika tidak ada container, maka diisi <strong>0</strong>.
-                            </p>
-                            <datalist id="history-container">
-                                @foreach($history['nomor_container'] ?? [] as $item)
-                                    <option value="{{ $item }}">
-                                @endforeach
-                            </datalist>
-                            <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px; align-items:center;">
-                                <button type="button" @click="nomorContainer = '0'" style="font-size:10px; font-weight: 600; padding:2px 7px; border-radius:10px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer;" title="Klik untuk mengisi angka 0 otomatis">
-                                    + Isi 0 (Tanpa Container)
-                                </button>
-                                @if(count($history['nomor_container'] ?? []) > 0)
-                                    <span style="font-size:9px; color:#9ca3af; align-self:center; margin-left: 2px;">Riwayat:</span>
-                                    @foreach(($history['nomor_container'] ?? collect())->take(2) as $rec)
-                                        <button type="button" 
-                                                @click="nomorContainer = $el.dataset.val"
-                                                data-val="{{ $rec }}"
-                                                title="Klik untuk mengisi: {{ $rec }}"
-                                                style="font-size:10px; font-weight: 600; padding:2px 7px; border-radius:10px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer;"
-                                                onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#93c5fd'"
-                                                onmouseout="this.style.background='#eff4fc'; this.style.borderColor='#d0e0f5'">
-                                            {{ $rec }}
-                                        </button>
-                                    @endforeach
-                                @endif
-                            </div>
-                        </div>
-                    </div>                    <!-- 6 & 7. Nama Sopir & Nomor Seal -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                        <!-- Nama Sopir -->
-                        <div>
-                            <label class="field-label" style="display:flex; align-items:center; gap:4px;">
-                                <i class="ph-bold ph-user" style="color:#285491; font-size:12px;"></i>Nama Sopir (Opsional)
-                            </label>
-                            <input type="text" id="nama_sopir" name="nama_sopir" x-model="namaSopir"
-                                   @input="namaSopir = $event.target.value.toUpperCase()"
-                                   list="history-sopir"
-                                   placeholder="Nama sopir kendaraan" class="field-input" style="font-size:12px; font-weight: 600; text-transform:uppercase;">
-                            <datalist id="history-sopir">
-                                @foreach($history['nama_sopir'] ?? [] as $item)
-                                    <option value="{{ $item }}">
-                                @endforeach
-                            </datalist>
-                            @if(count($history['nama_sopir'] ?? []) > 0)
-                                <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;">
-                                    <span style="font-size:9px; color:#9ca3af; align-self:center;">Riwayat:</span>
-                                    @foreach(($history['nama_sopir'] ?? collect())->take(3) as $rec)
-                                        <button type="button" 
-                                                @click="namaSopir = $el.dataset.val"
-                                                data-val="{{ $rec }}"
-                                                title="Klik untuk mengisi: {{ $rec }}"
-                                                style="font-size:10px; font-weight: 600; padding:2px 7px; border-radius:10px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer;"
-                                                onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#93c5fd'"
-                                                onmouseout="this.style.background='#eff4fc'; this.style.borderColor='#d0e0f5'">
-                                            {{ $rec }}
-                                        </button>
-                                    @endforeach
-                                </div>
-                            @endif
-                        </div>
-
-                        <!-- Nomor Seal -->
-                        <div>
-                            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 3px;">
-                                <label class="field-label" style="display:flex; align-items:center; gap:4px; margin-bottom: 0;">
-                                    <i class="ph-bold ph-lock-key" style="color:#285491; font-size:12px;"></i>Nomor Seal 
-                                </label>
-                                <button type="button" @click="openBarcodeScanner('nomor_seal')"
-                                        style="display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:700; color:#285491; background:#eff4fc; border:1px solid #bfcfe8; border-radius:6px; padding:2px 7px; cursor:pointer;"
-                                        title="Scan Barcode Seal">
-                                    <i class="ph-bold ph-barcode"></i> Scan
-                                </button>
-                            </div>
-                            <input type="text" id="nomor_seal" name="nomor_seal" x-model="nomorSeal"
-                                   @input="nomorSeal = $event.target.value.toUpperCase()"
-                                   list="history-seal"
-                                   placeholder="Contoh: S000123 / Segel" class="field-input" style="font-size:12px; font-weight: 600; text-transform:uppercase;">
-                            <datalist id="history-seal">
-                                @foreach($history['nomor_seal'] ?? [] as $item)
-                                    <option value="{{ $item }}">
-                                @endforeach
-                            </datalist>
-                            @if(count($history['nomor_seal'] ?? []) > 0)
-                                <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;">
-                                    <span style="font-size:9px; color:#9ca3af; align-self:center;">Riwayat:</span>
-                                    @foreach(($history['nomor_seal'] ?? collect())->take(3) as $rec)
-                                        <button type="button" 
-                                                @click="nomorSeal = $el.dataset.val"
-                                                data-val="{{ $rec }}"
-                                                title="Klik untuk mengisi: {{ $rec }}"
-                                                style="font-size:10px; font-weight: 600; padding:2px 7px; border-radius:10px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer;"
-                                                onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#93c5fd'"
-                                                onmouseout="this.style.background='#eff4fc'; this.style.borderColor='#d0e0f5'">
-                                            {{ $rec }}
-                                        </button>
-                                    @endforeach
-                                </div>
-                            @endif
-                        </div>
-                    </div>
-
-                </div>
-
-            </div>
-        </div>
-
-        <!-- SECTION 2: Data Pengiriman & Operasional Staging -->
-        <div class="section-card" x-data="{ open: true }">
-            <div class="section-card-header" @click="open = !open"
-                 style="background: linear-gradient(90deg, rgba(40,84,145,0.04), transparent);">
-                <div style="width: 32px; height: 32px; border-radius: 10px; background: #eff4fc; display: flex; align-items: center; justify-content: center; shrink: 0;">
-                    <i class="ph-fill ph-package" style="font-size: 16px; color: #285491;"></i>
-                </div>
-                <div style="flex: 1;">
-                    <p style="font-size: 13px; font-weight: 700; color: #1f2937;">2. Detail Data Staging</p>
-                    <p style="font-size: 10px; color: #64748b;">Produk, jenis pengiriman, cuaca, waktu & lokasi warehouse</p>
-                </div>
-                <i class="ph-bold" :class="open ? 'ph-caret-up' : 'ph-caret-down'" style="font-size: 14px; color: #9ca3af;"></i>
-            </div>
-            <div class="section-card-body" x-show="open" x-collapse style="display: flex; flex-direction: column; gap: 12px;">
+                <!-- 2. Jenis Pengiriman & Produk -->
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                     <div>
+                        <label class="field-label" style="display:flex; align-items:center; gap:4px; font-weight:700;">
+                            <i class="ph-bold ph-airplane-tilt" style="color:#285491; font-size:13px;"></i>
+                            Jenis Pengiriman <span style="color:#ef4444;">*</span>
+                        </label>
+                        <select name="jenis_pengiriman" x-model="jenisPengiriman" class="field-input" style="font-weight: 700;">
+                            <option value="export">🚢 Export</option>
+                            <option value="lokal">🚚 Lokal</option>
+                        </select>
+                        <p style="font-size: 10px; color: #64748b; margin-top: 3px;">
+                            Pilih Export (ada Shipment Group &amp; Seal) atau Lokal.
+                        </p>
+                    </div>
+                    <div>
                         <label class="field-label" style="display: flex; align-items: center; justify-content: space-between;">
-                            <span>Produk <span style="color:#ef4444;">*</span></span>
+                            <span style="font-weight:700;">Produk <span style="color:#ef4444;">*</span></span>
                             <span x-show="productChoice === 'others'" style="font-size: 10px; color: #285491; font-weight: 700;">Wajib ketik nama produk</span>
                         </label>
-                        <select name="product_type_select" x-model="productChoice" class="field-input">
+                        <select name="product_type_select" x-model="productChoice" class="field-input" style="font-weight: 600;">
                             <option value="fiber">Fiber</option>
                             <option value="sodium">Sodium</option>
                             <option value="sliver">Sliver</option>
@@ -1828,14 +1244,9 @@
                                    style="border-color: #285491; background: #f0f7ff; font-weight: 600;">
                         </div>
                     </div>
-                    <div>
-                        <label class="field-label">Jenis Pengiriman</label>
-                        <select name="jenis_pengiriman" x-model="jenisPengiriman" class="field-input">
-                            <option value="export">Export</option>
-                            <option value="lokal">Lokal</option>
-                        </select>
-                    </div>
                 </div>
+
+                <!-- 3. Cuaca & Waktu -->
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                     <div>
                         <label class="field-label">Cuaca</label>
@@ -1855,6 +1266,8 @@
                         </select>
                     </div>
                 </div>
+
+                <!-- 4. Tanggal Staging & Kategori Warehouse -->
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 2px;">
                     <div>
                         <label class="field-label" style="display:flex; align-items:center; gap:5px;">
@@ -1900,7 +1313,7 @@
                 <input type="hidden" name="warehouse_lokasi" :value="whType === 'internal' ? whInternal : whExternal">
                 <input type="hidden" name="warehouse_lokasi_external" :value="whExternal">
 
-                <!-- 1. Dropdown Lokasi Warehouse Internal (HANYA MUNCUL KETIKA WAREHOUSE INTERNAL SPV DIPILIH) -->
+                <!-- Lokasi Warehouse Internal SPV -->
                 <div x-show="whType === 'internal'" x-transition style="margin-top: 2px;">
                     <label class="field-label">Lokasi Warehouse Internal SPV <span style="color:#ef4444;">*</span></label>
                     <select name="warehouse_lokasi_internal" x-model="whInternal" class="field-input">
@@ -1911,16 +1324,13 @@
                     <p style="font-size: 10px; color: #64748b; margin-top: 4px;">Pilih salah satu zona gudang internal PT SPV (Atas, Tengah, atau Bawah).</p>
                 </div>
 
-                <!-- 2. Dropdown Master Warehouse Eksternal (HANYA MUNCUL KETIKA WAREHOUSE EKSTERNAL DIPILIH) -->
+                <!-- Lokasi Warehouse Eksternal -->
                 <div x-cloak x-show="whType === 'external'" x-transition style="margin-top: 2px;">
                     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 4px;">
                         <label class="field-label" style="display:flex; align-items:center; gap:5px; margin-bottom: 0;">
                             <i class="ph-bold ph-warehouse" style="color:#285491; font-size:14px;"></i>
                             Nama PT / Pemilik Warehouse Eksternal <span style="color:#ef4444;">*</span>
                         </label>
-                        <!-- <span style="font-size: 10px; font-weight: 700; color: #285491; background: #eff4fc; border: 1px solid #bfcfe8; border-radius: 6px; padding: 2px 7px;">
-                            Dropdown Master Data
-                        </span> -->
                     </div>
 
                     <div style="position: relative;">
@@ -1936,7 +1346,6 @@
                         </select>
                     </div>
 
-                    <!-- Input Manual jika memilih 'Lainnya (Ketik Nama PT Baru)' -->
                     <div x-cloak x-show="whExternalSelect === '__custom__'" x-transition style="margin-top: 8px;">
                         <label class="field-label" style="font-size: 11px; color: #059e3d; display: flex; align-items: center; gap: 4px; margin-bottom: 3px;">
                             <i class="ph-bold ph-pencil-line"></i> Ketik Nama PT / Rekanan Eksternal Baru <span style="color:#ef4444;">*</span>
@@ -1956,6 +1365,548 @@
                         Pilih dari daftar master rekanan gudang eksternal atau pilih "Lainnya" untuk mengetik nama PT baru.
                     </p>
                 </div>
+            </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════ -->
+        <!-- SECTION 2: DOKUMEN SHIPMENT ORDER & DATA PENGIRIMAN        -->
+        <!-- ═══════════════════════════════════════════════════════════ -->
+        <div class="section-card" x-data="{ open: true }">
+            <div class="section-card-header" @click="open = !open"
+                 style="background: linear-gradient(90deg, rgba(40,84,145,0.04), transparent);">
+                <div style="width: 34px; height: 34px; border-radius: 10px; background: #eff4fc; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                    <i class="ph-bold ph-file-text" style="font-size: 18px; color: #285491;"></i>
+                </div>
+                <div style="flex: 1;">
+                    <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                        <p style="font-size: 13px; font-weight: 700; color: #1f2937; margin: 0;">2. Dokumen Shipment Order &amp; Data Pengiriman</p>
+                        <span style="font-size: 10px; font-weight: 700; color: #285491; background: #eff4fc; padding: 2px 7px; border-radius: 6px;">OCR Auto-Fill</span>
+                    </div>
+                    <p style="font-size: 10px; color: #64748b; margin: 2px 0 0;">Foto dokumen (opsional) atau isi formulir data pengiriman di bawah</p>
+                </div>
+                <i class="ph-bold" :class="open ? 'ph-caret-up' : 'ph-caret-down'" style="font-size: 14px; color: #9ca3af;"></i>
+            </div>
+
+            <div class="section-card-body" x-show="open" x-collapse style="display: flex; flex-direction: column; gap: 14px;">
+
+                <!-- Hidden inputs for file upload -->
+                <input type="file" name="shipment_order_photo" x-ref="orderCameraInput" accept="image/*" capture="environment" style="display: none;" @change="handlePhotoChange($event)">
+                <input type="file" name="shipment_order_photo_gallery" x-ref="orderGalleryInput" accept="image/*" style="display: none;" @change="handlePhotoChange($event)">
+
+                <!-- Compact, Simple OCR / Document Box -->
+                <div style="background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <template x-if="photoPreviewUrl">
+                                <div @click="zoomModalOpen = true"
+                                     style="width: 48px; height: 48px; border-radius: 8px; overflow: hidden; background: #0f172a; cursor: pointer; flex-shrink: 0; border: 1px solid #cbd5e1; display: flex; align-items: center; justify-content: center; position: relative;"
+                                     title="Klik untuk memperbesar foto">
+                                    <img :src="photoPreviewUrl" alt="Shipment Order" style="max-width: 100%; max-height: 100%; object-fit: cover;">
+                                    <div style="position: absolute; inset: 0; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.15s;"
+                                         onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0">
+                                        <i class="ph-bold ph-magnifying-glass-plus" style="color: white; font-size: 16px;"></i>
+                                    </div>
+                                </div>
+                            </template>
+                            <template x-if="!photoPreviewUrl">
+                                <div style="width: 40px; height: 40px; border-radius: 10px; background: #eff4fc; color: #285491; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                    <i class="ph-bold ph-scan" style="font-size: 20px;"></i>
+                                </div>
+                            </template>
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                    <span style="font-size: 12px; font-weight: 700; color: #1e293b;">Foto Dokumen Shipment Order</span>
+                                    <span style="font-size: 10px; color: #64748b; font-weight: 500;">(Opsional / OCR)</span>
+                                </div>
+                                <p style="font-size: 10px; color: #64748b; margin: 2px 0 0;" x-show="!photoPreviewUrl">
+                                    Bantu auto-fill lewat foto kamera/galeri, atau langsung ketik formulir di bawah.
+                                </p>
+                                <p style="font-size: 10px; color: #059e3d; margin: 2px 0 0; font-weight: 600;" x-show="photoPreviewUrl && !isOcrLoading">
+                                    ✓ Foto siap &amp; tersimpan
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons: Kamera, Galeri, Hapus -->
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                            <button type="button" @click="$refs.orderCameraInput.click()"
+                                    style="display: inline-flex; align-items: center; gap: 4px; padding: 6px 11px; font-size: 11px; font-weight: 700; border-radius: 8px; background: #059e3d; color: white; border: none; cursor: pointer; transition: background 0.15s; box-shadow: 0 1px 3px rgba(5,158,61,0.2);"
+                                    onmouseover="this.style.background='#047857'" onmouseout="this.style.background='#059e3d'">
+                                <i class="ph-bold ph-camera"></i>
+                                <span x-text="photoPreviewUrl ? 'Foto Ulang' : 'Kamera'"></span>
+                            </button>
+                            <button type="button" @click="$refs.orderGalleryInput.click()"
+                                    style="display: inline-flex; align-items: center; gap: 4px; padding: 6px 11px; font-size: 11px; font-weight: 700; border-radius: 8px; background: #eff4fc; color: #285491; border: 1.5px solid #bfcfe8; cursor: pointer; transition: all 0.15s;"
+                                    onmouseover="this.style.background='#dbe7f6'; this.style.borderColor='#285491'" onmouseout="this.style.background='#eff4fc'; this.style.borderColor='#bfcfe8'">
+                                <i class="ph-bold ph-folder-open"></i>
+                                <span x-text="photoPreviewUrl ? 'Ganti Galeri' : 'Galeri'"></span>
+                            </button>
+                            <button type="button" x-show="photoPreviewUrl" @click="removePhoto()"
+                                    style="display: inline-flex; align-items: center; gap: 4px; padding: 6px 8px; font-size: 11px; font-weight: 600; border-radius: 8px; background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; cursor: pointer;"
+                                    title="Hapus Foto Dokumen">
+                                <i class="ph-bold ph-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- OCR Mini Loading -->
+                    <div x-show="isOcrLoading" style="display: flex; align-items: center; gap: 8px; background: #eff4fc; padding: 6px 10px; border-radius: 8px; border: 1px solid #bfcfe8;">
+                        <i class="ph-bold ph-spinner" style="font-size: 15px; color: #285491; animation: spin 1s linear infinite; flex-shrink: 0;"></i>
+                        <span style="font-size: 11px; color: #285491; font-weight: 600;">Membaca teks dokumen (Tesseract OCR)...</span>
+                    </div>
+
+                    <!-- OCR Mini Status -->
+                    <div x-show="ocrStatus === 'success' && !isOcrLoading" style="display: flex; align-items: center; gap: 6px; background: #ecfdf5; padding: 5px 10px; border-radius: 8px; border: 1px solid #a7f3d0; font-size: 11px; color: #065f46; font-weight: 600;">
+                        <i class="ph-fill ph-check-circle" style="color: #059e3d; font-size: 14px;"></i>
+                        <span x-text="ocrMessage"></span>
+                    </div>
+                    <div x-show="ocrStatus === 'warning' && !isOcrLoading" style="display: flex; align-items: center; gap: 6px; background: #fffbeb; padding: 5px 10px; border-radius: 8px; border: 1px solid #fde68a; font-size: 11px; color: #92400e; font-weight: 600;">
+                        <i class="ph-fill ph-info" style="color: #d97706; font-size: 14px;"></i>
+                        <span x-text="ocrMessage"></span>
+                    </div>
+                </div>
+
+                <!-- 1. Nomor Surat Jalan / Delivery / Packing List (Fix 9 Digit Angka) -->
+                <div style="background: white; border: 1.5px solid #bfcfe8; border-radius: 12px; padding: 12px;"
+                     :style="packingListNo.length === 9 ? 'border-color:#86efac; background:#f0fdf4;' : (packingListNo.length > 0 ? 'border-color:#fde68a; background:#fffdf5;' : '')">
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+                        <label class="field-label" style="display:flex; align-items:center; gap:5px; font-weight:700; color:#1e3a8a; font-size:12px; margin-bottom:0;">
+                            <i class="ph-bold ph-barcode" style="color:#285491; font-size:15px;"></i>
+                            No. Surat Jalan / Delivery / Packing List <span style="color:#ef4444;">*</span>
+                        </label>
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <button type="button" @click="openBarcodeScanner('packing_list_no')"
+                                    style="display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:700; color:#285491; background:#e0ecfb; border:1px solid #bfcfe8; border-radius:6px; padding:2px 7px; cursor:pointer;"
+                                    title="Scan Barcode Batang Surat Jalan">
+                                <i class="ph-bold ph-barcode"></i> Scan
+                            </button>
+                            <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center;"
+                                  :style="packingListNo.length === 9 ? 'background:#dcfce7; color:#15803d; border:1px solid #86efac;' : (packingListNo.length > 0 ? 'background:#fef3c7; color:#b45309; border:1px solid #fde68a;' : 'background:#eff4fc; color:#285491; border:1px solid #bfcfe8;')">
+                                <span x-text="packingListNo.length"></span>/9 Digit
+                            </span>
+                        </div>
+                    </div>
+
+                    <input type="text"
+                           inputmode="numeric"
+                           pattern="[0-9]*"
+                           maxlength="9"
+                           id="packing_list_no"
+                           name="packing_list_no"
+                           x-model="packingListNo"
+                           @input="packingListNo = $event.target.value.replace(/\D/g, '').slice(0, 9); $event.target.value = packingListNo;"
+                           list="history-packing-list"
+                           required
+                           placeholder="Contoh: 800123456 (Wajib tepat 9 digit angka)"
+                           class="field-input"
+                           style="font-size:14px; font-weight:700; letter-spacing:0.04em; background:white;">
+
+                    <!-- Warning jika kurang dari 9 digit -->
+                    <div x-cloak x-show="packingListNo.length > 0 && packingListNo.length < 9"
+                         style="display:flex; align-items:center; gap:5px; margin-top:6px; padding:5px 8px; border-radius:6px; background:#fffbeb; border:1px solid #fde68a; color:#b45309; font-size:11px; font-weight:600;">
+                        <i class="ph-bold ph-warning" style="font-size:14px; color:#d97706; flex-shrink:0;"></i>
+                        <span>Angka kurang dari 9 digit! (Saat ini: <strong x-text="packingListNo.length"></strong> digit, kurang <strong x-text="9 - packingListNo.length"></strong> digit lagi).</span>
+                    </div>
+
+                    <!-- Status pas 9 digit -->
+                    <div x-cloak x-show="packingListNo.length === 9"
+                         style="display:flex; align-items:center; gap:5px; margin-top:6px; padding:5px 8px; border-radius:6px; background:#ecfdf5; border:1px solid #a7f3d0; color:#065f46; font-size:11px; font-weight:600;">
+                        <i class="ph-bold ph-check-circle" style="font-size:14px; color:#059e3d; flex-shrink:0;"></i>
+                        <span>Format valid (tepat 9 digit angka).</span>
+                    </div>
+
+                    <datalist id="history-packing-list">
+                        @foreach($history['packing_list_no'] ?? [] as $item)
+                            <option value="{{ $item }}">
+                        @endforeach
+                    </datalist>
+                    @if(count($history['packing_list_no'] ?? []) > 0)
+                        <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:6px;">
+                            <span style="font-size:9px; color:#9ca3af; align-self:center;">Riwayat:</span>
+                            @foreach(($history['packing_list_no'] ?? collect())->take(3) as $rec)
+                                <button type="button" 
+                                        @click="packingListNo = ($el.dataset.val || '').replace(/\D/g, '').slice(0, 9)"
+                                        data-val="{{ $rec }}"
+                                        title="Klik untuk mengisi: {{ $rec }}"
+                                        style="font-size:10px; font-weight: 600; padding:2px 7px; border-radius:10px; background:#fff; color:#285491; border:1px solid #bfcfe8; cursor:pointer;"
+                                        onmouseover="this.style.background='#eff4fc'" onmouseout="this.style.background='#fff'">
+                                    {{ $rec }}
+                                </button>
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
+
+                <!-- 2. Plat Nomor & Nomor Container -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <!-- Plat Nomor -->
+                    <div>
+                        <label class="field-label" style="display:flex; align-items:center; gap:4px;">
+                            <i class="ph-bold ph-car" style="color:#285491; font-size:12px;"></i>Plat Nomor <span style="color:#ef4444;">*</span>
+                        </label>
+                        <input type="text" id="plat_nomor" name="plat_nomor" x-model="platNomor"
+                               @blur="platNomor = formatPlatNomor(platNomor)"
+                               @change="platNomor = formatPlatNomor(platNomor)"
+                               @input="platNomor = $event.target.value.toUpperCase()"
+                               list="history-plat"
+                               required placeholder="Contoh: B 8976 UIY" class="field-input" style="font-size:12px; font-weight: 600; text-transform:uppercase;">
+                        <datalist id="history-plat">
+                            @foreach($history['plat_nomor'] ?? [] as $item)
+                                <option value="{{ $item }}">
+                            @endforeach
+                        </datalist>
+                        @if(count($history['plat_nomor'] ?? []) > 0)
+                            <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;">
+                                <span style="font-size:9px; color:#9ca3af; align-self:center;">Riwayat:</span>
+                                @foreach(($history['plat_nomor'] ?? collect())->take(2) as $rec)
+                                    <button type="button" 
+                                            @click="platNomor = formatPlatNomor($el.dataset.val)"
+                                            data-val="{{ $rec }}"
+                                            title="Klik untuk mengisi: {{ $rec }}"
+                                            style="font-size:10px; font-weight: 600; padding:2px 7px; border-radius:10px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer;"
+                                            onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#93c5fd'"
+                                            onmouseout="this.style.background='#eff4fc'; this.style.borderColor='#d0e0f5'">
+                                        {{ $rec }}
+                                    </button>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+
+                    <!-- Nomor Container -->
+                    <div>
+                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 3px;">
+                            <label class="field-label" style="display:flex; align-items:center; gap:4px; margin-bottom: 0;">
+                                <i class="ph-bold ph-truck" style="color:#285491; font-size:12px;"></i>No. Container <span style="color:#ef4444;">*</span>
+                            </label>
+                            <button type="button" @click="openBarcodeScanner('nomor_container')"
+                                    style="display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:700; color:#285491; background:#eff4fc; border:1px solid #bfcfe8; border-radius:6px; padding:2px 7px; cursor:pointer;"
+                                    title="Scan Barcode Container">
+                                <i class="ph-bold ph-barcode"></i> Scan
+                            </button>
+                        </div>
+                        <input type="text" id="nomor_container_atau_plat" name="nomor_container_atau_plat"
+                               x-model="nomorContainer"
+                               @input="nomorContainer = $event.target.value.toUpperCase()"
+                               list="history-container"
+                               placeholder="Contoh: MSKU1234567 atau 0" required class="field-input" style="font-size:12px; font-weight: 600; text-transform:uppercase;">
+                        <p style="font-size: 10px; color: #64748b; margin-top: 4px; line-height: 1.3;">
+                            Jika tidak ada container, maka diisi <strong>0</strong>.
+                        </p>
+                        <datalist id="history-container">
+                            @foreach($history['nomor_container'] ?? [] as $item)
+                                <option value="{{ $item }}">
+                            @endforeach
+                        </datalist>
+                        <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px; align-items:center;">
+                            <button type="button" @click="nomorContainer = '0'" style="font-size:10px; font-weight: 600; padding:2px 7px; border-radius:10px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer;" title="Klik untuk mengisi angka 0 otomatis">
+                                + Isi 0 (Tanpa Container)
+                            </button>
+                            @if(count($history['nomor_container'] ?? []) > 0)
+                                <span style="font-size:9px; color:#9ca3af; align-self:center; margin-left: 2px;">Riwayat:</span>
+                                @foreach(($history['nomor_container'] ?? collect())->take(2) as $rec)
+                                    <button type="button" 
+                                            @click="nomorContainer = $el.dataset.val"
+                                            data-val="{{ $rec }}"
+                                            title="Klik untuk mengisi: {{ $rec }}"
+                                            style="font-size:10px; font-weight: 600; padding:2px 7px; border-radius:10px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer;"
+                                            onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#93c5fd'"
+                                            onmouseout="this.style.background='#eff4fc'; this.style.borderColor='#d0e0f5'">
+                                        {{ $rec }}
+                                    </button>
+                                @endforeach
+                            @endif
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Agen Forwarding & Tujuan Pengiriman (Customer) -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+                    <!-- Agen Forwarding -->
+                    <div>
+                        <label class="field-label" style="display:flex; align-items:center; gap:4px; margin-bottom: 4px;">
+                            <i class="ph-bold ph-buildings" style="color:#285491; font-size:12px;"></i>Agen Forwarding (Opsional)
+                        </label>
+                        <textarea id="agen_forwarding"
+                                  name="agen_forwarding"
+                                  x-model="agenForwarding"
+                                  @input="agenForwarding = $event.target.value.toUpperCase()"
+                                  rows="2"
+                                  placeholder="Contoh: PT. SAMUDERA LOGISTICS / EMKL..."
+                                  class="field-input"
+                                  style="font-size:12px; font-weight: 600; resize: vertical; min-height: 52px; line-height: 1.4; text-transform:uppercase;"></textarea>
+                        @if(count($history['agen_forwarding'] ?? []) > 0)
+                            <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;">
+                                <span style="font-size:9px; color:#9ca3af; align-self:center;">Riwayat:</span>
+                                @foreach(($history['agen_forwarding'] ?? collect())->take(2) as $rec)
+                                    <button type="button" 
+                                            @click="agenForwarding = $el.dataset.val"
+                                            data-val="{{ $rec }}"
+                                            title="Klik untuk mengisi riwayat ini"
+                                            style="font-size:10px; font-weight: 600; padding:2px 7px; border-radius:10px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer; text-align:left; max-width:100%; word-break:break-word;"
+                                            onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#93c5fd'"
+                                            onmouseout="this.style.background='#eff4fc'; this.style.borderColor='#d0e0f5'">
+                                        {{ $rec }}
+                                    </button>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+
+                    <!-- Tujuan Pengiriman (Customer) -->
+                    <div>
+                        <label class="field-label" style="display:flex; align-items:center; gap:4px; margin-bottom: 4px;">
+                            <i class="ph-bold ph-map-pin" style="color:#285491; font-size:12px;"></i>Tujuan Pengiriman (Customer) (Opsional)
+                        </label>
+                        <textarea id="tujuan_pengiriman"
+                                  name="tujuan_pengiriman"
+                                  x-model="tujuanPengiriman"
+                                  @input="tujuanPengiriman = $event.target.value.toUpperCase()"
+                                  rows="2"
+                                  placeholder="Contoh: Pelabuhan Tanjung Priok / Gudang Customer Surabaya..."
+                                  class="field-input"
+                                  style="font-size:12px; font-weight: 600; resize: vertical; min-height: 52px; line-height: 1.4; text-transform:uppercase;"></textarea>
+                        @if(count($history['tujuan_pengiriman'] ?? []) > 0)
+                            <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;">
+                                <span style="font-size:9px; color:#9ca3af; align-self:center;">Riwayat:</span>
+                                @foreach(($history['tujuan_pengiriman'] ?? collect())->take(2) as $rec)
+                                    <button type="button" 
+                                            @click="tujuanPengiriman = $el.dataset.val"
+                                            data-val="{{ $rec }}"
+                                            title="Klik untuk mengisi riwayat ini"
+                                            style="font-size:10px; font-weight: 600; padding:3px 8px; border-radius:10px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer; text-align:left; max-width:100%; word-break:break-word; line-height:1.3;"
+                                            onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#93c5fd'"
+                                            onmouseout="this.style.background='#eff4fc'; this.style.borderColor='#d0e0f5'">
+                                        {{ $rec }}
+                                    </button>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+                </div>
+
+                <!-- 4. Nomor Shipment & Nama Sopir -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <!-- Nomor Shipment -->
+                    <div style="background: white; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 10px;"
+                         :style="shipmentNo.length === 9 ? 'border-color:#86efac; background:#f0fdf4;' : (shipmentNo.length > 0 ? 'border-color:#fde68a; background:#fffdf5;' : '')">
+                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+                            <label class="field-label" style="display:flex; align-items:center; gap:4px; margin-bottom:0;">
+                                <i class="ph-bold ph-hash" style="color:#285491; font-size:12px;"></i>Shipment No. <span style="color:#ef4444;">*</span>
+                            </label>
+                            <div style="display:flex; align-items:center; gap:4px;">
+                                <button type="button" @click="openBarcodeScanner('shipment_no')"
+                                        style="display:inline-flex; align-items:center; gap:2px; font-size:9px; font-weight:700; color:#285491; background:#eff4fc; border:1px solid #bfcfe8; border-radius:5px; padding:2px 5px; cursor:pointer;"
+                                        title="Scan Barcode Batang">
+                                    <i class="ph-bold ph-barcode"></i> Scan
+                                </button>
+                                <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center;"
+                                      :style="shipmentNo.length === 9 ? 'background:#dcfce7; color:#15803d;' : (shipmentNo.length > 0 ? 'background:#fef3c7; color:#b45309;' : 'background:#eff4fc; color:#285491; border:1px solid #bfcfe8;')">
+                                    <span x-text="shipmentNo.length"></span>/9 Digit
+                                </span>
+                            </div>
+                        </div>
+
+                        <input type="text"
+                               inputmode="numeric"
+                               pattern="[0-9]*"
+                               maxlength="9"
+                               id="shipment_no"
+                               name="shipment_no"
+                               x-model="shipmentNo"
+                               @input="shipmentNo = $event.target.value.replace(/\D/g, '').slice(0, 9); $event.target.value = shipmentNo;"
+                               list="history-shipment-no"
+                               required
+                               placeholder="Contoh: 860110918"
+                               class="field-input"
+                               style="font-size:13px; font-weight: 700; background:white;">
+
+                        <!-- Warning jika < 9 -->
+                        <div x-cloak x-show="shipmentNo.length > 0 && shipmentNo.length < 9"
+                             style="margin-top:4px; font-size:10px; color:#b45309; display:flex; align-items:center; gap:4px;">
+                            <i class="ph-bold ph-warning"></i> Kurang <span x-text="9 - shipmentNo.length"></span> digit
+                        </div>
+                        <div x-cloak x-show="shipmentNo.length === 9"
+                             style="margin-top:4px; font-size:10px; color:#059e3d; display:flex; align-items:center; gap:4px; font-weight:600;">
+                            <i class="ph-bold ph-check"></i> Pas 9 digit
+                        </div>
+
+                        <datalist id="history-shipment-no">
+                            @foreach($history['shipment_no'] ?? [] as $item)
+                                <option value="{{ $item }}">
+                            @endforeach
+                        </datalist>
+                        @if(count($history['shipment_no'] ?? []) > 0)
+                            <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;">
+                                @foreach(($history['shipment_no'] ?? collect())->take(2) as $rec)
+                                    <button type="button" 
+                                            @click="shipmentNo = ($el.dataset.val || '').replace(/\D/g, '').slice(0, 9)"
+                                            data-val="{{ $rec }}"
+                                            title="Klik untuk mengisi: {{ $rec }}"
+                                            style="font-size:9px; font-weight: 600; padding:2px 6px; border-radius:8px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer;"
+                                            onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff4fc'">
+                                        {{ $rec }}
+                                    </button>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+
+                    <!-- Nama Sopir -->
+                    <div>
+                        <label class="field-label" style="display:flex; align-items:center; gap:4px;">
+                            <i class="ph-bold ph-user" style="color:#285491; font-size:12px;"></i>Nama Sopir (Opsional)
+                        </label>
+                        <input type="text" id="nama_sopir" name="nama_sopir" x-model="namaSopir"
+                               @input="namaSopir = $event.target.value.toUpperCase()"
+                               list="history-sopir"
+                               placeholder="Nama sopir kendaraan" class="field-input" style="font-size:12px; font-weight: 600; text-transform:uppercase;">
+                        <datalist id="history-sopir">
+                            @foreach($history['nama_sopir'] ?? [] as $item)
+                                <option value="{{ $item }}">
+                            @endforeach
+                        </datalist>
+                        @if(count($history['nama_sopir'] ?? []) > 0)
+                            <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;">
+                                <span style="font-size:9px; color:#9ca3af; align-self:center;">Riwayat:</span>
+                                @foreach(($history['nama_sopir'] ?? collect())->take(3) as $rec)
+                                    <button type="button" 
+                                            @click="namaSopir = $el.dataset.val"
+                                            data-val="{{ $rec }}"
+                                            title="Klik untuk mengisi: {{ $rec }}"
+                                            style="font-size:10px; font-weight: 600; padding:2px 7px; border-radius:10px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer;"
+                                            onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#93c5fd'"
+                                            onmouseout="this.style.background='#eff4fc'; this.style.borderColor='#d0e0f5'">
+                                        {{ $rec }}
+                                    </button>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+                </div>
+
+                <!-- 5. KHUSUS PENGIRIMAN EXPORT: Shipment Group & Nomor Seal -->
+                <div x-show="jenisPengiriman === 'export'" x-transition style="display: flex; flex-direction: column; gap: 10px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <!-- Nomor Shipment Group -->
+                        <div style="background: white; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 10px;"
+                             :style="shipmentGroup.length === 9 ? 'border-color:#86efac; background:#f0fdf4;' : (shipmentGroup.length > 0 ? 'border-color:#fde68a; background:#fffdf5;' : '')">
+                            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+                                <label class="field-label" style="display:flex; align-items:center; gap:4px; margin-bottom:0;">
+                                    <i class="ph-bold ph-hash" style="color:#285491; font-size:12px;"></i>Shipment Group <span style="color:#ef4444;">*</span>
+                                    <span style="font-size: 9px; font-weight: 700; color: #285491; background: #eff4fc; border: 1px solid #bfcfe8; padding: 1px 5px; border-radius: 4px;">EXPORT</span>
+                                </label>
+                                <div style="display:flex; align-items:center; gap:4px;">
+                                    <button type="button" @click="openBarcodeScanner('shipment_group')"
+                                            style="display:inline-flex; align-items:center; gap:2px; font-size:9px; font-weight:700; color:#285491; background:#eff4fc; border:1px solid #bfcfe8; border-radius:5px; padding:2px 5px; cursor:pointer;"
+                                            title="Scan Barcode Batang">
+                                        <i class="ph-bold ph-barcode"></i> Scan
+                                    </button>
+                                    <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; display: inline-flex; align-items: center;"
+                                          :style="shipmentGroup.length === 9 ? 'background:#dcfce7; color:#15803d; border:1px solid #86efac;' : (shipmentGroup.length > 0 ? 'background:#fef3c7; color:#b45309; border:1px solid #fde68a;' : 'background:#eff4fc; color:#285491; border:1px solid #bfcfe8;')">
+                                        <span x-text="shipmentGroup.length"></span>/9 Digit
+                                    </span>
+                                </div>
+                            </div>
+
+                            <input type="text"
+                                   inputmode="numeric"
+                                   pattern="[0-9]*"
+                                   maxlength="9"
+                                   id="shipment_group"
+                                   name="shipment_group"
+                                   x-model="shipmentGroup"
+                                   @input="shipmentGroup = $event.target.value.replace(/\D/g, '').slice(0, 9); $event.target.value = shipmentGroup;"
+                                   list="history-shipment-group"
+                                   :required="jenisPengiriman === 'export'"
+                                   placeholder="Contoh: 869026487"
+                                   class="field-input"
+                                   style="font-size:13px; font-weight: 700; background:white;">
+
+                            <!-- Warning jika < 9 -->
+                            <div x-cloak x-show="shipmentGroup.length > 0 && shipmentGroup.length < 9"
+                                 style="margin-top:4px; font-size:10px; color:#b45309; display:flex; align-items:center; gap:4px;">
+                                <i class="ph-bold ph-warning"></i> Kurang <span x-text="9 - shipmentGroup.length"></span> digit
+                            </div>
+                            <div x-cloak x-show="shipmentGroup.length === 9"
+                                 style="margin-top:4px; font-size:10px; color:#059e3d; display:flex; align-items:center; gap:4px; font-weight:600;">
+                                <i class="ph-bold ph-check"></i> Pas 9 digit
+                            </div>
+
+                            <datalist id="history-shipment-group">
+                                @foreach($history['shipment_group'] ?? [] as $item)
+                                    <option value="{{ $item }}">
+                                @endforeach
+                            </datalist>
+                            @if(count($history['shipment_group'] ?? []) > 0)
+                                <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;">
+                                    @foreach(($history['shipment_group'] ?? collect())->take(2) as $rec)
+                                        <button type="button" 
+                                                @click="shipmentGroup = ($el.dataset.val || '').replace(/\D/g, '').slice(0, 9)"
+                                                data-val="{{ $rec }}"
+                                                title="Klik untuk mengisi: {{ $rec }}"
+                                                style="font-size:9px; font-weight: 600; padding:2px 6px; border-radius:8px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer;"
+                                                onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff4fc'">
+                                            {{ $rec }}
+                                        </button>
+                                    @endforeach
+                                </div>
+                            @endif
+                        </div>
+
+                        <!-- Nomor Seal -->
+                        <div style="background: white; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 10px;">
+                            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 3px;">
+                                <label class="field-label" style="display:flex; align-items:center; gap:4px; margin-bottom: 0;">
+                                    <i class="ph-bold ph-lock-key" style="color:#285491; font-size:12px;"></i>Nomor Seal
+                                    <span style="font-size: 9px; font-weight: 700; color: #285491; background: #eff4fc; border: 1px solid #bfcfe8; padding: 1px 5px; border-radius: 4px;">EXPORT</span>
+                                </label>
+                                <button type="button" @click="openBarcodeScanner('nomor_seal')"
+                                        style="display:inline-flex; align-items:center; gap:3px; font-size:10px; font-weight:700; color:#285491; background:#eff4fc; border:1px solid #bfcfe8; border-radius:6px; padding:2px 7px; cursor:pointer;"
+                                        title="Scan Barcode Seal">
+                                    <i class="ph-bold ph-barcode"></i> Scan
+                                </button>
+                            </div>
+                            <input type="text" id="nomor_seal" name="nomor_seal" x-model="nomorSeal"
+                                   @input="nomorSeal = $event.target.value.toUpperCase()"
+                                   list="history-seal"
+                                   placeholder="Contoh: S000123 / Segel" class="field-input" style="font-size:12px; font-weight: 600; text-transform:uppercase;">
+                            <datalist id="history-seal">
+                                @foreach($history['nomor_seal'] ?? [] as $item)
+                                    <option value="{{ $item }}">
+                                @endforeach
+                            </datalist>
+                            @if(count($history['nomor_seal'] ?? []) > 0)
+                                <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;">
+                                    <span style="font-size:9px; color:#9ca3af; align-self:center;">Riwayat:</span>
+                                    @foreach(($history['nomor_seal'] ?? collect())->take(3) as $rec)
+                                        <button type="button" 
+                                                @click="nomorSeal = $el.dataset.val"
+                                                data-val="{{ $rec }}"
+                                                title="Klik untuk mengisi: {{ $rec }}"
+                                                style="font-size:10px; font-weight: 600; padding:2px 7px; border-radius:10px; background:#eff4fc; color:#285491; border:1px solid #d0e0f5; cursor:pointer;"
+                                                onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#93c5fd'"
+                                                onmouseout="this.style.background='#eff4fc'; this.style.borderColor='#d0e0f5'">
+                                            {{ $rec }}
+                                        </button>
+                                    @endforeach
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Info Box saat Pengiriman Lokal Dipilih -->
+                <div x-cloak x-show="jenisPengiriman === 'lokal'" x-transition
+                     style="background: #f0fdf4; border: 1.5px dashed #86efac; border-radius: 12px; padding: 10px 14px; display: flex; align-items: center; gap: 10px;">
+                    <div style="width: 28px; height: 28px; border-radius: 8px; background: #dcfce7; color: #166534; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                        <i class="ph-bold ph-info" style="font-size: 16px;"></i>
+                    </div>
+                    <p style="font-size: 11px; color: #166534; margin: 0; line-height: 1.4;">
+                        <strong>Pengiriman Lokal:</strong> Nomor Shipment Group dan Nomor Seal tidak digunakan / tidak wajib diisi.
+                    </p>
+                </div>
+
             </div>
         </div>
 

@@ -65,13 +65,17 @@
             })(),
             html5Scanner: null,
             barcodeStream: null,
-            barcodeHiResTimer: null,
-            nativeDetector: null,
             manualBarcodeInput: '',
             barcodeSuccess: '',
             barcodeProcessing: false,
+            barcodeAnalyzingFile: false,
 
-            openBarcodeScanner(title, callback, type = 'general') {
+            async openBarcodeScanner(title, callback, type = 'general') {
+                // Pastikan jika ada scanner sebelumnya yang belum tertutup, tutup secara tuntas
+                if (this.html5Scanner) {
+                    await this.closeBarcodeScanner(true);
+                }
+
                 this.barcodeTitle = title;
                 this.barcodeTargetTitle = title;
                 this.barcodeTargetType = type;
@@ -80,8 +84,9 @@
                 this.barcodeSuccess = '';
                 this.barcodeProcessing = false;
                 this.barcodeScanning = true;
-                this.$nextTick(() => {
-                    this.startBarcodeScan();
+
+                this.$nextTick(async () => {
+                    await this.startBarcodeScan();
                 });
             },
 
@@ -92,59 +97,10 @@
                 if (this.barcodeScanning) {
                     await this.closeBarcodeScanner(true);
                     this.barcodeScanning = true;
-                    this.$nextTick(() => {
-                        this.startBarcodeScan();
+                    this.$nextTick(async () => {
+                        await this.startBarcodeScan();
                     });
                 }
-            },
-
-            cleanBarcodeNumber(raw) {
-                if (!raw) return '';
-                let text = String(raw).trim();
-
-                // 1. Hapus AIM symbology identifier di awal jika ada (seperti ]C1, ]e0, ]d2, dll)
-                text = text.replace(/^\][A-Za-z0-9]{2}/, '');
-
-                // 2. Hapus tanda bintang pembungkus Code 39 (*12345678* -> 12345678)
-                text = text.replace(/^\*+/, '').replace(/\*+$/, '');
-
-                // 3. Tangani format GS1 Application Identifiers:
-                // misal (21)12345678 (Serial/Bale number) -> ambil nilainya
-                const gs1SerialMatch = text.match(/\(21\)\s*([A-Za-z0-9\-]+)/i);
-                if (gs1SerialMatch) return gs1SerialMatch[1].trim();
-
-                // misal (10)LOT12345 (Batch/Lot number)
-                const gs1LotMatch = text.match(/\(10\)\s*([A-Za-z0-9\-]+)/i);
-                if (gs1LotMatch) return gs1LotMatch[1].trim();
-
-                // Jika format GS1 tanpa tanda kurung: misal diawali '21' diikuti nomor 6-14 digit
-                if (/^21\d{6,14}$/.test(text)) {
-                    text = text.substring(2);
-                }
-
-                // 4. Jika multiline atau mengandung label teks: "BALE: 123456" / "NO. BALE: 123456"
-                const labeledMatch = text.match(/(?:BALE|NO\.?\s*BALE|NOMOR\s*BALE|BALL)[\s\.:#\-_]*([A-Za-z0-9\-]+)/i);
-                if (labeledMatch) {
-                    return labeledMatch[1].trim();
-                }
-
-                // 5. Jika mengandung baris baru, ambil baris pertama atau baris yang mengandung angka
-                if (text.includes('\n')) {
-                    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-                    const digitLine = lines.find(l => /\d/.test(l));
-                    if (digitLine) text = digitLine;
-                }
-
-                // 6. Bersihkan karakter non-standar (hanya sisakan huruf, angka, tanda hubung/dash)
-                text = text.replace(/[^A-Za-z0-9\-\s]/g, '').trim();
-
-                // 7. Jika ada deretan digit signifikan (misal 6-14 digit), prioritaskan
-                const digitsMatch = text.match(/\b([0-9]{6,14})\b/);
-                if (digitsMatch) {
-                    return digitsMatch[1];
-                }
-
-                return text;
             },
 
             async startBarcodeScan() {
@@ -159,10 +115,8 @@
                             const priorityFormats = [
                                 fmt.CODE_128 ?? 5,
                                 fmt.CODE_39 ?? 3,
-                                fmt.CODE_93 ?? 4,
                                 fmt.EAN_13 ?? 9,
                                 fmt.ITF ?? 8,
-                                fmt.UPC_A ?? 14,
                                 fmt.QR_CODE ?? 0
                             ];
 
@@ -174,16 +128,16 @@
 
                             // Konfigurasi qrbox dinamis sesuai orientasi stiker
                             const scanConfig = {
-                                fps: 20,
+                                fps: 15,
                                 qrbox: (viewfinderWidth, viewfinderHeight) => {
                                     if (isVertical) {
-                                        const w = Math.min(Math.floor(viewfinderWidth * 0.60), 200);
-                                        const h = Math.min(Math.floor(viewfinderHeight * 0.82), 340);
-                                        return { width: Math.max(w, 140), height: Math.max(h, 240) };
+                                        const w = Math.min(Math.floor(viewfinderWidth * 0.70), 240);
+                                        const h = Math.min(Math.floor(viewfinderHeight * 0.85), 360);
+                                        return { width: Math.max(w, 160), height: Math.max(h, 240) };
                                     } else {
-                                        const w = Math.min(Math.floor(viewfinderWidth * 0.92), 350);
-                                        const h = Math.min(Math.floor(viewfinderHeight * 0.48), 150);
-                                        return { width: Math.max(w, 240), height: Math.max(h, 110) };
+                                        const w = Math.min(Math.floor(viewfinderWidth * 0.90), 340);
+                                        const h = Math.min(Math.floor(viewfinderHeight * 0.50), 160);
+                                        return { width: Math.max(w, 220), height: Math.max(h, 110) };
                                     }
                                 },
                                 aspectRatio: isVertical ? 0.85 : 1.333333
@@ -197,66 +151,14 @@
                                 },
                                 () => {}
                             );
-
-                            // Akselerasi Hardware Native BarcodeDetector (Omnidirectional 360 derajat)
-                            // Sangat responsif membaca barcode batang Code 128 baik posisi horizontal maupun vertikal
-                            if (window.BarcodeDetector) {
-                                if (this.barcodeHiResTimer) clearInterval(this.barcodeHiResTimer);
-                                this.barcodeHiResTimer = setInterval(async () => {
-                                    if (!this.barcodeScanning || this.barcodeProcessing) return;
-                                    const video = document.querySelector('#bale-barcode-reader video');
-                                    if (!video || !video.videoWidth || !video.videoHeight || video.readyState < 2) return;
-
-                                    try {
-                                        if (!this.nativeDetector) {
-                                            this.nativeDetector = new BarcodeDetector({
-                                                formats: ['code_128', 'code_39', 'code_93', 'itf', 'ean_13', 'qr_code']
-                                            });
-                                        }
-                                        const codes = await this.nativeDetector.detect(video);
-                                        if (codes && codes.length > 0 && codes[0].rawValue) {
-                                            this.handleBarcodeResult(codes[0].rawValue);
-                                        }
-                                    } catch (e) {}
-                                }, 180);
-                            }
-
                             return;
                         }
                     } catch (err) {
-                        console.warn('Html5Qrcode scanner failed, fallback to native BarcodeDetector:', err);
+                        console.warn('Html5Qrcode scanner failed:', err);
                     }
                 }
 
-                // Fallback native BarcodeDetector jika Html5Qrcode gagal
-                const video = this.$refs.baleBarcodeVideo;
-                if (video && ('BarcodeDetector' in window)) {
-                    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-                        .then(stream => {
-                            this.barcodeStream = stream;
-                            video.style.display = 'block';
-                            video.srcObject = stream;
-                            video.play();
-                            const detector = new BarcodeDetector({ formats: ['code_128', 'code_39', 'code_93', 'ean_13', 'ean_8', 'itf', 'qr_code', 'data_matrix'] });
-                            const scan = () => {
-                                if (!this.barcodeScanning || this.barcodeProcessing) return;
-                                detector.detect(video).then(codes => {
-                                    if (codes.length > 0 && codes[0].rawValue) {
-                                        this.handleBarcodeResult(codes[0].rawValue);
-                                    } else {
-                                        requestAnimationFrame(scan);
-                                    }
-                                }).catch(() => requestAnimationFrame(scan));
-                            };
-                            requestAnimationFrame(scan);
-                        })
-                        .catch(() => {
-                            this.barcodeScanning = false;
-                            alert('Tidak dapat membuka kamera. Pastikan izin kamera aktif, atau gunakan barcode scanner USB/Bluetooth — klik pada kolom lalu scan.');
-                        });
-                } else {
-                    alert('Scanner kamera tidak tersedia. Anda dapat mengetik nomor barcode atau menggunakan scanner USB.');
-                }
+                alert('Scanner kamera tidak tersedia atau belum dapat diakses. Anda dapat mengetik nomor barcode secara manual atau menggunakan scanner USB/Bluetooth.');
             },
 
             async closeBarcodeScanner(isRestarting = false) {
@@ -265,22 +167,33 @@
                     this.barcodeSuccess = '';
                     this.barcodeProcessing = false;
                 }
-                if (this.barcodeHiResTimer) {
-                    clearInterval(this.barcodeHiResTimer);
-                    this.barcodeHiResTimer = null;
-                }
-                this.nativeDetector = null;
+
                 if (this.html5Scanner) {
                     try {
-                        await this.html5Scanner.stop();
+                        const state = this.html5Scanner.getState ? this.html5Scanner.getState() : null;
+                        // State 2 = SCANNING, 3 = PAUSED
+                        if (this.html5Scanner.isScanning || state === 2 || state === 3) {
+                            await this.html5Scanner.stop();
+                        }
                         this.html5Scanner.clear();
-                    } catch (e) {}
+                    } catch (e) {
+                        console.warn('Error stopping html5Scanner:', e);
+                    }
                     this.html5Scanner = null;
                 }
+
                 if (this.barcodeStream) {
-                    this.barcodeStream.getTracks().forEach(t => t.stop());
+                    try {
+                        this.barcodeStream.getTracks().forEach(t => t.stop());
+                    } catch (e) {}
                     this.barcodeStream = null;
                 }
+
+                const readerEl = document.getElementById('bale-barcode-reader');
+                if (readerEl) {
+                    readerEl.innerHTML = '';
+                }
+
                 const video = this.$refs.baleBarcodeVideo;
                 if (video) {
                     video.style.display = 'none';
@@ -306,7 +219,13 @@
 
             handleBarcodeResult(raw) {
                 if (this.barcodeProcessing) return;
-                const cleaned = this.cleanBarcodeNumber(raw);
+
+                // Tangkap nilai barcode persis seperti teks di label:
+                // 1. Trim spasi kosong
+                // 2. Hapus tanda bintang pembungkus Code 39 jika ada (*P058473786* -> P058473786)
+                // 3. Konversi ke UPPERCASE
+                // Karakter huruf & angka dipertahankan seutuhnya tanpa regex agresif yang merusak data.
+                let cleaned = String(raw || '').trim().replace(/^\*+|\*+$/g, '').toUpperCase();
                 if (!cleaned) return;
 
                 this.barcodeProcessing = true;
@@ -317,42 +236,171 @@
                     this.barcodeTargetCallback(cleaned);
                 }
 
-                setTimeout(() => {
-                    this.closeBarcodeScanner();
-                }, 480);
+                // Tampilkan konfirmasi nomor terbaca sesaat (350ms), lalu tutup scanner dengan bersih
+                setTimeout(async () => {
+                    await this.closeBarcodeScanner();
+                }, 350);
             },
 
             submitManualBarcode() {
                 if (this.manualBarcodeInput.trim()) {
-                    const cleaned = this.cleanBarcodeNumber(this.manualBarcodeInput);
-                    this.handleBarcodeResult(cleaned || this.manualBarcodeInput.trim());
+                    this.handleBarcodeResult(this.manualBarcodeInput.trim());
                 }
             },
 
             async scanBarcodeFromFile(event) {
                 const file = event.target.files?.[0];
                 if (!file) return;
+
+                this.barcodeAnalyzingFile = true;
+
                 try {
-                    if (window.BarcodeDetector) {
+                    // 1. Hentikan kamera yang sedang aktif di bale-barcode-reader agar tidak bentrok
+                    if (this.html5Scanner) {
                         try {
-                            const imgBmp = await createImageBitmap(file);
-                            const detector = new BarcodeDetector({ formats: ['code_128', 'code_39', 'code_93', 'itf', 'ean_13', 'qr_code'] });
-                            const codes = await detector.detect(imgBmp);
+                            const state = this.html5Scanner.getState ? this.html5Scanner.getState() : null;
+                            if (this.html5Scanner.isScanning || state === 2 || state === 3) {
+                                await this.html5Scanner.stop();
+                            }
+                            this.html5Scanner.clear();
+                        } catch (e) {}
+                        this.html5Scanner = null;
+                    }
+
+                    // 2. Deteksi cepat menggunakan BarcodeDetector browser jika tersedia
+                    if ('BarcodeDetector' in window) {
+                        try {
+                            const imgBitmap = await createImageBitmap(file);
+                            const detector = new BarcodeDetector({ formats: ['code_128', 'code_39', 'ean_13', 'itf', 'qr_code'] });
+                            const codes = await detector.detect(imgBitmap);
                             if (codes && codes.length > 0 && codes[0].rawValue) {
+                                this.barcodeAnalyzingFile = false;
                                 this.handleBarcodeResult(codes[0].rawValue);
                                 return;
                             }
                         } catch (bdErr) {}
                     }
+
+                    // 3. Scan menggunakan Html5Qrcode dengan rotasi cerdas dan penyesuaian resolusi
                     const fmt = window.Html5QrcodeSupportedFormats || (window.__Html5QrcodeLibrary__ && window.__Html5QrcodeLibrary__.Html5QrcodeSupportedFormats) || {};
                     const priorityFormats = [fmt.CODE_128 ?? 5, fmt.CODE_39 ?? 3, fmt.EAN_13 ?? 9, fmt.ITF ?? 8, fmt.QR_CODE ?? 0];
-                    let scanner = new Html5Qrcode('bale-barcode-reader', { formatsToSupport: priorityFormats, verbose: false });
-                    const result = await scanner.scanFile(file, true);
-                    if (result) {
-                        this.handleBarcodeResult(result);
+                    
+                    const readerEl = document.getElementById('bale-barcode-reader');
+                    if (readerEl) readerEl.innerHTML = '';
+
+                    let scanner = new Html5Qrcode('bale-barcode-reader', {
+                        formatsToSupport: priorityFormats,
+                        experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+                        verbose: false
+                    });
+
+                    // Coba file asli terlebih dahulu
+                    try {
+                        const directRes = await scanner.scanFile(file, false);
+                        if (directRes) {
+                            this.barcodeAnalyzingFile = false;
+                            this.handleBarcodeResult(directRes);
+                            return;
+                        }
+                    } catch (e0) {}
+
+                    // Helper rotasi & scaling canvas (max 1280px untuk pembacaan barcode 1D yang tajam)
+                    const getRotatedBlob = (img, angle, contrast = false) => {
+                        return new Promise((resolve, reject) => {
+                            const canvas = document.createElement('canvas');
+                            const ctx = canvas.getContext('2d');
+                            const maxDim = 1280;
+                            let w = img.width;
+                            let h = img.height;
+                            if (w > maxDim || h > maxDim) {
+                                if (w > h) {
+                                    h = Math.round((h * maxDim) / w);
+                                    w = maxDim;
+                                } else {
+                                    w = Math.round((w * maxDim) / h);
+                                    h = maxDim;
+                                }
+                            }
+                            if (angle === 90 || angle === 270) {
+                                canvas.width = h;
+                                canvas.height = w;
+                            } else {
+                                canvas.width = w;
+                                canvas.height = h;
+                            }
+                            if (contrast) {
+                                ctx.filter = 'contrast(1.4) grayscale(1)';
+                            }
+                            ctx.translate(canvas.width / 2, canvas.height / 2);
+                            ctx.rotate((angle * Math.PI) / 180);
+                            ctx.drawImage(img, -w / 2, -h / 2, w, h);
+                            canvas.toBlob((blob) => {
+                                if (blob) resolve(new File([blob], 'rot.jpg', { type: 'image/jpeg' }));
+                                else reject(new Error('Canvas export failed'));
+                            }, 'image/jpeg', 0.92);
+                        });
+                    };
+
+                    const loadedImg = await new Promise((res, rej) => {
+                        const im = new Image();
+                        im.onload = () => res(im);
+                        im.onerror = rej;
+                        im.src = URL.createObjectURL(file);
+                    });
+
+                    // Coba variasi sudut barcode batang vertikal: 90 derajat, 270 derajat, dan kontras
+                    const scanVariants = [
+                        { angle: 90, contrast: false },
+                        { angle: 270, contrast: false },
+                        { angle: 90, contrast: true },
+                        { angle: 270, contrast: true },
+                        { angle: 0, contrast: true }
+                    ];
+
+                    for (const v of scanVariants) {
+                        try {
+                            const blob = await getRotatedBlob(loadedImg, v.angle, v.contrast);
+                            const res = await scanner.scanFile(blob, false);
+                            if (res) {
+                                this.barcodeAnalyzingFile = false;
+                                this.handleBarcodeResult(res);
+                                return;
+                            }
+                        } catch (errVariant) {}
+                    }
+
+                    // 4. Server-side OCR & Barcode Fallback
+                    try {
+                        const formData = new FormData();
+                        formData.append('image', file);
+                        formData.append('_token', '{{ csrf_token() }}');
+                        const resp = await fetch('{{ route('field-app.scan-bale-barcode', $shipment->id) }}', {
+                            method: 'POST',
+                            headers: { 'Accept': 'application/json' },
+                            body: formData
+                        });
+                        if (resp.ok) {
+                            const data = await resp.json();
+                            if (data && data.success && data.barcode) {
+                                this.barcodeAnalyzingFile = false;
+                                this.handleBarcodeResult(data.barcode);
+                                return;
+                            }
+                        }
+                    } catch (serverErr) {}
+
+                    this.barcodeAnalyzingFile = false;
+                    alert('Barcode tidak terdeteksi pada foto. Pastikan posisi barcode tajam, terang, dan jelas.');
+
+                    if (this.barcodeScanning && !this.barcodeSuccess) {
+                        await this.startBarcodeScan();
                     }
                 } catch (err) {
-                    alert('Barcode tidak terdeteksi pada foto. Pastikan posisi barcode tajam dan jelas.');
+                    this.barcodeAnalyzingFile = false;
+                    alert('Gagal memproses file foto barcode.');
+                    if (this.barcodeScanning && !this.barcodeSuccess) {
+                        await this.startBarcodeScan();
+                    }
                 } finally {
                     event.target.value = '';
                 }
@@ -1202,6 +1250,14 @@
                             <span x-show="barcodeOrientation === 'vertical'">Arahkan stiker barcode vertikal bale ke dalam kotak</span>
                             <span x-show="barcodeOrientation === 'horizontal'">Arahkan stiker barcode horizontal ke dalam kotak</span>
                         </p>
+                    </div>
+
+                    <!-- Analyzing File Loading Overlay -->
+                    <div x-show="barcodeAnalyzingFile" x-cloak
+                         class="absolute inset-0 z-30 bg-slate-950/90 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center animate-fade-in">
+                        <div class="w-12 h-12 border-4 border-amber-400 border-t-transparent rounded-full animate-spin mb-3"></div>
+                        <p class="text-xs text-amber-300 font-bold uppercase tracking-wider">Menganalisis Foto Barcode...</p>
+                        <p class="text-[10px] text-white/70 mt-1">Membaca barcode batang & orientasi stiker</p>
                     </div>
 
                     <!-- Success Feedback Overlay -->

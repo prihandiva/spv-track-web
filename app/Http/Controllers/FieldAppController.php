@@ -95,7 +95,7 @@ class FieldAppController extends Controller
             'jenis_produk' => 'required|string|max:100',
             'jenis_pengiriman' => 'required|in:export,lokal',
             'packing_list_no' => 'required|numeric|digits:9',
-            'shipment_group' => 'required|numeric|digits:9',
+            'shipment_group' => $request->input('jenis_pengiriman') === 'lokal' ? 'nullable|numeric|digits:9' : 'required|numeric|digits:9',
             'shipment_no' => 'required|numeric|digits:9',
             'agen_forwarding' => 'nullable|string',
             'tujuan_pengiriman' => 'nullable|string',
@@ -147,6 +147,14 @@ class FieldAppController extends Controller
         $validated['nomor_seal'] = FormatHelper::toUpper($validated['nomor_seal'] ?? null);
         $validated['agen_forwarding'] = FormatHelper::toUpper($validated['agen_forwarding'] ?? null);
         $validated['tujuan_pengiriman'] = FormatHelper::toUpper($validated['tujuan_pengiriman'] ?? null);
+
+        // Kasus khusus pengiriman lokal: Shipment Group & Nomor Seal hanya ada untuk Export
+        if ($validated['jenis_pengiriman'] === 'lokal') {
+            $validated['nomor_seal'] = null;
+            if (empty($validated['shipment_group'])) {
+                $validated['shipment_group'] = null;
+            }
+        }
 
         // Simpan waktu mulai staging (waktu kedatangan container) saat draft dibuat
         $rawWaktuMulai = $request->input('waktu_kedatangan_container') ?: $request->input('waktu_mulai_staging');
@@ -291,7 +299,7 @@ class FieldAppController extends Controller
             'jenis_produk' => 'required|string|max:100',
             'jenis_pengiriman' => 'required|in:export,lokal',
             'packing_list_no' => 'required|numeric|digits:9',
-            'shipment_group' => 'required|numeric|digits:9',
+            'shipment_group' => $request->input('jenis_pengiriman') === 'lokal' ? 'nullable|numeric|digits:9' : 'required|numeric|digits:9',
             'shipment_no' => 'required|numeric|digits:9',
             'agen_forwarding' => 'nullable|string',
             'tujuan_pengiriman' => 'nullable|string',
@@ -348,6 +356,14 @@ class FieldAppController extends Controller
         $validated['nomor_seal'] = FormatHelper::toUpper($validated['nomor_seal'] ?? null);
         $validated['agen_forwarding'] = FormatHelper::toUpper($validated['agen_forwarding'] ?? null);
         $validated['tujuan_pengiriman'] = FormatHelper::toUpper($validated['tujuan_pengiriman'] ?? null);
+
+        // Kasus khusus pengiriman lokal: Shipment Group & Nomor Seal hanya ada untuk Export
+        if ($validated['jenis_pengiriman'] === 'lokal') {
+            $validated['nomor_seal'] = null;
+            if (empty($validated['shipment_group'])) {
+                $validated['shipment_group'] = null;
+            }
+        }
 
         // Deteksi audit diff perbedaan perubahan nilai field
         $fieldLabels = [

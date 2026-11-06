@@ -15,5 +15,8 @@
     },
     "optionalDependencies": {
         "@laravel/multiplex": "^0.4.1"
+    },
+    "dependencies": {
+        "@zxing/library": "^0.21.3"
     }
 }
