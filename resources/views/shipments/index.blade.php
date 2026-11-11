@@ -193,7 +193,7 @@
                                 <a href="{{ route('field-app.timeline', $staging->id) }}" target="_blank"
                                    class="flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold text-white bg-spv-blue hover:bg-blue-800 shadow-sm transition-all text-center">
                                     <i class="ph-bold ph-camera text-sm"></i>
-                                    <span>Ambil Foto</span>
+                                    <span>Unggah Evidence</span>
                                 </a>
                                 <a href="{{ route('field-app.edit', $staging->id) }}"
                                    class="w-8 h-8 rounded-xl border border-gray-200 text-gray-600 hover:text-spv-blue hover:bg-blue-50 transition-colors flex items-center justify-center shrink-0"
@@ -332,7 +332,7 @@
                                         </a>
                                     @else
                                         <a href="{{ route('field-app.timeline', $shipment->id) }}"
-                                           title="Buka Loading Evidence Foto SOP"
+                                           title="Unggah Evidence (27 Titik SOP)"
                                            target="_blank"
                                            class="p-1 rounded-lg transition-all text-gray-400 hover:text-spv-green hover:bg-emerald-50">
                                             <i class="ph-bold ph-camera text-sm"></i>
@@ -464,7 +464,7 @@
                             </a>
                         @else
                             <a href="{{ route('field-app.timeline', $shipment->id) }}"
-                               title="Foto SOP"
+                               title="Unggah Evidence"
                                target="_blank"
                                class="w-8 h-8 rounded-xl border border-emerald-200 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 transition-colors flex items-center justify-center shrink-0">
                                 <i class="ph-bold ph-camera text-sm"></i>

@@ -396,7 +396,7 @@
         </div>
     </div>
 
-    <!-- Card Container untuk Daftar Loading Evidence (27 Titik SOP) -->
+    <!-- Card Container untuk Area Unggah Evidence (27 Titik SOP) -->
     <div class="section-card" style="background: white; border-radius: 16px; border: 1px solid #e8edf3; box-shadow: 0 1px 4px rgba(40,84,145,0.05); overflow: hidden;">
         <div class="section-card-header" style="background: linear-gradient(90deg, rgba(40,84,145,0.06), transparent); padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #f0f4f9;">
             <div style="display: flex; align-items: center; gap: 8px;">
@@ -404,8 +404,8 @@
                     <i class="ph-bold ph-camera"></i>
                 </div>
                 <div>
-                    <h3 style="font-size: 12px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.04em; margin: 0;">Daftar Loading Evidence</h3>
-                    <p style="font-size: 10px; color: #64748b; margin: 1px 0 0;">Dokumentasi foto &amp; video sesuai urutan 27 titik SOP</p>
+                    <h3 style="font-size: 12px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; letter-spacing: 0.04em; margin: 0;">Unggah Evidence</h3>
+                    <p style="font-size: 10px; color: #64748b; margin: 1px 0 0;">Posting bukti foto &amp; video staging sesuai urutan 27 titik SOP</p>
                 </div>
             </div>
             <span style="font-size: 10px; font-weight: 700; color: #285491; background: #eff4fc; border: 1px solid #bfcfe8; padding: 2px 8px; border-radius: 20px;">
@@ -686,7 +686,7 @@
         </div>
 
         <!-- ═══════════════════════════════════════════════════════════ -->
-        <!-- WAKTU SELESAI STAGING (AKHIR FORM TIMELINE)                -->
+        <!-- WAKTU SELESAI STAGING (AKHIR FORM UNGGAH EVIDENCE)         -->
         <!-- ═══════════════════════════════════════════════════════════ -->
         <div class="section-card">
             <div class="section-card-header" style="background: linear-gradient(90deg, rgba(40,84,145,0.08), transparent);">

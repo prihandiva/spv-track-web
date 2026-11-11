@@ -27,7 +27,7 @@
             </a>
             <a href="{{ route('field-app.timeline', $shipment->id) }}"
                class="px-4 py-2 text-xs font-bold text-spv-blue hover:text-blue-800 bg-blue-50 border border-blue-200 rounded-xl hover:bg-blue-100 transition-all shadow-xs">
-                Timeline Evidence
+                Unggah Evidence
             </a>
         </div>
     </div>
@@ -70,6 +70,75 @@
             barcodeProcessing: false,
             barcodeAnalyzingFile: false,
 
+            // Hover keterbacaan & penahanan format wajib (P + 9 angka)
+            barcodeReadStatus: 'idle', // 'idle' | 'invalid' | 'verifying' | 'valid'
+            barcodeLastRead: '',
+            barcodeReadHint: '',
+            barcodeCandidateCode: '',
+            barcodeCandidateCount: 0,
+            barcodeCandidateTimer: null,
+            barcodeInvalidLockUntil: 0,
+            barcodeReadCount: 0,
+            barcodeManualWarning: '',
+            barcodeManualPending: '',
+
+            // Kontrol pencahayaan (senter) & zoom kamera jika didukung perangkat
+            barcodeTorchAvailable: false,
+            barcodeTorchOn: false,
+            barcodeZoomAvailable: false,
+            barcodeZoomLevel: 1,
+            barcodeZoomMin: 1,
+            barcodeZoomMax: 3,
+
+            cleanBarcodeText(raw) {
+                return String(raw || '').trim().replace(/^\*+|\*+$/g, '').toUpperCase();
+            },
+
+            isValidBaleFormat(code) {
+                return /^P\d{9}$/.test(String(code || ''));
+            },
+
+            describeBaleFormatIssue(code) {
+                if (!code) {
+                    return 'Menunggu kamera membaca stiker barcode...';
+                }
+                if (!code.startsWith('P')) {
+                    if (/^\d+$/.test(code)) {
+                        return `Terbaca ${code.length} angka tanpa awalan huruf "P" (harus P + 9 angka).`;
+                    }
+                    return `Harus diawali huruf "P" diikuti 9 angka (terbaca "${code}").`;
+                }
+                const body = code.slice(1);
+                if (!/^\d*$/.test(body)) {
+                    return 'Setelah huruf "P" hanya boleh berisi angka (terbaca karakter non-angka).';
+                }
+                if (body.length < 9) {
+                    return `Baru terbaca ${body.length} dari 9 angka (kurang ${9 - body.length} angka lagi).`;
+                }
+                if (body.length > 9) {
+                    return `Terbaca ${body.length} angka setelah "P" (seharusnya tepat 9 angka).`;
+                }
+                return 'Format belum sesuai standar P + 9 angka.';
+            },
+
+            resetBarcodeReadState() {
+                if (this.barcodeCandidateTimer) {
+                    clearTimeout(this.barcodeCandidateTimer);
+                    this.barcodeCandidateTimer = null;
+                }
+                this.barcodeSuccess = '';
+                this.barcodeProcessing = false;
+                this.barcodeReadStatus = 'idle';
+                this.barcodeLastRead = '';
+                this.barcodeReadHint = '';
+                this.barcodeCandidateCode = '';
+                this.barcodeCandidateCount = 0;
+                this.barcodeInvalidLockUntil = 0;
+                this.barcodeReadCount = 0;
+                this.barcodeManualWarning = '';
+                this.barcodeManualPending = '';
+            },
+
             async openBarcodeScanner(title, callback, type = 'general') {
                 // Pastikan jika ada scanner sebelumnya yang belum tertutup, tutup secara tuntas
                 if (this.html5Scanner) {
@@ -81,8 +150,12 @@
                 this.barcodeTargetType = type;
                 this.barcodeTargetCallback = callback;
                 this.manualBarcodeInput = '';
-                this.barcodeSuccess = '';
-                this.barcodeProcessing = false;
+                this.barcodeAnalyzingFile = false;
+                this.barcodeTorchAvailable = false;
+                this.barcodeTorchOn = false;
+                this.barcodeZoomAvailable = false;
+                this.barcodeZoomLevel = 1;
+                this.resetBarcodeReadState();
                 this.barcodeScanning = true;
 
                 this.$nextTick(async () => {
@@ -96,6 +169,7 @@
                 try { localStorage.setItem('spv_bale_barcode_orientation', mode); } catch (e) {}
                 if (this.barcodeScanning) {
                     await this.closeBarcodeScanner(true);
+                    this.resetBarcodeReadState();
                     this.barcodeScanning = true;
                     this.$nextTick(async () => {
                         await this.startBarcodeScan();
@@ -105,6 +179,10 @@
 
             async startBarcodeScan() {
                 const isVertical = this.barcodeOrientation === 'vertical';
+                this.barcodeTorchAvailable = false;
+                this.barcodeTorchOn = false;
+                this.barcodeZoomAvailable = false;
+                this.barcodeZoomLevel = 1;
 
                 if (typeof Html5Qrcode !== 'undefined') {
                     try {
@@ -143,14 +221,52 @@
                                 aspectRatio: isVertical ? 0.85 : 1.333333
                             };
 
-                            await this.html5Scanner.start(
-                                { facingMode: 'environment' },
-                                scanConfig,
-                                (decodedText) => {
-                                    this.handleBarcodeResult(decodedText);
-                                },
-                                () => {}
-                            );
+                            const onDecoded = (decodedText) => {
+                                this.handleBarcodeResult(decodedText);
+                            };
+
+                            try {
+                                await this.html5Scanner.start(
+                                    { facingMode: 'environment' },
+                                    {
+                                        ...scanConfig,
+                                        videoConstraints: {
+                                            facingMode: 'environment',
+                                            width: { ideal: 1280 },
+                                            height: { ideal: 720 }
+                                        }
+                                    },
+                                    onDecoded,
+                                    () => {}
+                                );
+                            } catch (hdErr) {
+                                await this.html5Scanner.start(
+                                    { facingMode: 'environment' },
+                                    scanConfig,
+                                    onDecoded,
+                                    () => {}
+                                );
+                            }
+
+                            // Deteksi senter (torch), zoom, & continuous autofocus untuk kondisi minim cahaya
+                            try {
+                                const track = this.html5Scanner.getRunningTrack ? this.html5Scanner.getRunningTrack() : null;
+                                if (track && track.getCapabilities) {
+                                    const caps = track.getCapabilities();
+                                    this.barcodeTorchAvailable = !!caps.torch;
+                                    if (caps.zoom) {
+                                        this.barcodeZoomAvailable = true;
+                                        this.barcodeZoomMin = caps.zoom.min || 1;
+                                        this.barcodeZoomMax = caps.zoom.max || 3;
+                                    }
+                                    if (caps.focusMode && Array.isArray(caps.focusMode) && caps.focusMode.includes('continuous') && track.applyConstraints) {
+                                        track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(() => {});
+                                    }
+                                }
+                            } catch (capErr) {
+                                this.barcodeTorchAvailable = false;
+                                this.barcodeZoomAvailable = false;
+                            }
                             return;
                         }
                     } catch (err) {
@@ -158,18 +274,57 @@
                     }
                 }
 
+                this.barcodeReadStatus = 'invalid';
+                this.barcodeReadHint = 'Kamera tidak tersedia. Gunakan unggah foto barcode atau ketik manual di bawah.';
                 alert('Scanner kamera tidak tersedia atau belum dapat diakses. Anda dapat mengetik nomor barcode secara manual atau menggunakan scanner USB/Bluetooth.');
+            },
+
+            async toggleBarcodeTorch() {
+                if (!this.barcodeTorchAvailable || !this.html5Scanner) return;
+                const nextState = !this.barcodeTorchOn;
+                try {
+                    const track = this.html5Scanner.getRunningTrack ? this.html5Scanner.getRunningTrack() : null;
+                    if (track && track.applyConstraints) {
+                        await track.applyConstraints({ advanced: [{ torch: nextState }] });
+                        this.barcodeTorchOn = nextState;
+                    }
+                } catch (e) {
+                    console.warn('Torch toggle failed:', e);
+                }
+            },
+
+            async toggleBarcodeZoom() {
+                if (!this.barcodeZoomAvailable || !this.html5Scanner) return;
+                try {
+                    const track = this.html5Scanner.getRunningTrack ? this.html5Scanner.getRunningTrack() : null;
+                    if (track && track.applyConstraints) {
+                        const minZ = this.barcodeZoomMin || 1;
+                        const maxZ = this.barcodeZoomMax || 3;
+                        const zoomedIn = Math.min(Math.max(2, minZ), maxZ);
+                        const targetZoom = this.barcodeZoomLevel <= minZ + 0.1 ? zoomedIn : minZ;
+                        await track.applyConstraints({ advanced: [{ zoom: targetZoom }] });
+                        this.barcodeZoomLevel = Number(targetZoom.toFixed(1));
+                    }
+                } catch (e) {
+                    console.warn('Zoom toggle failed:', e);
+                }
             },
 
             async closeBarcodeScanner(isRestarting = false) {
                 if (!isRestarting) {
                     this.barcodeScanning = false;
-                    this.barcodeSuccess = '';
-                    this.barcodeProcessing = false;
+                    this.barcodeAnalyzingFile = false;
+                    this.resetBarcodeReadState();
                 }
 
                 if (this.html5Scanner) {
                     try {
+                        if (this.barcodeTorchOn && this.html5Scanner.getRunningTrack) {
+                            const track = this.html5Scanner.getRunningTrack();
+                            if (track && track.applyConstraints) {
+                                await track.applyConstraints({ advanced: [{ torch: false }] }).catch(() => {});
+                            }
+                        }
                         const state = this.html5Scanner.getState ? this.html5Scanner.getState() : null;
                         // State 2 = SCANNING, 3 = PAUSED
                         if (this.html5Scanner.isScanning || state === 2 || state === 3) {
@@ -181,6 +336,11 @@
                     }
                     this.html5Scanner = null;
                 }
+
+                this.barcodeTorchAvailable = false;
+                this.barcodeTorchOn = false;
+                this.barcodeZoomAvailable = false;
+                this.barcodeZoomLevel = 1;
 
                 if (this.barcodeStream) {
                     try {
@@ -217,35 +377,145 @@
                 } catch (e) {}
             },
 
-            handleBarcodeResult(raw) {
-                if (this.barcodeProcessing) return;
+            lockValidBarcode(code) {
+                if (this.barcodeCandidateTimer) {
+                    clearTimeout(this.barcodeCandidateTimer);
+                    this.barcodeCandidateTimer = null;
+                }
+                this.barcodeReadStatus = 'valid';
+                this.barcodeProcessing = true;
+                this.barcodeSuccess = code;
+                this.barcodeLastRead = code;
+                this.barcodeReadHint = 'Format valid (P + 9 angka) terverifikasi. Periksa kecocokan dengan stiker lalu klik Gunakan.';
+                this.playBeep();
+            },
+
+            handleBarcodeResult(raw, options = {}) {
+                const { fromFile = false } = options;
+                if (!this.barcodeScanning || this.barcodeReadStatus === 'valid') return;
 
                 // Tangkap nilai barcode persis seperti teks di label:
                 // 1. Trim spasi kosong
                 // 2. Hapus tanda bintang pembungkus Code 39 jika ada (*P058473786* -> P058473786)
                 // 3. Konversi ke UPPERCASE
-                // Karakter huruf & angka dipertahankan seutuhnya tanpa regex agresif yang merusak data.
-                let cleaned = String(raw || '').trim().replace(/^\*+|\*+$/g, '').toUpperCase();
+                const cleaned = this.cleanBarcodeText(raw);
                 if (!cleaned) return;
 
-                this.barcodeProcessing = true;
-                this.barcodeSuccess = cleaned;
-                this.playBeep();
+                this.barcodeReadCount++;
+                this.barcodeManualWarning = '';
+                this.barcodeManualPending = '';
 
-                if (typeof this.barcodeTargetCallback === 'function') {
-                    this.barcodeTargetCallback(cleaned);
+                if (this.isValidBaleFormat(cleaned)) {
+                    if (fromFile) {
+                        this.lockValidBarcode(cleaned);
+                        return;
+                    }
+
+                    // Verifikasi kestabilan bacaan minimal 2 frame konsisten agar salah baca 1 frame tertolak
+                    if (this.barcodeCandidateCode === cleaned) {
+                        this.barcodeCandidateCount++;
+                    } else {
+                        this.barcodeCandidateCode = cleaned;
+                        this.barcodeCandidateCount = 1;
+                    }
+
+                    if (this.barcodeCandidateTimer) {
+                        clearTimeout(this.barcodeCandidateTimer);
+                    }
+                    this.barcodeCandidateTimer = setTimeout(() => {
+                        this.barcodeCandidateCode = '';
+                        this.barcodeCandidateCount = 0;
+                    }, 3000);
+
+                    this.barcodeInvalidLockUntil = Date.now() + 700;
+
+                    if (this.barcodeCandidateCount >= 2) {
+                        this.lockValidBarcode(cleaned);
+                    } else {
+                        this.barcodeReadStatus = 'verifying';
+                        this.barcodeLastRead = cleaned;
+                        this.barcodeReadHint = 'Format P + 9 angka terbaca, tahan sebentar untuk verifikasi ulang (1/2)...';
+                    }
+                    return;
                 }
 
-                // Tampilkan konfirmasi nomor terbaca sesaat (350ms), lalu tutup scanner dengan bersih
-                setTimeout(async () => {
-                    await this.closeBarcodeScanner();
-                }, 350);
+                // Jika hasil baca BELUM sesuai format P + 9 angka:
+                // Tahan pop up tetap terbuka, tampilkan hasil baca di hover keterbacaan, dan lanjutkan scan.
+                if (!fromFile && this.barcodeReadStatus === 'verifying' && Date.now() < this.barcodeInvalidLockUntil) {
+                    return;
+                }
+
+                if (this.barcodeCandidateTimer) {
+                    clearTimeout(this.barcodeCandidateTimer);
+                    this.barcodeCandidateTimer = null;
+                }
+                this.barcodeCandidateCode = '';
+                this.barcodeCandidateCount = 0;
+                this.barcodeReadStatus = 'invalid';
+                this.barcodeLastRead = cleaned;
+                this.barcodeReadHint = (fromFile ? 'Dari foto: ' : '') + this.describeBaleFormatIssue(cleaned);
+            },
+
+            confirmBarcodeResult(explicitCode = null) {
+                const val = this.cleanBarcodeText(explicitCode || this.barcodeSuccess || this.barcodeLastRead);
+                if (!val || !this.isValidBaleFormat(val)) return;
+
+                if (typeof this.barcodeTargetCallback === 'function') {
+                    this.barcodeTargetCallback(val);
+                }
+                this.closeBarcodeScanner();
+            },
+
+            editScannedBarcodeInManual() {
+                const val = this.cleanBarcodeText(this.barcodeSuccess || this.barcodeLastRead);
+                if (!val) return;
+                this.manualBarcodeInput = val;
+                this.resetBarcodeScanResult();
+                this.$nextTick(() => {
+                    if (this.$refs.manualBarcodeField) {
+                        this.$refs.manualBarcodeField.focus();
+                    }
+                });
+            },
+
+            async resetBarcodeScanResult() {
+                this.resetBarcodeReadState();
+                if (this.barcodeScanning && !this.html5Scanner) {
+                    await this.startBarcodeScan();
+                }
             },
 
             submitManualBarcode() {
-                if (this.manualBarcodeInput.trim()) {
-                    this.handleBarcodeResult(this.manualBarcodeInput.trim());
+                const cleaned = this.cleanBarcodeText(this.manualBarcodeInput);
+                if (!cleaned) return;
+                this.manualBarcodeInput = cleaned;
+
+                if (this.isValidBaleFormat(cleaned)) {
+                    this.barcodeManualWarning = '';
+                    this.barcodeManualPending = '';
+                    this.playBeep();
+                    if (typeof this.barcodeTargetCallback === 'function') {
+                        this.barcodeTargetCallback(cleaned);
+                    }
+                    this.closeBarcodeScanner();
+                    return;
                 }
+
+                this.barcodeManualPending = cleaned;
+                this.barcodeManualWarning = this.describeBaleFormatIssue(cleaned);
+                this.barcodeReadStatus = 'invalid';
+                this.barcodeLastRead = cleaned;
+                this.barcodeReadHint = this.barcodeManualWarning;
+            },
+
+            forceApplyManualBarcode() {
+                const val = this.cleanBarcodeText(this.barcodeManualPending || this.manualBarcodeInput);
+                if (!val) return;
+                this.playBeep();
+                if (typeof this.barcodeTargetCallback === 'function') {
+                    this.barcodeTargetCallback(val);
+                }
+                this.closeBarcodeScanner();
             },
 
             async scanBarcodeFromFile(event) {
@@ -253,6 +523,8 @@
                 if (!file) return;
 
                 this.barcodeAnalyzingFile = true;
+                this.resetBarcodeReadState();
+                let fallbackInvalidCandidate = '';
 
                 try {
                     // 1. Hentikan kamera yang sedang aktif di bale-barcode-reader agar tidak bentrok
@@ -273,10 +545,16 @@
                             const imgBitmap = await createImageBitmap(file);
                             const detector = new BarcodeDetector({ formats: ['code_128', 'code_39', 'ean_13', 'itf', 'qr_code'] });
                             const codes = await detector.detect(imgBitmap);
-                            if (codes && codes.length > 0 && codes[0].rawValue) {
-                                this.barcodeAnalyzingFile = false;
-                                this.handleBarcodeResult(codes[0].rawValue);
-                                return;
+                            if (codes && codes.length > 0) {
+                                const validMatch = codes.find(c => c.rawValue && this.isValidBaleFormat(this.cleanBarcodeText(c.rawValue)));
+                                if (validMatch) {
+                                    this.barcodeAnalyzingFile = false;
+                                    this.handleBarcodeResult(validMatch.rawValue, { fromFile: true });
+                                    return;
+                                }
+                                if (!fallbackInvalidCandidate && codes[0].rawValue) {
+                                    fallbackInvalidCandidate = codes[0].rawValue;
+                                }
                             }
                         } catch (bdErr) {}
                     }
@@ -298,9 +576,12 @@
                     try {
                         const directRes = await scanner.scanFile(file, false);
                         if (directRes) {
-                            this.barcodeAnalyzingFile = false;
-                            this.handleBarcodeResult(directRes);
-                            return;
+                            if (this.isValidBaleFormat(this.cleanBarcodeText(directRes))) {
+                                this.barcodeAnalyzingFile = false;
+                                this.handleBarcodeResult(directRes, { fromFile: true });
+                                return;
+                            }
+                            if (!fallbackInvalidCandidate) fallbackInvalidCandidate = directRes;
                         }
                     } catch (e0) {}
 
@@ -362,9 +643,12 @@
                             const blob = await getRotatedBlob(loadedImg, v.angle, v.contrast);
                             const res = await scanner.scanFile(blob, false);
                             if (res) {
-                                this.barcodeAnalyzingFile = false;
-                                this.handleBarcodeResult(res);
-                                return;
+                                if (this.isValidBaleFormat(this.cleanBarcodeText(res))) {
+                                    this.barcodeAnalyzingFile = false;
+                                    this.handleBarcodeResult(res, { fromFile: true });
+                                    return;
+                                }
+                                if (!fallbackInvalidCandidate) fallbackInvalidCandidate = res;
                             }
                         } catch (errVariant) {}
                     }
@@ -382,23 +666,35 @@
                         if (resp.ok) {
                             const data = await resp.json();
                             if (data && data.success && data.barcode) {
-                                this.barcodeAnalyzingFile = false;
-                                this.handleBarcodeResult(data.barcode);
-                                return;
+                                if (this.isValidBaleFormat(this.cleanBarcodeText(data.barcode))) {
+                                    this.barcodeAnalyzingFile = false;
+                                    this.handleBarcodeResult(data.barcode, { fromFile: true });
+                                    return;
+                                }
+                                if (!fallbackInvalidCandidate) fallbackInvalidCandidate = data.barcode;
                             }
                         }
                     } catch (serverErr) {}
 
                     this.barcodeAnalyzingFile = false;
-                    alert('Barcode tidak terdeteksi pada foto. Pastikan posisi barcode tajam, terang, dan jelas.');
 
-                    if (this.barcodeScanning && !this.barcodeSuccess) {
+                    if (fallbackInvalidCandidate) {
+                        this.handleBarcodeResult(fallbackInvalidCandidate, { fromFile: true });
+                    } else {
+                        this.barcodeReadStatus = 'invalid';
+                        this.barcodeLastRead = '';
+                        this.barcodeReadHint = 'Barcode pada foto tidak terdeteksi. Pastikan posisi stiker tajam, terang, dan berformat P + 9 angka.';
+                    }
+
+                    if (this.barcodeScanning && this.barcodeReadStatus !== 'valid') {
                         await this.startBarcodeScan();
                     }
                 } catch (err) {
                     this.barcodeAnalyzingFile = false;
-                    alert('Gagal memproses file foto barcode.');
-                    if (this.barcodeScanning && !this.barcodeSuccess) {
+                    this.barcodeReadStatus = 'invalid';
+                    this.barcodeLastRead = '';
+                    this.barcodeReadHint = 'Gagal memproses file foto barcode. Coba ulangi atau gunakan kamera langsung.';
+                    if (this.barcodeScanning && this.barcodeReadStatus !== 'valid') {
                         await this.startBarcodeScan();
                     }
                 } finally {
@@ -531,7 +827,7 @@
                     </div>
                     <div>
                         <p class="font-bold text-gray-800">Waktu Pelaksanaan (Jam Start &amp; Finish)</p>
-                        <p class="text-[11px] text-gray-500">Otomatis diambil dari <strong>Waktu Awal &amp; Akhir Staging</strong> yang diisi pada card sebelum submit di halaman Timeline. Tidak perlu diisi berulang di sini.</p>
+                        <p class="text-[11px] text-gray-500">Otomatis diambil dari <strong>Waktu Awal &amp; Akhir Staging</strong> yang diisi pada card sebelum submit di halaman Unggah Evidence. Tidak perlu diisi berulang di sini.</p>
                     </div>
                 </div>
                 <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white text-emerald-700 border border-emerald-200 shrink-0">
@@ -1166,44 +1462,59 @@
                 <button type="submit"
                         class="w-full sm:w-auto flex items-center justify-center gap-1.5 px-6 py-2.5 rounded-xl bg-spv-blue hover:bg-blue-800 text-white text-xs font-bold transition-all shadow-md shadow-blue-900/20">
                     <i class="ph-bold ph-floppy-disk text-xs"></i>
-                    <span>Simpan & Kembali ke Timeline</span>
+                    <span>Simpan &amp; Kembali ke Unggah Evidence</span>
                 </button>
             </div>
         </div>
 
-        <!-- Barcode Scanner Modal (Flexible Vertikal / Horizontal) -->
+        <!-- Barcode Scanner Modal (Flexible Vertikal / Horizontal + Hover Keterbacaan & Penahanan Format) -->
         <div x-cloak x-show="barcodeScanning"
-             class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-xs"
+             class="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-black/85 backdrop-blur-xs overflow-y-auto"
              @keydown.escape.window="closeBarcodeScanner()">
-            <div class="bg-slate-900 border border-slate-700 rounded-3xl overflow-hidden w-full max-w-md shadow-2xl relative" @click.stop>
+            <div class="bg-slate-900 border border-slate-700 rounded-3xl overflow-hidden w-full max-w-md max-h-[95vh] overflow-y-auto shadow-2xl relative my-auto" @click.stop>
                 <!-- Modal Header: Berubah warna adaptif sesuai target Bale Rusak vs Bale Pengganti -->
-                <div class="p-4 flex items-center justify-between text-white transition-all"
+                <div class="p-3.5 sm:p-4 flex items-center justify-between gap-2 text-white transition-all"
                      :class="barcodeTargetType === 'pengganti' ? 'bg-gradient-to-r from-emerald-800 to-teal-900 border-b border-emerald-600/30' : 'bg-gradient-to-r from-spv-blue to-teal-800 border-b border-blue-600/30'">
-                    <div class="flex items-center gap-2.5">
-                        <div class="w-8 h-8 rounded-xl flex items-center justify-center"
+                    <div class="flex items-center gap-2.5 min-w-0">
+                        <div class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
                              :class="barcodeTargetType === 'pengganti' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/10 text-white'">
                             <i class="ph-bold ph-barcode text-lg"></i>
                         </div>
-                        <div>
-                            <p class="text-xs font-extrabold" x-text="barcodeTitle || (barcodeTargetType === 'pengganti' ? 'Scan Barcode Bale Pengganti' : 'Scan Barcode Bale Rusak')"></p>
-                            <p class="text-[10px] text-white/80"
-                               x-text="barcodeTargetType === 'pengganti' ? 'Arahkan kamera ke stiker barcode BALE PENGGANTI' : 'Arahkan kamera ke stiker barcode BALE RUSAK'"></p>
+                        <div class="min-w-0">
+                            <p class="text-xs font-extrabold truncate" x-text="barcodeTitle || (barcodeTargetType === 'pengganti' ? 'Scan Barcode Bale Pengganti' : 'Scan Barcode Bale Rusak')"></p>
+                            <p class="text-[10px] text-white/80 truncate"
+                               x-text="barcodeTargetType === 'pengganti' ? 'Arahkan ke stiker BALE PENGGANTI (Format: P + 9 angka)' : 'Arahkan ke stiker BALE RUSAK (Format: P + 9 angka)'"></p>
                         </div>
                     </div>
-                    <button type="button" @click="closeBarcodeScanner()"
-                            class="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all cursor-pointer">
-                        ✕ Tutup
-                    </button>
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        <button type="button" x-show="barcodeZoomAvailable" x-cloak @click="toggleBarcodeZoom()"
+                                class="px-2 py-1 rounded-lg bg-white/15 hover:bg-white/25 text-white text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer"
+                                title="Zoom Kamera">
+                            <i class="ph-bold ph-magnifying-glass-plus text-xs"></i>
+                            <span x-text="barcodeZoomLevel + 'x'"></span>
+                        </button>
+                        <button type="button" x-show="barcodeTorchAvailable" x-cloak @click="toggleBarcodeTorch()"
+                                :class="barcodeTorchOn ? 'bg-amber-400 text-slate-950' : 'bg-white/15 hover:bg-white/25 text-white'"
+                                class="px-2 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer"
+                                title="Senter Kamera (Untuk Pencahayaan Kurang)">
+                            <i class="ph-bold" :class="barcodeTorchOn ? 'ph-flashlight-fill' : 'ph-flashlight'"></i>
+                            <span x-text="barcodeTorchOn ? 'ON' : 'Senter'"></span>
+                        </button>
+                        <button type="button" @click="closeBarcodeScanner()"
+                                class="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all cursor-pointer">
+                            ✕ Tutup
+                        </button>
+                    </div>
                 </div>
 
-                <!-- Camera Viewfinder with Dynamic Flexible Reticle (Vertical / Horizontal) -->
-                <div class="relative w-full min-h-[300px] bg-black flex items-center justify-center overflow-hidden">
+                <!-- Camera Viewfinder with Dynamic Flexible Reticle & Floating Hover Keterbacaan -->
+                <div class="relative w-full min-h-[360px] bg-black flex items-center justify-center overflow-hidden">
                     <div id="bale-barcode-reader" class="w-full"></div>
                     <video x-ref="baleBarcodeVideo" autoplay playsinline muted
-                           class="w-full max-h-[340px] object-cover" style="display: none;"></video>
+                           class="w-full max-h-[380px] object-cover" style="display: none;"></video>
 
                     <!-- Orientation Switcher Pill (Floating Top) -->
-                    <div class="absolute top-3 inset-x-0 z-20 flex items-center justify-center pointer-events-auto">
+                    <div class="absolute top-2.5 inset-x-0 z-20 flex items-center justify-center pointer-events-auto">
                         <div class="bg-slate-950/80 backdrop-blur-md p-1 rounded-xl border border-white/15 flex items-center gap-1 shadow-lg">
                             <button type="button"
                                     @click="setBarcodeOrientation('vertical')"
@@ -1223,13 +1534,13 @@
                     </div>
 
                     <!-- Reticle Frame Overlay -->
-                    <div class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center pt-8 pb-3">
+                    <div class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center pt-11 pb-24">
                         <!-- Mode Vertikal (Tinggi & Ramping untuk stiker vertikal) -->
                         <div x-show="barcodeOrientation === 'vertical'"
-                             class="relative w-[170px] h-[260px] border-2 border-dashed rounded-2xl flex items-center justify-center overflow-hidden shadow-[0_0_0_9999px_rgba(0,0,0,0.55)] transition-all duration-200"
-                             :class="barcodeTargetType === 'pengganti' ? 'border-emerald-400' : 'border-amber-400'">
+                             class="relative w-[165px] h-[220px] border-2 border-dashed rounded-2xl flex items-center justify-center overflow-hidden shadow-[0_0_0_9999px_rgba(0,0,0,0.5)] transition-all duration-200"
+                             :class="barcodeReadStatus === 'valid' ? 'border-emerald-400' : (barcodeTargetType === 'pengganti' ? 'border-emerald-400/90' : 'border-amber-400/90')">
                             <!-- Laser scanline horizontal bergerak vertikal melintasi barcode -->
-                            <div class="absolute inset-x-0 h-0.5 bg-red-500 shadow-[0_0_10px_#ef4444] animate-bale-laser-vert"></div>
+                            <div x-show="barcodeReadStatus !== 'valid'" class="absolute inset-x-0 h-0.5 bg-red-500 shadow-[0_0_10px_#ef4444] animate-bale-laser-vert"></div>
                             <div class="absolute top-2 text-[9px] font-mono font-bold px-2 py-0.5 rounded bg-black/70 text-amber-300">
                                 ↕ STIKER VERTIKAL
                             </div>
@@ -1237,54 +1548,155 @@
 
                         <!-- Mode Horizontal (Lebar untuk stiker horizontal) -->
                         <div x-show="barcodeOrientation === 'horizontal'"
-                             class="relative w-[85%] max-w-[320px] h-[115px] border-2 border-dashed rounded-2xl flex items-center justify-center overflow-hidden shadow-[0_0_0_9999px_rgba(0,0,0,0.55)] transition-all duration-200"
-                             :class="barcodeTargetType === 'pengganti' ? 'border-emerald-400' : 'border-amber-400'">
+                             class="relative w-[85%] max-w-[320px] h-[115px] border-2 border-dashed rounded-2xl flex items-center justify-center overflow-hidden shadow-[0_0_0_9999px_rgba(0,0,0,0.5)] transition-all duration-200"
+                             :class="barcodeReadStatus === 'valid' ? 'border-emerald-400' : (barcodeTargetType === 'pengganti' ? 'border-emerald-400/90' : 'border-amber-400/90')">
                             <!-- Laser scanline vertikal bergerak horizontal melintasi barcode -->
-                            <div class="absolute inset-y-0 w-0.5 bg-red-500 shadow-[0_0_10px_#ef4444] animate-bale-laser-horiz"></div>
+                            <div x-show="barcodeReadStatus !== 'valid'" class="absolute inset-y-0 w-0.5 bg-red-500 shadow-[0_0_10px_#ef4444] animate-bale-laser-horiz"></div>
                             <div class="absolute top-2 left-2 text-[9px] font-mono font-bold px-2 py-0.5 rounded bg-black/70 text-amber-300">
                                 ↔ HORIZONTAL
                             </div>
                         </div>
+                    </div>
 
-                        <p class="text-[11px] text-white/90 font-medium mt-3 bg-black/70 px-3 py-1 rounded-full border border-white/10 text-center max-w-[90%]">
-                            <span x-show="barcodeOrientation === 'vertical'">Arahkan stiker barcode vertikal bale ke dalam kotak</span>
-                            <span x-show="barcodeOrientation === 'horizontal'">Arahkan stiker barcode horizontal ke dalam kotak</span>
-                        </p>
+                    <!-- Floating Hover Keterbacaan Live (Selalu Tahan Pop Up Sampai Format P + 9 Angka Benar & Dikonfirmasi) -->
+                    <div x-show="!barcodeAnalyzingFile" x-cloak class="absolute bottom-2.5 inset-x-2.5 z-30 pointer-events-auto">
+                        <!-- 1. State IDLE: Belum ada angka terbaca -->
+                        <div x-show="barcodeReadStatus === 'idle'"
+                             class="bg-slate-950/85 backdrop-blur-md border border-white/15 rounded-2xl px-3.5 py-2.5 shadow-xl text-white">
+                            <div class="flex items-center justify-between gap-2">
+                                <div class="flex items-center gap-2 min-w-0">
+                                    <span class="w-2 h-2 rounded-full bg-sky-400 animate-pulse shrink-0"></span>
+                                    <span class="text-[11px] font-bold text-slate-100 truncate">Menunggu keterbacaan barcode...</span>
+                                </div>
+                                <span class="text-[10px] font-mono font-bold text-amber-300 bg-amber-500/15 border border-amber-400/30 px-2 py-0.5 rounded-md shrink-0">
+                                    P + 9 Angka
+                                </span>
+                            </div>
+                            <p class="text-[10px] text-slate-400 mt-1">
+                                Arahkan stiker ke kotak agar terbaca <span class="font-mono text-slate-200 font-bold">PXXXXXXXXX</span> (contoh: <span class="font-mono text-slate-200">P058473786</span>).
+                            </p>
+                        </div>
+
+                        <!-- 2. State INVALID: Scanner membaca angka/teks tapi belum sesuai format P + 9 angka (Ditahan!) -->
+                        <div x-show="barcodeReadStatus === 'invalid'"
+                             class="bg-slate-950/90 backdrop-blur-md border-2 border-amber-500/80 rounded-2xl p-3 shadow-2xl text-white">
+                            <div class="flex items-center justify-between gap-2 mb-1.5">
+                                <div class="flex items-center gap-1.5 text-amber-400">
+                                    <i class="ph-fill ph-warning-circle text-sm shrink-0"></i>
+                                    <span class="text-[10px] font-extrabold uppercase tracking-wider">Keterbacaan Ditahan • Format Belum Sesuai</span>
+                                </div>
+                                <span x-show="barcodeReadCount > 0"
+                                      class="text-[10px] font-mono font-bold text-amber-200 bg-amber-500/20 px-1.5 py-0.5 rounded"
+                                      x-text="'Scan #' + barcodeReadCount"></span>
+                            </div>
+
+                            <div x-show="barcodeLastRead" class="flex items-center justify-between gap-2 bg-black/60 border border-amber-500/30 rounded-xl px-2.5 py-1.5 mb-1.5">
+                                <span class="text-sm font-mono font-black text-amber-200 tracking-wider break-all" x-text="barcodeLastRead"></span>
+                                <span class="text-[10px] font-bold text-slate-400 shrink-0" x-text="barcodeLastRead.length + ' kar.'"></span>
+                            </div>
+
+                            <p class="text-[11px] font-semibold text-amber-100 leading-snug" x-text="barcodeReadHint"></p>
+                            <p class="text-[10px] text-slate-400 mt-1">
+                                Dekatkan kamera, bersihkan stiker, atau nyalakan senter hingga terbaca format <span class="font-mono text-emerald-300 font-bold">P + 9 angka</span>.
+                            </p>
+                        </div>
+
+                        <!-- 3. State VERIFYING: Format P + 9 angka terbaca 1x, sedang memverifikasi kestabilan bacaan -->
+                        <div x-show="barcodeReadStatus === 'verifying'"
+                             class="bg-slate-950/90 backdrop-blur-md border-2 border-sky-400/85 rounded-2xl p-3 shadow-2xl text-white">
+                            <div class="flex items-center justify-between gap-2 mb-1.5">
+                                <div class="flex items-center gap-1.5 text-sky-300">
+                                    <i class="ph-bold ph-spinner-gap text-sm animate-spin shrink-0"></i>
+                                    <span class="text-[10px] font-extrabold uppercase tracking-wider">Memverifikasi Kestabilan (1/2)...</span>
+                                </div>
+                                <span class="text-[10px] font-mono font-bold text-sky-200 bg-sky-500/20 px-1.5 py-0.5 rounded">P + 9 Angka</span>
+                            </div>
+                            <div class="flex items-center justify-between gap-2 bg-black/60 border border-sky-500/30 rounded-xl px-2.5 py-1.5">
+                                <span class="text-base font-mono font-black text-white tracking-widest" x-text="barcodeLastRead"></span>
+                                <button type="button" @click="confirmBarcodeResult(barcodeLastRead)"
+                                        class="px-2.5 py-1 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 text-[11px] font-black transition-all cursor-pointer shrink-0">
+                                    Pakai
+                                </button>
+                            </div>
+                            <p class="text-[10px] text-slate-300 mt-1.5" x-text="barcodeReadHint"></p>
+                        </div>
+
+                        <!-- 4. State VALID: Format P + 9 angka terkonfirmasi stabil — TIDAK menutup otomatis, menunggu user konfirmasi -->
+                        <div x-show="barcodeReadStatus === 'valid'"
+                             class="bg-slate-950/95 backdrop-blur-md border-2 border-emerald-400 rounded-2xl p-3.5 shadow-[0_10px_40px_rgba(16,185,129,0.3)] text-white">
+                            <div class="flex items-center justify-between gap-2 mb-2">
+                                <div class="flex items-center gap-1.5 text-emerald-400">
+                                    <i class="ph-fill ph-check-circle text-base shrink-0"></i>
+                                    <span class="text-[11px] font-extrabold uppercase tracking-wider">Terbaca Valid • Format P + 9 Angka</span>
+                                </div>
+                                <span class="text-[10px] font-mono font-bold text-emerald-300 bg-emerald-500/20 border border-emerald-500/30 px-2 py-0.5 rounded-md">
+                                    10 Kar.
+                                </span>
+                            </div>
+
+                            <div class="flex items-center justify-between gap-2 bg-emerald-950/60 border border-emerald-500/40 rounded-xl px-3 py-2">
+                                <span class="text-lg sm:text-xl font-mono font-black text-white tracking-widest" x-text="barcodeSuccess"></span>
+                                <button type="button" @click="editScannedBarcodeInManual()"
+                                        class="px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-slate-200 text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer shrink-0"
+                                        title="Salin & ubah di input manual">
+                                    <i class="ph-bold ph-pencil-simple text-xs"></i>
+                                    <span>Edit</span>
+                                </button>
+                            </div>
+
+                            <p class="text-[10px] text-slate-300 mt-1.5">
+                                Pop up ditahan agar Anda dapat mencocokkan nomor di atas dengan stiker fisik.
+                            </p>
+
+                            <div class="grid grid-cols-2 gap-2 mt-2.5">
+                                <button type="button" @click="resetBarcodeScanResult()"
+                                        class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer">
+                                    <i class="ph-bold ph-arrows-clockwise text-sm"></i>
+                                    <span>Scan Ulang</span>
+                                </button>
+                                <button type="button" @click="confirmBarcodeResult()"
+                                        class="px-3 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/25 transition-all cursor-pointer">
+                                    <i class="ph-bold ph-check text-sm"></i>
+                                    <span>Gunakan Nomor Ini</span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Analyzing File Loading Overlay -->
                     <div x-show="barcodeAnalyzingFile" x-cloak
-                         class="absolute inset-0 z-30 bg-slate-950/90 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center animate-fade-in">
+                         class="absolute inset-0 z-40 bg-slate-950/90 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center animate-fade-in">
                         <div class="w-12 h-12 border-4 border-amber-400 border-t-transparent rounded-full animate-spin mb-3"></div>
                         <p class="text-xs text-amber-300 font-bold uppercase tracking-wider">Menganalisis Foto Barcode...</p>
-                        <p class="text-[10px] text-white/70 mt-1">Membaca barcode batang & orientasi stiker</p>
-                    </div>
-
-                    <!-- Success Feedback Overlay -->
-                    <div x-show="barcodeSuccess" x-cloak
-                         class="absolute inset-0 z-30 bg-slate-950/90 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center animate-fade-in">
-                        <div class="w-14 h-14 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-2.5 ring-8 ring-emerald-500/10">
-                            <i class="ph-bold ph-check text-2xl"></i>
-                        </div>
-                        <p class="text-xs text-emerald-400 font-bold uppercase tracking-wider mb-1">Nomor Barcode Berhasil Terbaca</p>
-                        <p class="text-base font-mono font-black text-white px-4 py-1.5 bg-white/10 rounded-xl border border-white/10 tracking-wider" x-text="barcodeSuccess"></p>
-                        <p class="text-[10px] text-slate-400 mt-2">Memasukkan nilai ke formulir...</p>
+                        <p class="text-[10px] text-white/70 mt-1">Membaca barcode batang & memvalidasi format P + 9 angka</p>
                     </div>
                 </div>
 
                 <!-- Footer: Input Manual & Upload Foto Barcode -->
                 <div class="p-4 border-t border-slate-800 bg-slate-950/70 space-y-2.5">
-                    <label class="block text-[11px] font-bold text-gray-300">Input Manual Nomor Barcode Bale:</label>
+                    <label class="block text-[11px] font-bold text-gray-300">Input Manual Nomor Barcode Bale (Format: P + 9 Angka):</label>
                     <div class="flex items-center gap-2">
                         <input type="text"
+                               x-ref="manualBarcodeField"
                                x-model="manualBarcodeInput"
+                               @input="barcodeManualWarning = ''; barcodeManualPending = ''"
                                @keydown.enter.prevent="submitManualBarcode()"
-                               placeholder="Ketik nomor bale..."
+                               placeholder="Contoh: P058473786"
                                class="flex-1 text-xs px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 uppercase font-mono font-bold">
                         <button type="button"
                                 @click="submitManualBarcode()"
                                 class="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold rounded-xl transition-all cursor-pointer">
                             Gunakan
+                        </button>
+                    </div>
+
+                    <!-- Warning jika input manual belum sesuai format P + 9 angka -->
+                    <div x-show="barcodeManualWarning" x-cloak
+                         class="p-2.5 rounded-xl bg-amber-950/70 border border-amber-600/50 flex items-center justify-between gap-2">
+                        <p class="text-[11px] text-amber-200 font-medium leading-snug" x-text="barcodeManualWarning"></p>
+                        <button type="button" @click="forceApplyManualBarcode()"
+                                class="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-200 text-[10px] font-bold shrink-0 cursor-pointer">
+                            Tetap Pakai
                         </button>
                     </div>
 

@@ -746,7 +746,7 @@
                                                 </a>
                                             @else
                                                 <a href="{{ route('field-app.timeline', $s->id) }}"
-                                                   title="Timeline Bukti Foto (27 Titik SOP)"
+                                                   title="Unggah Evidence (27 Titik SOP)"
                                                    target="_blank"
                                                    class="p-1 rounded-lg text-gray-400 hover:text-spv-green hover:bg-emerald-50 transition-colors">
                                                     <i class="ph-bold ph-camera text-sm"></i>

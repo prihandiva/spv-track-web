@@ -40,7 +40,7 @@
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 class="text-xl lg:text-2xl font-black text-gray-800 tracking-tight">Master Data 27 Titik SOP Evidence</h1>
-                    <p class="text-xs text-gray-500 mt-1">Konfigurasi baku titik foto (JPG) dan video (MP4) timeline staging serta aturan wajib/opsional.</p>
+                    <p class="text-xs text-gray-500 mt-1">Konfigurasi baku titik foto (JPG) dan video (MP4) unggah evidence staging serta aturan wajib/opsional.</p>
                 </div>
                 <div class="flex items-center gap-2.5 flex-wrap w-full sm:w-auto">
                     <button type="button" @click="resetModalOpen = true"

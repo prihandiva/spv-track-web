@@ -2096,7 +2096,7 @@
         <div x-cloak x-show="isValid" style="border-radius: 12px; background: #ecfdf5; border: 1.5px solid #a7f3d0; padding: 12px 14px; display: flex; align-items: center; gap: 10px;">
             <i class="ph-fill ph-check-circle" style="color: #059e3d; font-size: 18px; flex-shrink: 0;"></i>
             <div style="font-size: 11px; color: #065f46; font-weight: 700;">
-                Semua data wajib telah lengkap & 9 digit valid. Siap melanjutkan ke Loading Evidence!
+                Semua data wajib telah lengkap &amp; 9 digit valid. Siap melanjutkan ke Unggah Evidence!
             </div>
         </div>
 
@@ -2112,10 +2112,10 @@
                 <i class="ph-bold ph-floppy-disk" style="font-size: 18px;"></i>
                 Simpan Perubahan Data Dokumen
             @elseif(isset($shipment))
-                Simpan &amp; Lanjut ke Loading Evidence
+                Simpan &amp; Lanjut ke Unggah Evidence
                 <i class="ph-bold ph-arrow-right" style="font-size: 16px;"></i>
             @else
-                Lanjut ke Loading Evidence
+                Lanjut ke Unggah Evidence
                 <i class="ph-bold ph-arrow-right" style="font-size: 16px;"></i>
             @endif
         </button>

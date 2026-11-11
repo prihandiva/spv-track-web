@@ -195,7 +195,7 @@
                                         </a>
                                     @else
                                         <a href="{{ route('field-app.timeline', $shipment->id) }}"
-                                           title="Buka Foto Evidence"
+                                           title="Unggah Evidence"
                                            target="_blank"
                                            class="p-1 rounded-lg transition-all text-gray-400 hover:text-spv-green hover:bg-emerald-50">
                                             <i class="ph-bold ph-camera text-sm"></i>

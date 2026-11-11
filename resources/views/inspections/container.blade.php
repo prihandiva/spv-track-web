@@ -23,7 +23,7 @@
         <div class="hidden sm:flex items-center gap-2">
             <a href="{{ route('field-app.timeline', $shipment->id) }}"
                class="px-4 py-2 text-xs font-bold text-gray-600 hover:text-gray-800 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-all shadow-xs">
-                Kembali ke Timeline
+                Kembali ke Unggah Evidence
             </a>
         </div>
     </div>
@@ -176,7 +176,7 @@
                     </div>
                     <div>
                         <p class="font-bold text-gray-800">Waktu Pelaksanaan (Jam Start &amp; Finish)</p>
-                        <p class="text-[11px] text-gray-500">Otomatis diambil dari <strong>Waktu Awal &amp; Akhir Staging</strong> yang diisi pada card sebelum submit di halaman Timeline. Tidak perlu diisi berulang di sini.</p>
+                        <p class="text-[11px] text-gray-500">Otomatis diambil dari <strong>Waktu Awal &amp; Akhir Staging</strong> yang diisi pada card sebelum submit di halaman Unggah Evidence. Tidak perlu diisi berulang di sini.</p>
                     </div>
                 </div>
                 <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white text-emerald-700 border border-emerald-200 shrink-0">
@@ -437,7 +437,7 @@
             <div class="flex items-center gap-2 w-full sm:w-auto">
                 <button type="submit" name="next" value="timeline"
                         class="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold transition-all shadow-xs">
-                    Simpan & Ke Timeline
+                    Simpan &amp; Ke Unggah Evidence
                 </button>
                 <button type="submit" name="next" value="bale"
                         class="w-full sm:w-auto flex items-center justify-center gap-1.5 px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-md shadow-emerald-600/25">

@@ -51,7 +51,7 @@
                     <a href="{{ route('field-app.timeline', $shipment->id) }}" target="_blank"
                        class="order-first xl:order-last flex items-center justify-center gap-2 bg-spv-blue hover:bg-blue-800 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-[0_4px_12px_rgba(40,84,145,0.25)] hover:shadow-lg transition-all col-span-1 sm:col-span-2 xl:col-auto whitespace-nowrap">
                         <i class="ph-bold ph-camera text-base"></i>
-                        <span>Buka Loading Evidence</span>
+                        <span>Unggah Evidence</span>
                     </a>
 
                     @if(auth()->user()?->canEditShipment($shipment))
