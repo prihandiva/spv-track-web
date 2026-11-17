@@ -114,9 +114,9 @@
                 </div>
             </form>
 
-            <!-- Table -->
-            <div class="overflow-x-auto">
-                <table class="w-full text-left text-xs text-gray-600">
+            <!-- Desktop Table (>= md) -->
+            <div class="hidden md:block overflow-x-auto">
+                <table class="w-full text-left text-xs text-gray-600" style="min-width: 650px;">
                     <thead class="bg-gray-50 text-[11px] font-bold uppercase tracking-wider text-gray-400" style="border-bottom: 1px solid #f0f4f9;">
                         <tr>
                             <th scope="col" class="py-2.5 px-3.5">Pengguna & Akun</th>
@@ -216,6 +216,87 @@
                         @endforelse
                     </tbody>
                 </table>
+            </div>
+
+            <!-- Mobile User Cards (< md) -->
+            <div class="block md:hidden divide-y divide-gray-100">
+                @forelse($users as $user)
+                    @php
+                        $initials = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $user->nama_warehouse) ?: 'US', 0, 2));
+                        $roleBadgeColor = match($user->role) {
+                            'superadmin' => 'bg-purple-50 text-purple-700 border-purple-200',
+                            'admin' => 'bg-blue-50 text-spv-blue border-blue-200',
+                            'operator' => 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                            default => 'bg-gray-100 text-gray-700 border-gray-200',
+                        };
+                    @endphp
+                    <div class="p-4 hover:bg-blue-50/20 transition-colors">
+                        <!-- Top Row: Avatar, User Details & Role Badge -->
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <div class="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm text-white shrink-0 shadow-xs"
+                                     style="background: {{ $user->role === 'superadmin' ? 'linear-gradient(135deg, #7c3aed, #a855f7)' : ($user->role === 'admin' ? 'linear-gradient(135deg, #285491, #3568b0)' : 'linear-gradient(135deg, #059e3d, #63c384)') }};">
+                                    {{ $initials }}
+                                </div>
+                                <div class="min-w-0">
+                                    <p class="font-bold text-gray-900 text-sm leading-tight truncate">{{ $user->nama_warehouse }}</p>
+                                    <p class="text-[11px] text-gray-500 font-mono mt-0.5 truncate leading-tight">{{ $user->email }}</p>
+                                    @if($user->username)
+                                        <p class="text-[10px] text-spv-blue font-semibold font-mono leading-tight mt-0.5">&#64;{{ $user->username }}</p>
+                                    @endif
+                                </div>
+                            </div>
+
+                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border shrink-0 {{ $roleBadgeColor }}">
+                                @if($user->role === 'superadmin')
+                                    <i class="ph-fill ph-crown text-xs"></i>
+                                @elseif($user->role === 'admin')
+                                    <i class="ph-fill ph-shield-check text-xs"></i>
+                                @else
+                                    <i class="ph-fill ph-hard-hat text-xs"></i>
+                                @endif
+                                {{ $user->role_display_name }}
+                            </span>
+                        </div>
+
+                        <!-- Bottom Row: Meta & Actions -->
+                        <div class="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between gap-2">
+                            <div class="flex items-center gap-2 text-[11px] text-gray-500">
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-md bg-gray-100 text-gray-700 text-[10px] font-semibold">
+                                    {{ $user->shipments_count ?? 0 }} Shipment
+                                </span>
+                                <span>&bull;</span>
+                                <span class="text-[10px] text-gray-400">
+                                    {{ $user->created_at ? $user->created_at->format('d M Y') : '-' }}
+                                </span>
+                            </div>
+
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                <button type="button"
+                                        @click="openEdit('{{ $user->id }}', '{{ addslashes($user->nama_warehouse) }}', '{{ addslashes($user->email) }}', '{{ $user->role }}', '{{ route('settings.users.update', $user) }}')"
+                                        class="px-2.5 py-1.5 rounded-lg text-xs font-bold text-spv-blue bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-all flex items-center gap-1">
+                                    <i class="ph-bold ph-pencil-simple text-xs"></i>
+                                    <span>Edit</span>
+                                </button>
+
+                                <button type="button"
+                                        @click="openDelete('{{ $user->id }}', '{{ addslashes($user->nama_warehouse) }}', '{{ addslashes($user->email) }}', '{{ $user->role }}', '{{ route('settings.users.destroy', $user) }}')"
+                                        class="px-2.5 py-1.5 rounded-lg text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-all flex items-center gap-1">
+                                    <i class="ph-bold ph-trash text-xs"></i>
+                                    <span>Hapus</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                @empty
+                    <div class="py-12 text-center text-gray-400">
+                        <div class="w-12 h-12 rounded-2xl bg-gray-100 text-gray-400 flex items-center justify-center mx-auto mb-3">
+                            <i class="ph-bold ph-user-circle text-2xl"></i>
+                        </div>
+                        <p class="text-xs font-semibold text-gray-600">Tidak ada pengguna yang sesuai kriteria pencarian.</p>
+                        <p class="text-[11px] text-gray-400 mt-1">Coba ganti filter role atau kata kunci pencarian.</p>
+                    </div>
+                @endforelse
             </div>
 
             <!-- Pagination -->

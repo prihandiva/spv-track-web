@@ -225,6 +225,13 @@ class MobileApiController extends Controller
      */
     public function uploadEvidence(Request $request, Shipment $shipment): JsonResponse
     {
+        if ($shipment->status === 'submitted') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Dokumen pengiriman telah disubmit final. Bukti foto evidence telah dikunci permanen demi keaslian timestamp dan tidak dapat diubah lagi.',
+            ], 403);
+        }
+
         try {
             $request->validate([
                 'sop_photo_point_id' => 'nullable|exists:sop_photo_points,id',

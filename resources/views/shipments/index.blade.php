@@ -331,13 +331,6 @@
                                             <i class="ph-bold ph-pencil-simple-line text-sm"></i>
                                         </a>
                                     @else
-                                        <a href="{{ route('field-app.timeline', $shipment->id) }}"
-                                           title="Unggah Evidence (27 Titik SOP)"
-                                           target="_blank"
-                                           class="p-1 rounded-lg transition-all text-gray-400 hover:text-spv-green hover:bg-emerald-50">
-                                            <i class="ph-bold ph-camera text-sm"></i>
-                                        </a>
-
                                         @if(auth()->user()?->canEditShipment($shipment))
                                             <a href="{{ route('field-app.edit', $shipment->id) }}"
                                                title="Edit Dokumen Shipment"
@@ -463,13 +456,6 @@
                                 <i class="ph-bold ph-pencil-simple-line text-sm"></i>
                             </a>
                         @else
-                            <a href="{{ route('field-app.timeline', $shipment->id) }}"
-                               title="Unggah Evidence"
-                               target="_blank"
-                               class="w-8 h-8 rounded-xl border border-emerald-200 text-emerald-600 bg-emerald-50 hover:bg-emerald-100 transition-colors flex items-center justify-center shrink-0">
-                                <i class="ph-bold ph-camera text-sm"></i>
-                            </a>
-
                             @if(auth()->user()?->canEditShipment($shipment))
                                 <a href="{{ route('field-app.edit', $shipment->id) }}"
                                    title="Edit"

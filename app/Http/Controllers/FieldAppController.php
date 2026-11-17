@@ -452,6 +452,11 @@ class FieldAppController extends Controller
 
     public function timeline(Shipment $shipment)
     {
+        if ($shipment->status === 'submitted') {
+            return redirect()->route('shipments.show', $shipment->id)
+                ->with('info', 'Dokumen pengiriman ini telah disubmit final. Bukti foto evidence telah dikunci permanen demi keaslian timestamp dan tidak dapat diubah lagi.');
+        }
+
         $shipment->load(['evidenceItems', 'containerInspection', 'baleInspection.items']);
         $points = SopPhotoPoint::orderBy('urutan')->get();
 
@@ -466,6 +471,13 @@ class FieldAppController extends Controller
 
     public function uploadPhoto(Request $request, Shipment $shipment)
     {
+        if ($shipment->status === 'submitted') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Dokumen pengiriman telah disubmit final. Bukti foto evidence telah dikunci permanen demi keaslian timestamp dan tidak dapat diganti atau diunggah ulang.',
+            ], 403);
+        }
+
         try {
             $request->validate([
                 'sop_photo_point_id' => 'nullable|exists:sop_photo_points,id',
@@ -572,6 +584,11 @@ class FieldAppController extends Controller
 
     public function submit(Request $request, Shipment $shipment)
     {
+        if ($shipment->status === 'submitted') {
+            return redirect()->route('shipments.show', $shipment->id)
+                ->with('info', 'Dokumen pengiriman ini sudah disubmit final sebelumnya.');
+        }
+
         $validated = $request->validate([
             'waktu_kedatangan_container' => 'nullable|date',
             'waktu_keberangkatan_container' => 'required|date',

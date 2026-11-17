@@ -193,13 +193,6 @@
                                            class="p-1 rounded-lg transition-all text-amber-500 hover:text-amber-600 hover:bg-amber-50">
                                             <i class="ph-bold ph-pencil-simple-line text-sm"></i>
                                         </a>
-                                    @else
-                                        <a href="{{ route('field-app.timeline', $shipment->id) }}"
-                                           title="Unggah Evidence"
-                                           target="_blank"
-                                           class="p-1 rounded-lg transition-all text-gray-400 hover:text-spv-green hover:bg-emerald-50">
-                                            <i class="ph-bold ph-camera text-sm"></i>
-                                        </a>
                                     @endif
                                 </div>
                             </td>

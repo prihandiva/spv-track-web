@@ -4,7 +4,7 @@
     <!-- Top Breadcrumb & Action Header -->
     <div class="flex items-center justify-between gap-3 mb-6">
         <div class="flex items-center gap-3">
-            <a href="{{ route('field-app.timeline', $shipment->id) }}" 
+            <a href="{{ $shipment->status === 'submitted' ? route('shipments.show', $shipment->id) : route('field-app.timeline', $shipment->id) }}" 
                class="flex items-center justify-center w-10 h-10 rounded-xl bg-white border border-gray-200 text-gray-600 hover:text-spv-blue hover:border-spv-blue shadow-xs transition-all">
                 <i class="ph-bold ph-arrow-left text-lg"></i>
             </a>
@@ -25,10 +25,17 @@
                class="px-4 py-2 text-xs font-bold text-gray-600 hover:text-gray-800 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-all shadow-xs">
                 Ke Form Kontainer
             </a>
+            @if($shipment->status === 'draft')
             <a href="{{ route('field-app.timeline', $shipment->id) }}"
                class="px-4 py-2 text-xs font-bold text-spv-blue hover:text-blue-800 bg-blue-50 border border-blue-200 rounded-xl hover:bg-blue-100 transition-all shadow-xs">
                 Unggah Evidence
             </a>
+            @else
+            <a href="{{ route('shipments.show', $shipment->id) }}"
+               class="px-4 py-2 text-xs font-bold text-gray-600 hover:text-gray-800 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-all shadow-xs">
+                Detail Dokumen
+            </a>
+            @endif
         </div>
     </div>
 
@@ -971,7 +978,7 @@
                     $item = $items->get($idx);
                     $ada = old("items.{$idx}.ada", $item?->ada_ketidaksesuaian ?? false);
                     $jml = old("items.{$idx}.jumlah", $item?->jumlah_bale);
-                    $tindakan = old("items.{$idx}.tindakan", $item?->tindakan_perbaikan ?? 'diganti');
+                    $tindakan = strtolower(trim((string) old("items.{$idx}.tindakan", $item?->tindakan_perbaikan ?? 'diganti')));
                     $tindakanLain = old("items.{$idx}.tindakan_lainnya", $item?->tindakan_lainnya);
                     $pairsInit = $item?->bale_pairs ?? [['awal' => '', 'pengganti' => '']];
                     if (old("items.{$idx}.pairs")) {

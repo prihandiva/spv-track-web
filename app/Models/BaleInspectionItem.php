@@ -31,16 +31,18 @@ class BaleInspectionItem extends Model
     protected static function booted(): void
     {
         static::saving(function (BaleInspectionItem $item) {
-            $fields = [
-                'tindakan_perbaikan',
-                'tindakan_lainnya',
+            $upperFields = [
                 'nomor_bale_awal',
                 'nomor_bale_pengganti',
             ];
-            foreach ($fields as $f) {
+            foreach ($upperFields as $f) {
                 if (! empty($item->{$f})) {
                     $item->{$f} = mb_strtoupper(trim($item->{$f}), 'UTF-8');
                 }
+            }
+
+            if (! empty($item->tindakan_perbaikan)) {
+                $item->tindakan_perbaikan = strtolower(trim($item->tindakan_perbaikan));
             }
         });
     }

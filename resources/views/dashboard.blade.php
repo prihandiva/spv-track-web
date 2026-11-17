@@ -745,13 +745,6 @@
                                                     <i class="ph-bold ph-pencil-simple-line text-sm"></i>
                                                 </a>
                                             @else
-                                                <a href="{{ route('field-app.timeline', $s->id) }}"
-                                                   title="Unggah Evidence (27 Titik SOP)"
-                                                   target="_blank"
-                                                   class="p-1 rounded-lg text-gray-400 hover:text-spv-green hover:bg-emerald-50 transition-colors">
-                                                    <i class="ph-bold ph-camera text-sm"></i>
-                                                </a>
-
                                                 @if(auth()->user()?->canEditShipment($s))
                                                     <a href="{{ route('field-app.edit', $s->id) }}"
                                                        title="Edit Dokumen Shipment"

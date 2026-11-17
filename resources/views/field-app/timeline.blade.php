@@ -1,5 +1,6 @@
 <x-field-layout>
 @php
+    $isSubmitted = ($shipment->status === 'submitted');
     $mandatoryPointIds = $points->where('wajib', true)->pluck('id')->values()->all();
     $initialUploadedPointIds = $shipment->evidenceItems->pluck('sop_photo_point_id')->filter()->unique()->values()->all();
 @endphp
@@ -251,6 +252,23 @@
 <div x-data="timelineManager"
      @photo-uploaded.window="addUploadedPoint($event.detail.pointId)"
      style="display: flex; flex-direction: column; gap: 20px;">
+
+    @if($isSubmitted)
+    <div style="background: #fef2f2; border: 1.5px solid #f87171; border-radius: 14px; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #991b1b; box-shadow: 0 2px 8px rgba(239,68,68,0.12);">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <i class="ph-fill ph-lock-key" style="font-size: 24px; color: #dc2626; flex-shrink: 0;"></i>
+            <div>
+                <p style="font-size: 13px; font-weight: 800; margin: 0 0 2px 0;">Dokumen Telah Disubmit Final (Terkunci)</p>
+                <p style="font-size: 11px; margin: 0; color: #b91c1c; line-height: 1.35;">
+                    Seluruh foto evidence telah dikunci permanen untuk menjaga keaslian waktu (timestamp) dan tidak dapat diubah/diganti lagi.
+                </p>
+            </div>
+        </div>
+        <a href="{{ route('shipments.show', $shipment->id) }}" style="padding: 8px 14px; background: #dc2626; color: white; border-radius: 10px; font-size: 11px; font-weight: 700; text-decoration: none; white-space: nowrap; flex-shrink: 0;">
+            Lihat Detail Dokumen &rarr;
+        </a>
+    </div>
+    @endif
 
     <!-- Shipment Header Card (Packing List as Primary Identifier) -->
     <div style="background: linear-gradient(135deg, #1a3c6e 0%, #285491 60%, #0d5950 100%); border-radius: 16px; padding: 16px; color: white; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 16px rgba(40,84,145,0.3);">
@@ -547,6 +565,7 @@
                                 onmouseover="this.style.background='#eff4fc'; this.style.borderColor='#285491'" onmouseout="this.style.background='white'; this.style.borderColor='#cbd5e1'">
                             <i class="ph-bold ph-eye" style="font-size:14px; color:#285491;"></i> Periksa Bukti
                         </button>
+                        @if(!$isSubmitted)
                         <div style="display:flex; align-items:center; gap:6px;">
                             @if($isVideoPoint)
                                 <label style="display:flex; align-items:center; gap:5px; font-size:11px; font-weight:700; color:#dc2626; background:#fee2e2; border:1px solid #fecaca; border-radius:8px; padding:6px 11px; cursor:pointer; transition:background 0.15s;"
@@ -572,6 +591,11 @@
                                 </label>
                             @endif
                         </div>
+                        @else
+                        <span style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; color:#059e3d; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:8px; padding:6px 10px;">
+                            <i class="ph-bold ph-lock-key" style="font-size:12px;"></i> Terkunci
+                        </span>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -764,6 +788,7 @@
                     Seluruh 26 bukti foto wajib & jam waktu pelaksanaan staging terisi lengkap.
                 </div>
 
+                @if(!$isSubmitted)
                 <button type="submit"
                         :disabled="!canSubmit"
                         :style="canSubmit
@@ -774,6 +799,13 @@
                     <i class="ph-bold ph-check-circle" style="font-size:18px;"></i>
                     Submit Final Data
                 </button>
+                @else
+                <a href="{{ route('shipments.show', $shipment->id) }}"
+                   style="flex:1; background:#059e3d; color:white; font-size:14px; font-weight:700; border-radius:12px; padding:13px; text-decoration:none; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow: 0 4px 14px rgba(5,158,61,0.25);">
+                    <i class="ph-bold ph-lock-key" style="font-size:18px;"></i>
+                    Dokumen Sudah Disubmit Final (Terkunci) &mdash; Ke Detail &rarr;
+                </a>
+                @endif
             </div>
         </div>
 
@@ -834,6 +866,7 @@
                     Pastikan foto/video jelas dan stempel waktu terbaca sebelum submit final.
                 </p>
                 <div style="display: flex; align-items: center; gap: 8px;">
+                    @if(!$isSubmitted)
                     <button type="button"
                             onclick="retakeFromLightbox('camera')"
                             style="display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: white; background: #2563eb; border: none; padding: 7px 14px; border-radius: 8px; cursor: pointer; transition: background 0.2s;"
@@ -850,6 +883,7 @@
                         <i class="ph-bold ph-image" style="font-size: 15px;"></i>
                         <span>Pilih Galeri</span>
                     </button>
+                    @endif
                     <button type="button"
                             onclick="closeSopPreview()"
                             style="font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: 1px solid rgba(255,255,255,0.1); padding: 7px 14px; border-radius: 8px; cursor: pointer; transition: all 0.2s;"

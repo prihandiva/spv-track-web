@@ -289,12 +289,12 @@
         <table class="table-bale">
             <thead>
                 <tr>
-                    <th style="width: 20px;">No</th>
-                    <th style="width: 140px; text-align: left;">Jenis Ketidaksesuaian</th>
-                    <th style="width: 25px;">Ada (&#10003;)</th>
-                    <th style="width: 25px;">Tidak (&#10003;)</th>
-                    <th style="width: 45px;">Jumlah Bale</th>
-                    <th style="width: 160px; text-align: left;">Tindakan Perbaikan (&#10003;)</th>
+                    <th style="width: 18px;">No</th>
+                    <th style="width: 130px; text-align: left;">Jenis Ketidaksesuaian</th>
+                    <th style="width: 22px;">Ada (&#10003;)</th>
+                    <th style="width: 22px;">Tidak (&#10003;)</th>
+                    <th style="width: 38px;">Jumlah Bale</th>
+                    <th style="width: 180px; text-align: left;">Tindakan Perbaikan (&#10003;)</th>
                     <th style="width: 75px;">Nomor Bale Awal</th>
                     <th style="width: 75px;">Nomor Bale Pengganti</th>
                 </tr>
@@ -318,7 +318,7 @@
                 @php
                     $it = $itemsMap->get($idx);
                     $ada = (bool) ($it?->ada_ketidaksesuaian ?? false);
-                    $tind = $it?->tindakan_perbaikan;
+                    $tind = strtolower(trim((string) ($it?->tindakan_perbaikan ?? '')));
                 @endphp
                 <tr>
                     <td style="text-align: center; font-weight: bold;">{{ $idx }}</td>
@@ -326,11 +326,11 @@
                     <td style="text-align: center;"><span class="check-box">{!! $ada ? '&#10003;' : '&nbsp;' !!}</span></td>
                     <td style="text-align: center;"><span class="check-box">{!! !$ada ? '&#10003;' : '&nbsp;' !!}</span></td>
                     <td style="text-align: center; font-weight: bold;">{{ $ada && $it?->jumlah_bale ? $it->jumlah_bale : '-' }}</td>
-                    <td style="font-size: 6.5pt;">
-                        <span class="check-box">{!! ($ada && $tind === 'diganti') ? '&#10003;' : '&nbsp;' !!}</span> Diganti &nbsp;
-                        <span class="check-box">{!! ($ada && $tind === 'diperbaiki') ? '&#10003;' : '&nbsp;' !!}</span> Diperbaiki/ditambal/dibersihkan<br>
-                        <span class="check-box">{!! ($ada && $tind === 'ganti_label') ? '&#10003;' : '&nbsp;' !!}</span> Ganti label (EV / Non-EV) &nbsp;
-                        <span class="check-box">{!! ($ada && $tind === 'lainnya') ? '&#10003;' : '&nbsp;' !!}</span> Lainnya: {{ $ada && $tind === 'lainnya' ? ($it?->tindakan_lainnya ?: '-') : '' }}
+                    <td style="font-size: 6pt; padding: 2px 4px; line-height: 1.25;">
+                        <div style="margin-bottom: 1.5px; white-space: nowrap;"><span class="check-box">{!! ($ada && $tind === 'diganti') ? '&#10003;' : '&nbsp;' !!}</span> Diganti</div>
+                        <div style="margin-bottom: 1.5px; white-space: nowrap;"><span class="check-box">{!! ($ada && $tind === 'diperbaiki') ? '&#10003;' : '&nbsp;' !!}</span> Diperbaiki / ditambal / dibersihkan</div>
+                        <div style="margin-bottom: 1.5px; white-space: nowrap;"><span class="check-box">{!! ($ada && $tind === 'ganti_label') ? '&#10003;' : '&nbsp;' !!}</span> Ganti label (EV / Non-EV)</div>
+                        <div style="white-space: nowrap;"><span class="check-box">{!! ($ada && $tind === 'lainnya') ? '&#10003;' : '&nbsp;' !!}</span> Lainnya{{ ($ada && $tind === 'lainnya' && !empty($it?->tindakan_lainnya)) ? ': ' . $it->tindakan_lainnya : '' }}</div>
                     </td>
                     <td style="text-align: center; font-family: monospace;">{{ $ada ? ($it?->nomor_bale_awal ?: '-') : '-' }}</td>
                     <td style="text-align: center; font-family: monospace;">{{ $ada ? ($it?->nomor_bale_pengganti ?: '-') : '-' }}</td>
