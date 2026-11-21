@@ -62,9 +62,6 @@ class SettingsTest extends TestCase
             'deskripsi' => 'Foto plat nomor truck/container',
             'tipe_item' => 'foto',
             'wajib' => true,
-            'perlu_ocr_container' => false,
-            'perlu_deteksi_orang' => false,
-            'perlu_deteksi_barcode' => false,
             'jenis_pengiriman' => 'both',
         ]);
 
@@ -73,10 +70,7 @@ class SettingsTest extends TestCase
             'nama_titik' => 'Foto di Loading Area',
             'deskripsi' => 'Photo staging area',
             'tipe_item' => 'foto',
-            'wajib' => true,
-            'perlu_ocr_container' => false,
-            'perlu_deteksi_orang' => false,
-            'perlu_deteksi_barcode' => false,
+            'wajib' => false,
             'jenis_pengiriman' => 'both',
         ]);
     }
@@ -170,43 +164,10 @@ class SettingsTest extends TestCase
         $this->assertDatabaseMissing('users', ['id' => $user->id]);
     }
 
-    public function test_roles_page_is_accessible_and_can_update_permissions(): void
+    public function test_legacy_role_url_redirects_to_users_management(): void
     {
-        $role = Role::where('name', 'admin')->first();
-
-        $response = $this->get(route('settings.roles.index', ['role_id' => $role->id]));
-        $response->assertStatus(200);
-        $response->assertSee('Admin Warehouse');
-
-        $updateResponse = $this->put(route('settings.roles.update', $role), [
-            'display_name' => 'Admin Warehouse Senior',
-            'description' => 'Akses penuh laporan dan audit',
-            'permissions' => ['shipment.view', 'report.view', 'report.download_pdf'],
-        ]);
-
-        $updateResponse->assertRedirect(route('settings.roles.index', ['role_id' => $role->id]));
-        $this->assertDatabaseHas('roles', [
-            'id' => $role->id,
-            'display_name' => 'Admin Warehouse Senior',
-        ]);
-
-        $role->refresh();
-        $this->assertTrue($role->hasPermission('report.download_pdf'));
-    }
-
-    public function test_can_create_custom_role(): void
-    {
-        $response = $this->post(route('settings.roles.store'), [
-            'display_name' => 'Auditor ISO',
-            'description' => 'Role untuk auditor eksternal',
-            'permissions' => ['report.view', 'shipment.view'],
-        ]);
-
-        $response->assertSessionHas('success');
-        $this->assertDatabaseHas('roles', [
-            'display_name' => 'Auditor ISO',
-            'is_system' => false,
-        ]);
+        $response = $this->get('/pengaturan/role');
+        $response->assertRedirect('/pengaturan/pengguna');
     }
 
     public function test_sop_points_page_lists_points_and_can_toggle(): void
@@ -215,16 +176,16 @@ class SettingsTest extends TestCase
         $response->assertStatus(200);
         $response->assertSee('Plat Nomor');
 
-        $point = SopPhotoPoint::first();
-        $this->assertFalse($point->perlu_ocr_container);
+        $point = SopPhotoPoint::where('urutan', 2)->first();
+        $this->assertFalse($point->wajib);
 
         $toggleResponse = $this->patch(route('settings.sop.toggle', $point), [
-            'field' => 'perlu_ocr_container',
+            'field' => 'wajib',
         ]);
 
         $toggleResponse->assertSessionHas('success');
         $point->refresh();
-        $this->assertTrue($point->perlu_ocr_container);
+        $this->assertTrue($point->wajib);
     }
 
     public function test_can_create_and_update_sop_point(): void
@@ -236,7 +197,6 @@ class SettingsTest extends TestCase
             'jenis_pengiriman' => 'export',
             'tipe_item' => 'foto',
             'wajib' => 1,
-            'perlu_ocr_container' => 1,
         ]);
 
         $response->assertRedirect(route('settings.sop.index'));
@@ -244,7 +204,7 @@ class SettingsTest extends TestCase
             'urutan' => 28,
             'nama_titik' => 'Foto Segel Tambahan',
             'jenis_pengiriman' => 'export',
-            'perlu_ocr_container' => true,
+            'wajib' => true,
         ]);
 
         $newPoint = SopPhotoPoint::where('urutan', 28)->first();

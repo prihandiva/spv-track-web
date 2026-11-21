@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class EvidenceItem extends Model
 {
@@ -13,11 +12,14 @@ class EvidenceItem extends Model
         'sop_photo_point_id',
         'file_path',
         'file_name',
+        'sha256',
+        'size',
         'tipe_item',
         'captured_at',
         'gps_lat',
         'gps_lng',
         'is_tambahan',
+        'uploaded_by',
     ];
 
     protected function casts(): array
@@ -27,6 +29,7 @@ class EvidenceItem extends Model
             'is_tambahan' => 'boolean',
             'gps_lat' => 'decimal:8',
             'gps_lng' => 'decimal:8',
+            'size' => 'integer',
         ];
     }
 
@@ -55,8 +58,8 @@ class EvidenceItem extends Model
         return $this->belongsTo(SopPhotoPoint::class);
     }
 
-    public function ocrResult(): HasOne
+    public function uploader(): BelongsTo
     {
-        return $this->hasOne(OcrResult::class);
+        return $this->belongsTo(User::class, 'uploaded_by');
     }
 }

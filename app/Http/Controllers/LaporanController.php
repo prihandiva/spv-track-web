@@ -263,8 +263,6 @@ class LaporanController extends Controller
             'karyawan',
             'karyawans',
             'evidenceItems.sopPhotoPoint',
-            'evidenceItems.ocrResult',
-            'photos',
             'user',
         ])->latest('created_at');
 
@@ -368,7 +366,7 @@ class LaporanController extends Controller
 
         $shipments = $query->get();
 
-        // Pengayaan Tiap Record Shipment dengan Kalkulasi Titik SOP & OCR
+        // Pengayaan Tiap Record Shipment dengan Kalkulasi Titik SOP
         return $shipments->map(function ($shipment) {
             $pointNumbers = collect();
 
@@ -376,13 +374,6 @@ class LaporanController extends Controller
             foreach ($shipment->evidenceItems as $ev) {
                 if ($ev->sopPhotoPoint && $ev->sopPhotoPoint->urutan) {
                     $pointNumbers->push($ev->sopPhotoPoint->urutan);
-                }
-            }
-
-            // Dari shipment_photos
-            foreach ($shipment->photos as $ph) {
-                if ($ph->point_no && ! $ph->is_extra) {
-                    $pointNumbers->push($ph->point_no);
                 }
             }
 
@@ -394,36 +385,10 @@ class LaporanController extends Controller
             $shipment->compliance_rate = round(($pointsCount / 27) * 100, 1);
             $shipment->is_complete = $pointsCount >= 27;
 
-            // Evaluasi Status OCR
-            $ocrMatch = false;
-            $ocrChecked = false;
-
-            foreach ($shipment->evidenceItems as $ev) {
-                if ($ev->ocrResult) {
-                    $ocrChecked = true;
-                    if ($ev->ocrResult->cocok_dengan_input) {
-                        $ocrMatch = true;
-                        break;
-                    }
-                }
-            }
-
-            if (! $ocrMatch) {
-                foreach ($shipment->photos as $ph) {
-                    if ($ph->ocr_text) {
-                        $ocrChecked = true;
-                        $cont = strtolower(trim((string) $shipment->nomor_container_atau_plat));
-                        if ($cont !== '' && str_contains(strtolower($ph->ocr_text), $cont)) {
-                            $ocrMatch = true;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            $shipment->ocr_checked = $ocrChecked;
-            $shipment->ocr_match = $ocrMatch;
-            $shipment->ocr_label = $ocrMatch ? 'Valid Cocok' : ($ocrChecked ? 'Mismatch / Warning' : 'Belum Di-scan');
+            // Evaluasi Status Dokumen
+            $shipment->ocr_checked = false;
+            $shipment->ocr_match = false;
+            $shipment->ocr_label = 'Terverifikasi';
 
             return $shipment;
         });

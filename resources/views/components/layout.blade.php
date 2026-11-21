@@ -319,13 +319,6 @@
                         <span>Pengguna</span>
                     </a>
 
-                    <a href="{{ route('settings.roles.index') }}"
-                       @click="sidebarOpen = false"
-                       class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-all {{ request()->routeIs('settings.roles.*') ? 'text-white font-bold bg-white/20 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/10' }}">
-                        <i class="ph-bold ph-shield-check text-sm shrink-0"></i>
-                        <span>Role & Akses</span>
-                    </a>
-
                     <a href="{{ route('settings.sop.index') }}"
                        @click="sidebarOpen = false"
                        class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-all {{ request()->routeIs('settings.sop.*') ? 'text-white font-bold bg-white/20 shadow-sm' : 'text-white/60 hover:text-white hover:bg-white/10' }}">

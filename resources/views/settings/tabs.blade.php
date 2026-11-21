@@ -16,13 +16,6 @@
             <span>Manajemen Pengguna</span>
         </a>
 
-        <!-- Role & Hak Akses -->
-        <a href="{{ route('settings.roles.index') }}"
-           class="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all {{ $active === 'roles' ? 'bg-spv-blue text-white shadow-sm' : 'text-gray-600 hover:text-spv-blue hover:bg-gray-50' }}">
-            <i class="ph-bold ph-shield-check text-base"></i>
-            <span>Role & Hak Akses</span>
-        </a>
-
         <!-- Master 27 Titik SOP -->
         <a href="{{ route('settings.sop.index') }}"
            class="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all {{ $active === 'sop' ? 'bg-spv-blue text-white shadow-sm' : 'text-gray-600 hover:text-spv-blue hover:bg-gray-50' }}">

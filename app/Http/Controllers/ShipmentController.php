@@ -47,7 +47,7 @@ class ShipmentController extends Controller
 
         // Ambil data armada yang sedang dalam proses staging aktif (status: draft)
         $activeStagingShipments = Shipment::where('status', 'draft')
-            ->with(['karyawan', 'karyawans', 'evidenceItems', 'photos'])
+            ->with(['karyawan', 'karyawans', 'evidenceItems'])
             ->latest()
             ->get();
 
@@ -61,7 +61,6 @@ class ShipmentController extends Controller
             'karyawans',
             'user',
             'evidenceItems.sopPhotoPoint',
-            'photos',
             'containerInspection',
             'baleInspection.items',
             'activities' => fn ($q) => $q->latest(),
@@ -105,11 +104,7 @@ class ShipmentController extends Controller
         // Hapus relasi
         $shipment->karyawans()->detach();
         $shipment->evidenceItems()->delete();
-        $shipment->photos()->delete();
-        $shipment->extraPhotos()->delete();
         $shipment->activities()->delete();
-        $shipment->shipmentOrder()?->delete();
-        $shipment->packingList()?->delete();
 
         // Hapus record shipment
         $shipment->delete();
@@ -148,7 +143,7 @@ class ShipmentController extends Controller
      */
     public function generateShipmentZip(Shipment $shipment, string $quality = 'compressed'): ?string
     {
-        $shipment->loadMissing(['evidenceItems.sopPhotoPoint', 'photos', 'extraPhotos']);
+        $shipment->loadMissing(['evidenceItems.sopPhotoPoint']);
 
         $optimize = $quality !== 'original';
 
@@ -176,20 +171,6 @@ class ShipmentController extends Controller
                     'point_no' => $ev->sopPhotoPoint?->urutan,
                     'point_name' => $ev->sopPhotoPoint?->nama_titik,
                     'is_extra' => (bool) $ev->is_tambahan,
-                    'ext' => pathinfo($fullPath, PATHINFO_EXTENSION) ?: 'jpg',
-                ]);
-            }
-        }
-
-        // Tambahkan foto dari model photos/extraPhotos jika ada yang belum terdaftar
-        foreach ($shipment->photos as $ph) {
-            $fullPath = storage_path('app/public/'.($ph->stamped_path ?: $ph->path));
-            if (file_exists($fullPath) && ! $evidenceList->contains('path', $fullPath)) {
-                $evidenceList->push([
-                    'path' => $fullPath,
-                    'point_no' => $ph->point_no,
-                    'point_name' => $ph->point_label,
-                    'is_extra' => (bool) $ph->is_extra,
                     'ext' => pathinfo($fullPath, PATHINFO_EXTENSION) ?: 'jpg',
                 ]);
             }
@@ -273,7 +254,7 @@ class ShipmentController extends Controller
         @set_time_limit(300);
 
         $query = $this->buildBatchShipmentsQuery($request);
-        $shipments = $query->with(['evidenceItems.sopPhotoPoint', 'photos', 'extraPhotos'])->get();
+        $shipments = $query->with(['evidenceItems.sopPhotoPoint'])->get();
 
         if ($shipments->isEmpty()) {
             return back()->with('error', 'Tidak ditemukan data shipment dengan bukti foto pada kriteria filter yang dipilih.');
@@ -426,7 +407,7 @@ class ShipmentController extends Controller
 
         // Hanya ambil shipment yang memiliki berkas foto atau bukti evidence
         $query->where(function ($q) {
-            $q->has('evidenceItems')->orHas('photos');
+            $q->has('evidenceItems');
         });
 
         $mode = $request->input('mode', 'harian');
@@ -622,7 +603,7 @@ class ShipmentController extends Controller
      */
     public function printReport(Shipment $shipment)
     {
-        $shipment->load(['karyawan', 'karyawans', 'user', 'evidenceItems.sopPhotoPoint', 'photos', 'extraPhotos', 'containerInspection', 'baleInspection.items']);
+        $shipment->load(['karyawan', 'karyawans', 'user', 'evidenceItems.sopPhotoPoint', 'containerInspection', 'baleInspection.items']);
 
         $photoItems = collect();
 
@@ -646,27 +627,6 @@ class ShipmentController extends Controller
             }
         }
 
-        // Tambahkan foto dari model photos/extraPhotos jika ada yang belum terdaftar
-        foreach ($shipment->photos as $ph) {
-            $relPath = $ph->stamped_path ?: $ph->path;
-            $ext = strtolower(pathinfo($relPath, PATHINFO_EXTENSION));
-            if (in_array($ext, ['mp4', 'mov', 'webm'])) {
-                continue;
-            }
-
-            $fullPath = storage_path('app/public/'.$relPath);
-            if (file_exists($fullPath) && ! $photoItems->contains('image_src', asset('storage/'.$relPath))) {
-                $photoItems->push([
-                    'point_no' => $ph->point_no,
-                    'point_name' => $ph->point_label ?? 'Bukti Loading',
-                    'is_extra' => (bool) $ph->is_extra,
-                    'tipe_item' => 'foto',
-                    'timestamp_wib' => $ph->stamped_at ? $ph->stamped_at->format('d/m/Y H:i:s \W\I\B') : ($ph->created_at ? $ph->created_at->format('d/m/Y H:i:s \W\I\B') : '-'),
-                    'image_src' => asset('storage/'.$relPath),
-                ]);
-            }
-        }
-
         $shipmentPhotos = $photoItems->sortBy(fn ($item) => $item['point_no'] ?? 999)->values();
 
         return view('shipments.pdf', compact('shipment', 'shipmentPhotos') + ['isPdf' => false]);
@@ -680,7 +640,7 @@ class ShipmentController extends Controller
         @ini_set('memory_limit', '512M');
         @set_time_limit(180);
 
-        $shipment->load(['karyawan', 'karyawans', 'user', 'evidenceItems.sopPhotoPoint', 'photos', 'extraPhotos', 'containerInspection', 'baleInspection.items']);
+        $shipment->load(['karyawan', 'karyawans', 'user', 'evidenceItems.sopPhotoPoint', 'containerInspection', 'baleInspection.items']);
 
         $packingList = trim((string) ($shipment->packing_list_no ?? ''));
         $pdfBase = $packingList !== '' ? $packingList : ($shipment->shipment_no ?: ('shipment-'.$shipment->id));
@@ -718,29 +678,6 @@ class ShipmentController extends Controller
                         'is_extra' => (bool) $ev->is_tambahan,
                         'tipe_item' => 'foto',
                         'timestamp_wib' => $ev->captured_at ? $ev->captured_at->format('d/m/Y H:i:s \W\I\B') : ($ev->created_at ? $ev->created_at->format('d/m/Y H:i:s \W\I\B') : '-'),
-                        'image_src' => $base64,
-                    ]);
-                }
-            }
-        }
-
-        foreach ($shipment->photos as $ph) {
-            $relPath = $ph->stamped_path ?: $ph->path;
-            $ext = strtolower(pathinfo($relPath, PATHINFO_EXTENSION));
-            if (in_array($ext, ['mp4', 'mov', 'webm'])) {
-                continue;
-            }
-
-            $fullPath = storage_path('app/public/'.$relPath);
-            if (file_exists($fullPath) && ! $photoItems->contains('point_name', $ph->point_label)) {
-                $base64 = $this->prepareImageBase64ForPdf($fullPath);
-                if ($base64) {
-                    $photoItems->push([
-                        'point_no' => $ph->point_no,
-                        'point_name' => $ph->point_label ?? 'Bukti Loading',
-                        'is_extra' => (bool) $ph->is_extra,
-                        'tipe_item' => 'foto',
-                        'timestamp_wib' => $ph->stamped_at ? $ph->stamped_at->format('d/m/Y H:i:s \W\I\B') : ($ph->created_at ? $ph->created_at->format('d/m/Y H:i:s \W\I\B') : '-'),
                         'image_src' => $base64,
                     ]);
                 }

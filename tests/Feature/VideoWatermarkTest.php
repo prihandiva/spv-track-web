@@ -88,4 +88,50 @@ class VideoWatermarkTest extends TestCase
             'tipe_item' => 'video',
         ]);
     }
+
+    public function test_uploading_video_exceeding_6mb_via_field_app_fails_validation(): void
+    {
+        // 7MB video (7168 KB > 6144 KB)
+        $file = UploadedFile::fake()->create('heavy_video.mp4', 7168, 'video/mp4');
+
+        $response = $this->actingAs($this->user)->postJson(route('field-app.upload-photo', $this->shipment->id), [
+            'sop_photo_point_id' => $this->videoPoint->id,
+            'file' => $file,
+            'captured_at' => now()->format('Y-m-d H:i:s'),
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJson([
+            'success' => false,
+        ]);
+        $this->assertStringContainsString('6MB', $response->json('message'));
+
+        $this->assertDatabaseMissing('evidence_items', [
+            'shipment_id' => $this->shipment->id,
+            'sop_photo_point_id' => $this->videoPoint->id,
+        ]);
+    }
+
+    public function test_uploading_video_exceeding_6mb_via_mobile_api_fails_validation(): void
+    {
+        // 6.5MB video (6656 KB > 6144 KB)
+        $file = UploadedFile::fake()->create('heavy_mobile_video.mp4', 6656, 'video/mp4');
+
+        $response = $this->actingAs($this->user)->postJson("/api/shipments/{$this->shipment->id}/evidence", [
+            'sop_photo_point_id' => $this->videoPoint->id,
+            'file' => $file,
+            'captured_at' => now()->format('Y-m-d H:i:s'),
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJson([
+            'success' => false,
+        ]);
+        $this->assertStringContainsString('6MB', $response->json('message'));
+
+        $this->assertDatabaseMissing('evidence_items', [
+            'shipment_id' => $this->shipment->id,
+            'sop_photo_point_id' => $this->videoPoint->id,
+        ]);
+    }
 }

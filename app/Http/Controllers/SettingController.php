@@ -21,13 +21,10 @@ class SettingController extends Controller
         $totalAdmin = User::where('role', 'admin')->count();
         $totalOperator = User::where('role', 'operator')->count();
 
-        $roles = Role::withCount('users')->get();
-        $totalRoles = $roles->count();
-
         $totalSop = SopPhotoPoint::count();
         $totalSopWajib = SopPhotoPoint::where('wajib', true)->count();
-        $totalSopOcr = SopPhotoPoint::where('perlu_ocr_container', true)->count();
-        $totalSopAi = SopPhotoPoint::where('perlu_deteksi_orang', true)->orWhere('perlu_deteksi_barcode', true)->count();
+        $totalSopFoto = SopPhotoPoint::where('tipe_item', 'foto')->count();
+        $totalSopVideo = SopPhotoPoint::where('tipe_item', 'video')->count();
 
         $totalExternalWarehouses = ExternalWarehouse::count();
         $totalExternalWarehousesActive = ExternalWarehouse::where('status', 'aktif')->count();
@@ -39,12 +36,10 @@ class SettingController extends Controller
             'totalSuperadmin',
             'totalAdmin',
             'totalOperator',
-            'roles',
-            'totalRoles',
             'totalSop',
             'totalSopWajib',
-            'totalSopOcr',
-            'totalSopAi',
+            'totalSopFoto',
+            'totalSopVideo',
             'totalExternalWarehouses',
             'totalExternalWarehousesActive',
             'settings'

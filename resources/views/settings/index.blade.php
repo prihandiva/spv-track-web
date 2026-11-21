@@ -37,7 +37,7 @@
     @include('settings.tabs', ['active' => 'index'])
 
     <!-- Sub-Menu Navigation & Overview Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-8">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
 
         <!-- Card 1: Pengguna -->
         <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-[0_1px_6px_rgba(40,84,145,0.04)] hover:shadow-md transition-all flex flex-col justify-between group">
@@ -76,38 +76,7 @@
             </a>
         </div>
 
-        <!-- Card 2: Role & Hak Akses -->
-        <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-[0_1px_6px_rgba(40,84,145,0.04)] hover:shadow-md transition-all flex flex-col justify-between group">
-            <div>
-                <div class="flex items-center justify-between mb-4">
-                    <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-white" style="background: linear-gradient(135deg, #6366f1, #8b5cf6);">
-                        <i class="ph-fill ph-shield-check text-2xl group-hover:scale-110 transition-transform"></i>
-                    </div>
-                    <span class="text-xs font-bold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">
-                        {{ $totalRoles }} Role
-                    </span>
-                </div>
-                <h3 class="text-base font-bold text-gray-800">Role & Hak Akses</h3>
-                <p class="text-xs text-gray-500 mt-1.5 leading-relaxed">Matriks perizinan aksi operasional (Field App, download laporan, koreksi data, edit SOP).</p>
-
-                <div class="mt-4 pt-3 border-t border-gray-100 space-y-1.5 text-xs">
-                    @foreach($roles as $r)
-                        <div class="flex items-center justify-between text-gray-600">
-                            <span class="truncate pr-2">{{ $r->display_name }}:</span>
-                            <span class="font-bold text-gray-800">{{ $r->users_count }} user</span>
-                        </div>
-                    @endforeach
-                </div>
-            </div>
-
-            <a href="{{ route('settings.roles.index') }}"
-               class="mt-5 w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-gray-50 hover:bg-indigo-600 hover:text-white text-gray-700 text-xs font-bold transition-all border border-gray-200 hover:border-indigo-600">
-                <span>Atur Hak Akses</span>
-                <i class="ph-bold ph-arrow-right text-xs"></i>
-            </a>
-        </div>
-
-        <!-- Card 3: Master 27 Titik SOP -->
+        <!-- Card 2: Master 27 Titik SOP -->
         <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-[0_1px_6px_rgba(40,84,145,0.04)] hover:shadow-md transition-all flex flex-col justify-between group">
             <div>
                 <div class="flex items-center justify-between mb-4">
@@ -127,12 +96,12 @@
                         <span class="font-bold text-emerald-700">{{ $totalSopWajib }} Titik</span>
                     </div>
                     <div class="flex items-center justify-between text-gray-600">
-                        <span>Verifikasi OCR Container:</span>
-                        <span class="font-bold text-amber-600">{{ $totalSopOcr }} Titik</span>
+                        <span>Format Foto Evidence:</span>
+                        <span class="font-bold text-blue-600">{{ $totalSopFoto }} Titik</span>
                     </div>
                     <div class="flex items-center justify-between text-gray-600">
-                        <span>Deteksi AI (Orang/Barcode):</span>
-                        <span class="font-bold text-blue-600">{{ $totalSopAi }} Titik</span>
+                        <span>Format Video Bukti:</span>
+                        <span class="font-bold text-rose-600">{{ $totalSopVideo }} Titik</span>
                     </div>
                 </div>
             </div>
@@ -277,8 +246,8 @@
                         <span class="font-bold text-white">{{ $totalUsers }}</span>
                     </div>
                     <div class="flex items-center justify-between py-1 border-b border-white/10 text-white/80">
-                        <span>Role Hak Akses</span>
-                        <span class="font-bold text-white">{{ $totalRoles }}</span>
+                        <span>Tingkat Peran Pengguna</span>
+                        <span class="font-bold text-white">3 Role (Superadmin, Admin, Operator)</span>
                     </div>
                     <div class="flex items-center justify-between py-1 text-white/80">
                         <span>Titik Master SOP</span>

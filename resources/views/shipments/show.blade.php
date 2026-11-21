@@ -643,44 +643,42 @@
     @php
         $galleryItems = [];
         foreach ($points as $p) {
-            $photo = $shipment->photos->firstWhere('point_no', $p->urutan);
-            $evidence = $photo ?: $shipment->evidenceItems->firstWhere('sop_photo_point_id', $p->id);
+            $evidence = $shipment->evidenceItems->firstWhere('sop_photo_point_id', $p->id);
             if ($evidence) {
-                $filePath = $photo ? ($photo->path ?? $photo->stamped_path) : ($evidence->file_path ?? '');
-                $fileName = $photo ? '' : ($evidence->file_name ?? '');
-                $mime = $photo ? ($photo->mime ?? '') : '';
+                $filePath = $evidence->file_path ?? '';
+                $fileName = $evidence->file_name ?? '';
                 $isVideo = ($p->tipe_item === 'video'
-                    || ($evidence && ($evidence->tipe_item ?? null) === 'video')
-                    || preg_match('/\.(mp4|mov|webm|3gp|avi|m4v|ogg)$/i', (string)($filePath . ' ' . $fileName))
-                    || str_starts_with($mime, 'video/'));
+                    || ($evidence->tipe_item ?? null) === 'video'
+                    || preg_match('/\.(mp4|mov|webm|3gp|avi|m4v|ogg)$/i', (string)($filePath . ' ' . $fileName)));
 
-                $mediaUrl = $photo ? $photo->stamped_url : asset('storage/' . $evidence->file_path);
-                $origUrl = $photo ? $photo->original_url : asset('storage/' . $evidence->file_path);
+                $mediaUrl = asset('storage/' . $evidence->file_path);
 
                 $galleryItems[] = [
                     'id' => 'point-' . $p->urutan,
                     'point_no' => (int) $p->urutan,
                     'is_video' => (bool) $isVideo,
                     'title' => 'Titik ' . $p->urutan . ': ' . $p->nama_titik,
-                    'ts' => $photo ? $photo->stamped_at?->format('Y-m-d H:i:s \W\I\B') : ($evidence->captured_at ? $evidence->captured_at->format('Y-m-d H:i:s \W\I\B') : '-'),
+                    'ts' => $evidence->captured_at ? $evidence->captured_at->format('Y-m-d H:i:s \W\I\B') : ($evidence->created_at ? $evidence->created_at->format('Y-m-d H:i:s \W\I\B') : '-'),
                     'src' => $mediaUrl,
-                    'orig' => $origUrl,
-                    'thumb' => $photo ? $photo->thumbnail_url : asset('storage/' . $evidence->file_path),
+                    'orig' => $mediaUrl,
+                    'thumb' => $mediaUrl,
                 ];
             }
         }
-        foreach ($shipment->extraPhotos as $extra) {
-            $filePath = $extra->path ?? $extra->stamped_path ?? '';
-            $isVideo = preg_match('/\.(mp4|mov|webm|3gp|avi|m4v|ogg)$/i', (string)$filePath) || str_starts_with($extra->mime ?? '', 'video/');
+        $extraEvidences = $shipment->evidenceItems->where('is_tambahan', true);
+        foreach ($extraEvidences as $extra) {
+            $filePath = $extra->file_path ?? '';
+            $isVideo = ($extra->tipe_item === 'video') || preg_match('/\.(mp4|mov|webm|3gp|avi|m4v|ogg)$/i', (string)$filePath);
+            $mediaUrl = asset('storage/' . $extra->file_path);
             $galleryItems[] = [
                 'id' => 'extra-' . $extra->id,
                 'point_no' => null,
                 'is_video' => (bool) $isVideo,
-                'title' => 'Foto Ekstra: ' . $extra->point_label,
-                'ts' => $extra->stamped_at?->format('Y-m-d H:i:s \W\I\B') ?? '-',
-                'src' => $extra->stamped_url,
-                'orig' => $extra->original_url,
-                'thumb' => $extra->thumbnail_url,
+                'title' => 'Item Tambahan: ' . ($extra->file_name ?? 'Bukti Ekstra'),
+                'ts' => $extra->captured_at ? $extra->captured_at->format('Y-m-d H:i:s \W\I\B') : ($extra->created_at ? $extra->created_at->format('Y-m-d H:i:s \W\I\B') : '-'),
+                'src' => $mediaUrl,
+                'orig' => $mediaUrl,
+                'thumb' => $mediaUrl,
             ];
         }
     @endphp
@@ -838,7 +836,7 @@
             <div class="flex items-center gap-2 flex-wrap">
                 @php
                     $totalPhotosCount = count($galleryItems);
-                    $extraPhotosCount = $shipment->extraPhotos->count();
+                    $extraPhotosCount = $extraEvidences->count();
                 @endphp
                 @if($totalPhotosCount > 0)
                     <a href="{{ route('shipments.download-evidence', $shipment->id) }}"
@@ -869,18 +867,15 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
             @foreach($points as $point)
                 @php
-                    $photo = $shipment->photos->firstWhere('point_no', $point->urutan);
-                    $evidence = $photo ?: $shipment->evidenceItems->firstWhere('sop_photo_point_id', $point->id);
-                    $mediaUrl = $photo ? $photo->thumbnail_url : ($evidence ? asset('storage/' . $evidence->file_path) : null);
-                    $stampedTime = $photo ? $photo->stamped_at?->format('d/m/Y H:i:s \W\I\B') : ($evidence?->captured_at ? $evidence->captured_at->format('Y-m-d H:i:s \W\I\B') : null);
+                    $evidence = $shipment->evidenceItems->firstWhere('sop_photo_point_id', $point->id);
+                    $mediaUrl = $evidence ? asset('storage/' . $evidence->file_path) : null;
+                    $stampedTime = $evidence?->captured_at ? $evidence->captured_at->format('d/m/Y H:i:s \W\I\B') : ($evidence?->created_at ? $evidence->created_at->format('d/m/Y H:i:s \W\I\B') : null);
 
-                    $filePath = $photo ? ($photo->path ?? $photo->stamped_path) : ($evidence->file_path ?? '');
-                    $fileName = $photo ? '' : ($evidence->file_name ?? '');
-                    $mime = $photo ? ($photo->mime ?? '') : '';
+                    $filePath = $evidence->file_path ?? '';
+                    $fileName = $evidence->file_name ?? '';
                     $isVideo = ($point->tipe_item === 'video'
                         || ($evidence && ($evidence->tipe_item ?? null) === 'video')
-                        || preg_match('/\.(mp4|mov|webm|3gp|avi|m4v|ogg)$/i', (string)($filePath . ' ' . $fileName))
-                        || str_starts_with($mime, 'video/'));
+                        || preg_match('/\.(mp4|mov|webm|3gp|avi|m4v|ogg)$/i', (string)($filePath . ' ' . $fileName)));
                 @endphp
 
                 <div class="rounded-xl border {{ $evidence ? 'border-gray-200 bg-white shadow-sm' : 'border-dashed border-gray-200 bg-gray-50/50' }} overflow-hidden flex flex-col transition-all hover:shadow-md">
@@ -977,40 +972,41 @@
         </div>
 
         <!-- Section Foto Ekstra jika ada -->
-        @if($shipment->extraPhotos->count() > 0)
+        @if($extraEvidences->count() > 0)
             <div class="mt-8 pt-6 border-t border-gray-100">
                 <h3 class="text-xs font-bold text-gray-700 uppercase tracking-wider mb-4 flex items-center gap-2">
                     <span class="w-2 h-2 rounded-full bg-purple-500"></span>
-                    Foto Bukti Ekstra / Tambahan ({{ $shipment->extraPhotos->count() }} Foto)
+                    Bukti Ekstra / Tambahan ({{ $extraEvidences->count() }} Item)
                 </h3>
                 <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-                    @foreach($shipment->extraPhotos as $extra)
+                    @foreach($extraEvidences as $extra)
                         @php
-                            $extraFilePath = $extra->path ?? $extra->stamped_path ?? '';
-                            $isExtraVideo = preg_match('/\.(mp4|mov|webm|3gp|avi|m4v|ogg)$/i', (string)$extraFilePath) || str_starts_with($extra->mime ?? '', 'video/');
+                            $extraFilePath = $extra->file_path ?? '';
+                            $isExtraVideo = ($extra->tipe_item === 'video') || preg_match('/\.(mp4|mov|webm|3gp|avi|m4v|ogg)$/i', (string)$extraFilePath);
+                            $extraMediaUrl = asset('storage/' . $extra->file_path);
                         @endphp
                         <div class="rounded-xl border border-purple-100 bg-white shadow-sm overflow-hidden flex flex-col transition-all hover:shadow-md">
                             <div class="p-3 border-b border-gray-100 flex items-center justify-between bg-purple-50/30">
                                 <div class="flex items-center gap-2">
                                     <span class="w-5 h-5 rounded-full bg-purple-100 text-purple-700 font-bold text-[10px] flex items-center justify-center shrink-0">+</span>
-                                    <p class="text-xs font-bold text-gray-800 truncate">{{ $extra->point_label }}</p>
+                                    <p class="text-xs font-bold text-gray-800 truncate">{{ $extra->file_name ?? 'Bukti Tambahan' }}</p>
                                 </div>
                                 <span class="text-[9px] font-bold text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded">Ekstra</span>
                             </div>
 
                             <div class="relative aspect-video bg-gray-950 overflow-hidden flex items-center justify-center group">
                                 @if($isExtraVideo)
-                                    <video src="{{ $extra->stamped_url }}#t=0.001" preload="metadata" muted playsinline class="w-full h-full object-cover pointer-events-none"></video>
+                                    <video src="{{ $extraMediaUrl }}#t=0.001" preload="metadata" muted playsinline class="w-full h-full object-cover pointer-events-none"></video>
                                     <div class="absolute inset-0 flex items-center justify-center pointer-events-none bg-black/20 group-hover:bg-black/40 transition-colors">
                                         <div class="w-12 h-12 rounded-full bg-black/60 backdrop-blur-md border border-white/30 text-white flex items-center justify-center shadow-xl group-hover:scale-110 group-hover:bg-rose-600 transition-all">
                                             <i class="ph-fill ph-play text-xl translate-x-0.5 text-white"></i>
                                         </div>
                                     </div>
                                 @else
-                                    <img src="{{ $extra->thumbnail_url }}" alt="{{ $extra->point_label }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                                    <img src="{{ $extraMediaUrl }}" alt="{{ $extra->file_name }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
                                 @endif
                                 <div class="absolute bottom-2 left-2 right-2 bg-black/75 backdrop-blur-sm text-amber-300 px-2 py-1 rounded text-[10px] font-mono font-bold flex items-center justify-between border border-white/10 pointer-events-none">
-                                    <span class="truncate">{{ $extra->stamped_at?->format('d/m/Y H:i:s \W\I\B') }}</span>
+                                    <span class="truncate">{{ $extra->captured_at ? $extra->captured_at->format('d/m/Y H:i:s \W\I\B') : ($extra->created_at ? $extra->created_at->format('d/m/Y H:i:s \W\I\B') : '-') }}</span>
                                     <i class="ph-bold {{ $isExtraVideo ? 'ph-play-circle' : 'ph-magnifying-glass-plus' }} text-xs text-white/80"></i>
                                 </div>
                                 <button type="button"
@@ -1021,7 +1017,7 @@
                             </div>
 
                             <div class="p-2.5 bg-gray-50/70 border-t border-gray-100 mt-auto text-[10px] text-gray-500 flex items-center justify-between">
-                                <span>{{ number_format($extra->size / 1024, 1) }} KB</span>
+                                <span>{{ $extra->size ? number_format($extra->size / 1024, 1) . ' KB' : 'Tersimpan' }}</span>
                                 <span class="text-spv-green font-bold flex items-center gap-1">
                                     <i class="ph-fill ph-check-circle"></i> Terverifikasi
                                 </span>

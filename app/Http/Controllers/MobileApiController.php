@@ -235,9 +235,35 @@ class MobileApiController extends Controller
         try {
             $request->validate([
                 'sop_photo_point_id' => 'nullable|exists:sop_photo_points,id',
-                'file' => 'required|file|max:51200', // 50MB
+                'file' => [
+                    'required',
+                    'file',
+                    'max:51200', // 50MB
+                    function ($attribute, $value, $fail) use ($request) {
+                        $ext = strtolower($value->getClientOriginalExtension());
+                        $mime = $value->getMimeType() ?? '';
+                        $pointId = $request->input('sop_photo_point_id');
+                        $point = $pointId ? SopPhotoPoint::find($pointId) : null;
+
+                        $isVideo = in_array($ext, ['mp4', 'mov', 'webm', '3gp', 'avi', 'm4v', 'quicktime'])
+                            || str_starts_with($mime, 'video/')
+                            || ($point && $point->tipe_item === 'video');
+
+                        if ($isVideo) {
+                            $maxBytes = 6 * 1024 * 1024; // 6MB
+                            if ($value->getSize() > $maxBytes) {
+                                $sizeMb = round($value->getSize() / (1024 * 1024), 2);
+                                $fail("Ukuran video ({$sizeMb}MB) melebihi batas maksimal 6MB. Gagal unggah video.");
+                            }
+                        }
+                    },
+                ],
                 'is_tambahan' => 'nullable|boolean',
                 'captured_at' => 'nullable|string',
+            ], [
+                'file.required' => 'File bukti wajib diunggah.',
+                'file.file' => 'Berkas yang diunggah harus berupa file yang valid.',
+                'file.max' => 'Ukuran file melebihi batas maksimal server.',
             ]);
 
             $file = $request->file('file');
@@ -261,7 +287,9 @@ class MobileApiController extends Controller
             $point = $pointId ? SopPhotoPoint::find($pointId) : null;
             $pointTitle = $point ? "TITIK {$point->urutan}: {$point->nama_titik}" : ($request->boolean('is_tambahan') ? 'FOTO EKSTRA' : 'EVIDENCE');
 
-            $isVideo = in_array($ext, ['mp4', 'mov', 'webm', '3gp', 'avi', 'm4v']) || str_starts_with($file->getMimeType(), 'video/');
+            $isVideo = in_array($ext, ['mp4', 'mov', 'webm', '3gp', 'avi', 'm4v', 'quicktime'])
+                || str_starts_with($file->getMimeType() ?? '', 'video/')
+                || ($point && $point->tipe_item === 'video');
 
             try {
                 if ($isVideo) {
@@ -290,6 +318,16 @@ class MobileApiController extends Controller
                 }
             }
 
+            // Pastikan ukuran file video yang tersimpan di server tidak melebihi 6MB
+            $fileSize = file_exists($targetPath) ? filesize($targetPath) : null;
+            if ($isVideo && $fileSize && $fileSize > 6 * 1024 * 1024) {
+                @unlink($targetPath);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Ukuran video yang tersimpan di server melebihi batas maksimal 6MB. Gagal menyimpan video.',
+                ], 422);
+            }
+
             $evidence = EvidenceItem::updateOrCreate(
                 [
                     'shipment_id' => $shipment->id,
@@ -298,6 +336,8 @@ class MobileApiController extends Controller
                 [
                     'file_path' => $relPath,
                     'file_name' => $fileName,
+                    'size' => $fileSize,
+                    'sha256' => file_exists($targetPath) ? hash_file('sha256', $targetPath) : null,
                     'tipe_item' => $isVideo ? 'video' : 'foto',
                     'captured_at' => $capturedAt,
                     'gps_lat' => -6.200000,

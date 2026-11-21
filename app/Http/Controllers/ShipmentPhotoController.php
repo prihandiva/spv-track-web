@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Shipment;
-use App\Models\ShipmentPhoto;
+use App\Models\EvidenceItem;
 use App\Services\PhotoProcessingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -178,31 +178,23 @@ class ShipmentPhotoController extends Controller
     }
 
     /**
-     * Endpoint Private File Server: Mengakses file foto permanen dari disk private.
+     * Endpoint Private File Server: Mengakses file foto permanen dari disk storage.
      */
-    public function servePermanentPhoto(Request $request, ShipmentPhoto $photo): BinaryFileResponse|JsonResponse
+    public function servePermanentPhoto(Request $request, EvidenceItem $photo): BinaryFileResponse|JsonResponse
     {
-        // Proteksi login / akses:
-        // Di sini bisa dipasang Gate/Policy sesuai role pengguna (operator, admin, superadmin)
-        $type = $request->query('type', 'stamped');
+        $relPath = $photo->file_path;
 
-        $relPath = match ($type) {
-            'original' => $photo->path,
-            'thumbnail' => $photo->thumbnail_path ?: $photo->stamped_path,
-            default => $photo->stamped_path,
-        };
-
-        if (! Storage::disk('local')->exists($relPath)) {
+        if (! Storage::disk('public')->exists($relPath)) {
             return response()->json([
                 'success' => false,
                 'message' => 'File foto tidak ditemukan di penyimpanan server.',
             ], 404);
         }
 
-        $fullPath = Storage::disk('local')->path($relPath);
+        $fullPath = Storage::disk('public')->path($relPath);
 
         return response()->file($fullPath, [
-            'Content-Type' => $photo->mime ?: 'image/jpeg',
+            'Content-Type' => 'image/jpeg',
             'Content-Disposition' => 'inline; filename="'.basename($relPath).'"',
             'Cache-Control' => 'private, max-age=86400',
         ]);
@@ -213,22 +205,18 @@ class ShipmentPhotoController extends Controller
      */
     public function index(Shipment $shipment): JsonResponse
     {
-        $photos = $shipment->photos()->orderBy('is_extra')->orderBy('point_no')->get();
+        $photos = $shipment->evidenceItems()->orderBy('is_tambahan')->get();
 
         $data = $photos->map(function ($p) {
             return [
                 'id' => $p->id,
-                'point_no' => $p->point_no,
-                'point_label' => $p->point_label,
-                'is_extra' => $p->is_extra,
+                'point_no' => $p->sopPhotoPoint?->urutan,
+                'point_label' => $p->sopPhotoPoint?->nama_titik ?? 'Bukti Loading',
+                'is_extra' => (bool) $p->is_tambahan,
                 'size' => $p->size,
                 'sha256' => $p->sha256,
                 'captured_at' => $p->captured_at?->format('d/m/Y H:i:s \W\I\B'),
-                'stamped_at' => $p->stamped_at?->format('d/m/Y H:i:s \W\I\B'),
-                'ocr_text' => $p->ocr_text,
-                'stamped_url' => $p->stamped_url,
-                'original_url' => $p->original_url,
-                'thumbnail_url' => $p->thumbnail_url,
+                'file_url' => asset('storage/'.$p->file_path),
             ];
         });
 

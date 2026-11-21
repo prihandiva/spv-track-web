@@ -96,6 +96,7 @@
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
             window.closeSopPreview();
+            window.closeVideoSizeWarningModal();
         }
     });
 
@@ -464,12 +465,17 @@
                             <p style="font-size: 12px; font-weight: 700; color: #1f2937; line-height: 1.2;">{{ $point->nama_titik }}</p>
                         </div>
                         <p style="font-size: 10px; color: #9ca3af; margin-top: 2px;">{{ $point->deskripsi }}</p>
+                        @if($isVideoPoint)
+                            <div style="font-size: 10px; color: #dc2626; font-weight: 700; margin-top: 3px; display: inline-flex; align-items: center; gap: 4px; background: #fef2f2; border: 1px solid #fecaca; padding: 2px 7px; border-radius: 6px;">
+                                <i class="ph-bold ph-warning-circle"></i> Maksimal ukuran video: 6MB
+                            </div>
+                        @endif
                     </div>
                     @if($point->wajib)
                         <span style="font-size: 9px; font-weight: 700; color: #ef4444; background: #fef2f2; border: 1px solid #fecaca; padding: 2px 7px; border-radius: 20px; white-space: nowrap; margin-left: 8px; flex-shrink: 0;">WAJIB</span>
                     @else
                         <span style="font-size: 9px; font-weight: 600; color: {{ $isVideoPoint ? '#dc2626' : '#9ca3af' }}; background: {{ $isVideoPoint ? '#fee2e2' : '#f9fafb' }}; border: 1px solid {{ $isVideoPoint ? '#fca5a5' : '#f3f4f6' }}; padding: 2px 7px; border-radius: 20px; white-space: nowrap; margin-left: 8px; flex-shrink: 0;">
-                            {{ $isVideoPoint ? 'Video (Opsional)' : 'Opsional' }}
+                            {{ $isVideoPoint ? 'Video (Maks 6MB)' : 'Opsional' }}
                         </span>
                     @endif
                 </div>
@@ -487,7 +493,7 @@
                                     <i class="ph-fill ph-video-camera" style="font-size: 18px; color: #dc2626;"></i>
                                 </div>
                                 <span style="font-size: 11px; font-weight: 700; color: #dc2626;">Rekam Video</span>
-                                <span style="font-size: 9px; color: #ef4444;">Buka Camcorder Langsung</span>
+                                <span style="font-size: 9px; color: #ef4444; font-weight: 600;">Camcorder (Maks. 6MB)</span>
                             </label>
                             <div style="width: 1px; background: #f0f4f9;"></div>
                             <label style="flex: 1; padding: 12px 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: background 0.2s;"
@@ -497,7 +503,7 @@
                                     <i class="ph-bold ph-film-strip" style="font-size: 18px; color: #285491;"></i>
                                 </div>
                                 <span style="font-size: 11px; font-weight: 700; color: #285491;">Pilih Video</span>
-                                <span style="font-size: 9px; color: #64748b;">Dari Galeri / Berkas</span>
+                                <span style="font-size: 9px; color: #64748b; font-weight: 600;">Galeri (Maks. 6MB)</span>
                             </label>
                         </div>
                     @else
@@ -569,14 +575,14 @@
                         <div style="display:flex; align-items:center; gap:6px;">
                             @if($isVideoPoint)
                                 <label style="display:flex; align-items:center; gap:5px; font-size:11px; font-weight:700; color:#dc2626; background:#fee2e2; border:1px solid #fecaca; border-radius:8px; padding:6px 11px; cursor:pointer; transition:background 0.15s;"
-                                       onmouseover="this.style.background='#fca5a5'" onmouseout="this.style.background='#fee2e2'" title="Rekam Ulang Video">
+                                       onmouseover="this.style.background='#fca5a5'" onmouseout="this.style.background='#fee2e2'" title="Rekam Ulang Video (Maksimal 6MB)">
                                     <input type="file" id="camera-input-{{$point->id}}" style="display:none;" accept="video/*" capture="environment" onchange="uploadSopPhoto(this, {{ $point->id }})">
-                                    <i class="ph-fill ph-video-camera" style="font-size:14px;"></i> Rekam Ulang
+                                    <i class="ph-fill ph-video-camera" style="font-size:14px;"></i> Rekam Ulang (Maks 6MB)
                                 </label>
                                 <label style="display:flex; align-items:center; gap:5px; font-size:11px; font-weight:600; color:#285491; background:#eff4fc; border:1px solid #bfcfe8; border-radius:8px; padding:6px 11px; cursor:pointer; transition:background 0.15s;"
-                                       onmouseover="this.style.background='#dbe7f6'" onmouseout="this.style.background='#eff4fc'" title="Pilih File Video Lain">
+                                       onmouseover="this.style.background='#dbe7f6'" onmouseout="this.style.background='#eff4fc'" title="Pilih File Video Lain (Maksimal 6MB)">
                                     <input type="file" id="gallery-input-{{$point->id}}" style="display:none;" accept="video/*" onchange="uploadSopPhoto(this, {{ $point->id }})">
-                                    <i class="ph-bold ph-film-strip" style="font-size:14px;"></i> Ganti File
+                                    <i class="ph-bold ph-film-strip" style="font-size:14px;"></i> Ganti File (Maks 6MB)
                                 </label>
                             @else
                                 <label style="display:flex; align-items:center; gap:5px; font-size:11px; font-weight:700; color:#285491; background:#eff4fc; border:1.5px solid #bfcfe8; border-radius:8px; padding:6px 12px; cursor:pointer; transition:background 0.15s;"
@@ -898,7 +904,87 @@
     </div>
 </div>
 
+    <!-- MODAL PERINGATAN UKURAN VIDEO MELEBIHI 6MB -->
+    <div id="video-size-warning-modal"
+         onclick="if (event.target === this) closeVideoSizeWarningModal()"
+         style="display: none; position: fixed; inset: 0; z-index: 999999; align-items: center; justify-content: center; padding: 16px; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(8px);">
+        <div style="background: white; border-radius: 20px; max-width: 460px; width: 100%; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); overflow: hidden; border: 1.5px solid #fee2e2;"
+             onclick="event.stopPropagation()">
+            <!-- Header -->
+            <div style="background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%); padding: 18px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #fecaca;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 44px; height: 44px; border-radius: 50%; background: #fee2e2; border: 2px solid #ef4444; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                        <i class="ph-fill ph-warning-octagon" style="font-size: 24px; color: #dc2626;"></i>
+                    </div>
+                    <div>
+                        <h4 style="margin: 0; font-size: 15px; font-weight: 800; color: #991b1b;">Ukuran Video Melebihi Batas</h4>
+                        <span style="font-size: 11px; font-weight: 700; color: #dc2626; background: #fff; padding: 2px 8px; border-radius: 10px; border: 1px solid #fca5a5; display: inline-block; margin-top: 3px;">
+                            Batas Maksimal: 6.00 MB
+                        </span>
+                    </div>
+                </div>
+                <button type="button"
+                        onclick="closeVideoSizeWarningModal()"
+                        style="width: 30px; height: 30px; border-radius: 50%; background: #fee2e2; border: none; color: #991b1b; font-size: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                    <i class="ph-bold ph-x"></i>
+                </button>
+            </div>
+            <!-- Body -->
+            <div style="padding: 20px; font-size: 13px; color: #374151; line-height: 1.5;">
+                <div style="background: #fff1f2; border: 1px solid #ffe4e6; border-radius: 12px; padding: 12px 14px; margin-bottom: 14px;">
+                    <div style="font-weight: 700; color: #be123c; font-size: 13px; display: flex; align-items: center; gap: 6px;">
+                        <i class="ph-bold ph-x-circle" style="font-size: 16px;"></i> Gagal Mengunggah Video
+                    </div>
+                    <p id="video-warning-custom-msg" style="margin: 6px 0 0 0; font-size: 12px; color: #4c0519;">
+                        File video yang Anda pilih berukuran <strong id="video-warning-file-size" style="color: #e11d48; font-weight: 800;">-</strong>. Server menolak file karena melebihi batas maksimal <strong>6 MB</strong> demi kecepatan sinkronisasi data lapangan dan keandalan server.
+                    </p>
+                </div>
+
+                <p style="margin: 0 0 8px 0; font-weight: 700; color: #1f2937; font-size: 12px;">Saran agar video berhasil diunggah:</p>
+                <ul style="margin: 0; padding-left: 18px; font-size: 12px; color: #4b5563; display: flex; flex-direction: column; gap: 6px;">
+                    <li><strong>Durasi singkat:</strong> Cukup rekam video selama <strong>5 - 10 detik</strong> untuk memperlihatkan kondisi kontainer & muatan.</li>
+                    <li><strong>Resolusi kamera:</strong> Atur perekaman video ponsel ke resolusi <strong>720p / 30fps</strong> (hindari resolusi 4K atau 60fps).</li>
+                    <li><strong>Kompresi video:</strong> Kompres berkas video terlebih dahulu jika file berasal dari galeri ponsel.</li>
+                </ul>
+            </div>
+            <!-- Footer -->
+            <div style="padding: 12px 20px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end;">
+                <button type="button" onclick="closeVideoSizeWarningModal()"
+                        style="background: #dc2626; color: white; font-size: 12.5px; font-weight: 700; border: none; padding: 9px 20px; border-radius: 10px; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(220,38,38,0.3);">
+                    <i class="ph-bold ph-check"></i> Mengerti & Pilih Video Lain
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
+        const MAX_VIDEO_BYTES = 6 * 1024 * 1024; // Batas maksimal ukuran video 6MB (6,291,456 bytes)
+
+        window.showVideoSizeWarningModal = function(sizeMB = null, customMsg = null) {
+            const modal = document.getElementById('video-size-warning-modal');
+            const sizeSpan = document.getElementById('video-warning-file-size');
+            const msgP = document.getElementById('video-warning-custom-msg');
+            if (sizeSpan && sizeMB) {
+                sizeSpan.textContent = sizeMB + ' MB';
+            }
+            if (msgP && customMsg) {
+                msgP.textContent = customMsg;
+            } else if (msgP && sizeMB) {
+                msgP.innerHTML = `File video yang Anda pilih berukuran <strong style="color: #e11d48; font-weight: 800;">${sizeMB} MB</strong>. Server membatasi ukuran berkas video maksimal <strong>6 MB</strong> demi kecepatan sinkronisasi data dan keandalan sistem.`;
+            }
+            if (modal) {
+                if (modal.parentElement !== document.body) {
+                    document.body.appendChild(modal);
+                }
+                modal.style.display = 'flex';
+            }
+        };
+
+        window.closeVideoSizeWarningModal = function() {
+            const modal = document.getElementById('video-size-warning-modal');
+            if (modal) modal.style.display = 'none';
+        };
+
         // Upload photo SOP with live preview and timestamp
         function uploadSopPhoto(input, pointId) {
             if (input.files && input.files[0]) {
@@ -914,6 +1000,34 @@
                 const numBadge = document.getElementById('num-badge-' + pointId);
 
                 const isVideo = file.type.startsWith('video/') || file.name.match(/\.(mp4|mov|webm|3gp|avi|m4v)$/i);
+
+                // Validasi ukuran video di sisi frontend (maksimal 6MB)
+                if (isVideo && file.size > MAX_VIDEO_BYTES) {
+                    const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+                    const errorMsg = `Ukuran video (${sizeMB} MB) melebihi batas maksimal 6MB. Gagal mengunggah video.`;
+
+                    // 1. Tampilkan modal dialog peringatan interaktif
+                    window.showVideoSizeWarningModal(sizeMB);
+
+                    // 2. Tampilkan toast notifikasi
+                    if (window.showToast) {
+                        window.showToast(errorMsg, 'error', 'Gagal Unggah: Video Melebihi 6MB', 6000);
+                    }
+
+                    // 3. Tampilkan status peringatan pada kartu SOP
+                    if (statusBox) {
+                        statusBox.innerHTML = `<span style="color:#ef4444; font-weight:700;"><i class="ph-bold ph-warning-circle"></i> Gagal: Video (${sizeMB}MB) > 6MB</span>`;
+                    }
+
+                    // 4. Reset input berkas agar pengguna bisa memilih kembali
+                    input.value = '';
+                    return;
+                }
+
+                // Simpan URL media sebelumnya untuk antisipasi fallback jika upload gagal
+                if (wrapper && !wrapper.dataset.initialMediaUrl) {
+                    wrapper.dataset.initialMediaUrl = wrapper.dataset.mediaUrl || '';
+                }
 
                 // 1. Instant local preview
                 const blobUrl = URL.createObjectURL(file);
@@ -950,7 +1064,7 @@
 
                 // 3. Status saving
                 if (statusBox) {
-                    statusBox.innerHTML = '<span style="color:#fbbf24;"><i class="ph-bold ph-spinner animate-spin"></i> Memproses stempel...</span>';
+                    statusBox.innerHTML = '<span style="color:#fbbf24;"><i class="ph-bold ph-spinner animate-spin"></i> ' + (isVideo ? 'Memproses stempel video...' : 'Memproses stempel...') + '</span>';
                 }
 
                 // Temporary dataset for lightbox
@@ -1001,7 +1115,7 @@
                             countEl.textContent = data.uploaded_count;
                         }
 
-                        // Update preview with watermarked image from server (cache buster prevents stale browser cache)
+                        // Update preview with watermarked image/video from server (cache buster prevents stale browser cache)
                         if (data.file_url) {
                             if (isVideo) {
                                 if (videoPreview) videoPreview.src = data.file_url;
@@ -1014,6 +1128,7 @@
 
                         if (wrapper) {
                             wrapper.dataset.mediaUrl = data.file_url || blobUrl;
+                            wrapper.dataset.initialMediaUrl = data.file_url || blobUrl;
                             wrapper.dataset.isVideo = isVideo ? 'true' : 'false';
                             wrapper.dataset.timestamp = data.captured_at || `${formattedTimestamp} WIB`;
                         }
@@ -1033,8 +1148,22 @@
                         statusBox.innerHTML = `<span style="color:#f87171;" title="${err.message}">Gagal: ${err.message}</span>`;
                     }
                     if (window.showToast) {
-                        window.showToast(err.message, 'error');
+                        window.showToast(err.message, 'error', 'Gagal Unggah', 6000);
                     }
+                    // Jika error dari server terkait batas 6MB, tampilkan modal peringatan
+                    if (err.message && (err.message.includes('6MB') || err.message.includes('6mb') || err.message.toLowerCase().includes('video'))) {
+                        window.showVideoSizeWarningModal(null, err.message);
+                    }
+                    // Kembalikan tampilan preview ke kondisi awal jika ada
+                    if (wrapper && wrapper.dataset.initialMediaUrl) {
+                        if (isVideo && videoPreview) videoPreview.src = wrapper.dataset.initialMediaUrl;
+                        if (!isVideo && preview) preview.src = wrapper.dataset.initialMediaUrl;
+                    } else if (wrapper) {
+                        wrapper.style.display = 'none';
+                        if (iconBox) iconBox.style.display = 'flex';
+                        if (actionBar) actionBar.style.display = 'none';
+                    }
+                    input.value = '';
                 });
             }
         }

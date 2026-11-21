@@ -172,11 +172,15 @@ class FieldAppController extends Controller
         $shipment->karyawans()->sync($karyawanIds);
 
         if ($request->hasFile('shipment_order_photo')) {
-            $request->file('shipment_order_photo')->store('shipment_orders', 'public');
-            $shipment->shipmentOrder()->create([
-                'shipment_group' => $shipment->shipment_group,
-                'shipment_no' => $shipment->shipment_no,
-                'raw_ocr_text' => $request->input('ocr_raw_text', ''),
+            $savedPath = $request->file('shipment_order_photo')->store('shipment_orders', 'public');
+            $shipment->evidenceItems()->create([
+                'sop_photo_point_id' => null,
+                'file_path' => $savedPath,
+                'file_name' => basename($savedPath),
+                'tipe_item' => 'dokumen',
+                'is_tambahan' => true,
+                'captured_at' => now(),
+                'uploaded_by' => auth()->id(),
             ]);
         }
 
@@ -414,15 +418,16 @@ class FieldAppController extends Controller
         $shipment->karyawans()->sync($karyawanIds);
 
         if ($request->hasFile('shipment_order_photo')) {
-            $request->file('shipment_order_photo')->store('shipment_orders', 'public');
-            $shipment->shipmentOrder()->updateOrCreate(
-                ['shipment_id' => $shipment->id],
-                [
-                    'shipment_group' => $shipment->shipment_group,
-                    'shipment_no' => $shipment->shipment_no,
-                    'raw_ocr_text' => $request->input('ocr_raw_text', ''),
-                ]
-            );
+            $savedPath = $request->file('shipment_order_photo')->store('shipment_orders', 'public');
+            $shipment->evidenceItems()->create([
+                'sop_photo_point_id' => null,
+                'file_path' => $savedPath,
+                'file_name' => basename($savedPath),
+                'tipe_item' => 'dokumen',
+                'is_tambahan' => true,
+                'captured_at' => now(),
+                'uploaded_by' => auth()->id(),
+            ]);
         }
 
         $changeCount = count($changes);
@@ -481,8 +486,36 @@ class FieldAppController extends Controller
         try {
             $request->validate([
                 'sop_photo_point_id' => 'nullable|exists:sop_photo_points,id',
-                'file' => 'required|file|mimes:jpg,jpeg,png,webp,mp4,mov,webm,3gp,avi,m4v,quicktime|max:51200', // max 50MB
+                'file' => [
+                    'required',
+                    'file',
+                    'mimes:jpg,jpeg,png,webp,mp4,mov,webm,3gp,avi,m4v,quicktime',
+                    'max:51200', // Batas absolut 50MB
+                    function ($attribute, $value, $fail) use ($request) {
+                        $ext = strtolower($value->getClientOriginalExtension());
+                        $mime = $value->getMimeType() ?? '';
+                        $pointId = $request->input('sop_photo_point_id');
+                        $point = $pointId ? SopPhotoPoint::find($pointId) : null;
+
+                        $isVideo = in_array($ext, ['mp4', 'mov', 'webm', '3gp', 'avi', 'm4v', 'quicktime'])
+                            || str_starts_with($mime, 'video/')
+                            || ($point && $point->tipe_item === 'video');
+
+                        if ($isVideo) {
+                            $maxBytes = 6 * 1024 * 1024; // 6MB
+                            if ($value->getSize() > $maxBytes) {
+                                $sizeMb = round($value->getSize() / (1024 * 1024), 2);
+                                $fail("Ukuran video ({$sizeMb}MB) melebihi batas maksimal 6MB. Gagal unggah video.");
+                            }
+                        }
+                    },
+                ],
                 'is_tambahan' => 'boolean',
+            ], [
+                'file.required' => 'File bukti wajib diunggah.',
+                'file.file' => 'Berkas yang diunggah harus berupa file yang valid.',
+                'file.mimes' => 'Format file tidak didukung. Format yang didukung: JPG, PNG, WEBP, MP4, MOV, WEBM, 3GP.',
+                'file.max' => 'Ukuran file melebihi batas maksimal server.',
             ]);
 
             $file = $request->file('file');
@@ -507,7 +540,9 @@ class FieldAppController extends Controller
             $point = $pointId ? SopPhotoPoint::find($pointId) : null;
             $pointTitle = $point ? "TITIK {$point->urutan}: {$point->nama_titik}" : ($request->boolean('is_tambahan') ? 'FOTO EKSTRA' : 'EVIDENCE');
 
-            $isVideo = in_array($ext, ['mp4', 'mov', 'webm', '3gp', 'avi', 'm4v']) || str_starts_with($file->getMimeType(), 'video/');
+            $isVideo = in_array($ext, ['mp4', 'mov', 'webm', '3gp', 'avi', 'm4v', 'quicktime'])
+                || str_starts_with($file->getMimeType() ?? '', 'video/')
+                || ($point && $point->tipe_item === 'video');
 
             // Watermark timestamp dengan font TrueType proporsional resolusi kamera & koreksi EXIF rotasi
             try {
@@ -537,7 +572,18 @@ class FieldAppController extends Controller
                 }
             }
 
-            // Update or create evidence item
+            // Pastikan ukuran file video yang tersimpan di server tidak melebihi 6MB
+            $fileSize = file_exists($targetPath) ? filesize($targetPath) : null;
+            if ($isVideo && $fileSize && $fileSize > 6 * 1024 * 1024) {
+                @unlink($targetPath);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Ukuran video yang tersimpan di server melebihi batas maksimal 6MB. Gagal menyimpan video.',
+                ], 422);
+            }
+
+            $fileHash = file_exists($targetPath) ? hash_file('sha256', $targetPath) : null;
+
             $evidence = EvidenceItem::updateOrCreate(
                 [
                     'shipment_id' => $shipment->id,
@@ -546,17 +592,20 @@ class FieldAppController extends Controller
                 [
                     'file_path' => $relPath,
                     'file_name' => $fileName,
+                    'sha256' => $fileHash,
+                    'size' => $fileSize,
                     'tipe_item' => $isVideo ? 'video' : 'foto',
                     'captured_at' => $capturedAt,
                     'gps_lat' => -6.200000,
                     'gps_lng' => 106.816666,
                     'is_tambahan' => $request->boolean('is_tambahan', false),
+                    'uploaded_by' => auth()->id(),
                 ]
             );
 
             return response()->json([
                 'success' => true,
-                'message' => 'Foto berhasil diunggah',
+                'message' => $isVideo ? 'Video berhasil diunggah' : 'Foto berhasil diunggah',
                 'evidence_id' => $evidence->id,
                 'file_url' => asset('storage/'.$relPath),
                 'captured_at' => $capturedAt->format('Y-m-d H:i:s \W\I\B'),

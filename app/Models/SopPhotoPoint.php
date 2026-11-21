@@ -14,18 +14,12 @@ class SopPhotoPoint extends Model
         'deskripsi',
         'tipe_item',
         'wajib',
-        'perlu_ocr_container',
-        'perlu_deteksi_orang',
-        'perlu_deteksi_barcode',
     ];
 
     protected function casts(): array
     {
         return [
             'wajib' => 'boolean',
-            'perlu_ocr_container' => 'boolean',
-            'perlu_deteksi_orang' => 'boolean',
-            'perlu_deteksi_barcode' => 'boolean',
         ];
     }
 

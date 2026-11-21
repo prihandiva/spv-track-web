@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\ShipmentPhoto;
+use App\Models\EvidenceItem;
 use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
@@ -13,6 +13,7 @@ use RuntimeException;
 class PhotoProcessingService
 {
     protected string $disk = 'local'; // Maps to storage/app/private
+    protected string $saveDisk= 's3';
 
     /**
      * Batas ukuran file foto yang disimpan di storage (bytes).
@@ -197,54 +198,38 @@ class PhotoProcessingService
         bool $isExtra,
         ?int $userId,
         ?string $ocrText = null
-    ): ShipmentPhoto {
+    ): EvidenceItem {
         $meta = $this->getTempMetadata($tempId);
         if (! $meta) {
             throw new RuntimeException("Data upload sementara dengan ID {$tempId} tidak ditemukan atau sudah kadaluarsa.");
         }
 
-        $permDir = "shipments/{$shipmentId}/photos";
+        $permDir = "shipments/{$shipmentId}";
         $safePrefix = $isExtra ? "extra_{$tempId}" : "p{$pointNo}_{$tempId}";
-
-        $permOriginalPath = "{$permDir}/{$safePrefix}_original.jpg";
         $permStampedPath = "{$permDir}/{$safePrefix}_stamped.jpg";
-        $permThumbPath = "{$permDir}/{$safePrefix}_thumb.jpg";
 
-        $tempOriginal = "temp_photos/{$tempId}/original.jpg";
         $tempStamped = "temp_photos/{$tempId}/stamped.jpg";
-        $tempThumb = "temp_photos/{$tempId}/thumbnail.jpg";
 
         // Pastikan file temp ada
-        if (! Storage::disk($this->disk)->exists($tempOriginal) || ! Storage::disk($this->disk)->exists($tempStamped)) {
+        if (! Storage::disk($this->disk)->exists($tempStamped)) {
             throw new RuntimeException("File foto sementara {$tempId} tidak lengkap.");
         }
 
         // Pindahkan file ke lokasi permanen
-        Storage::disk($this->disk)->move($tempOriginal, $permOriginalPath);
-        Storage::disk($this->disk)->move($tempStamped, $permStampedPath);
+        Storage::disk($this->saveDisk)->move($tempStamped, $permStampedPath);
 
-        if (Storage::disk($this->disk)->exists($tempThumb)) {
-            Storage::disk($this->disk)->move($tempThumb, $permThumbPath);
-        } else {
-            $permThumbPath = null;
-        }
-
-        // Buat record database permanen (immutable)
-        $photo = ShipmentPhoto::create([
+        // Buat record database permanen di evidence_items
+        $photo = EvidenceItem::create([
             'shipment_id' => $shipmentId,
-            'point_no' => $pointNo,
-            'point_label' => $pointLabel,
-            'is_extra' => $isExtra,
-            'path' => $permOriginalPath,
-            'stamped_path' => $permStampedPath,
-            'thumbnail_path' => $permThumbPath,
-            'mime' => $meta['mime'] ?? 'image/jpeg',
+            'sop_photo_point_id' => $pointNo,
+            'file_path' => $permStampedPath,
+            'file_name' => basename($permStampedPath),
+            'tipe_item' => 'foto',
+            'is_tambahan' => $isExtra,
             'size' => $meta['size'] ?? 0,
             'sha256' => $meta['sha256'] ?? '',
             'captured_at' => ! empty($meta['captured_at']) ? Carbon::parse($meta['captured_at']) : null,
-            'stamped_at' => ! empty($meta['stamped_at']) ? Carbon::parse($meta['stamped_at']) : now(),
             'uploaded_by' => $userId ?? ($meta['uploaded_by'] ?? null),
-            'ocr_text' => $ocrText,
         ]);
 
         // Bersihkan sisa direktori temp
@@ -589,6 +574,9 @@ class PhotoProcessingService
         $ffprobe = $this->getFfprobeBinary();
 
         if (! $ffmpeg || ! file_exists($sourcePath)) {
+            if (file_exists($sourcePath) && filesize($sourcePath) > 6 * 1024 * 1024) {
+                throw new \RuntimeException('Ukuran video yang tersimpan di server melebihi batas maksimal 6MB.');
+            }
             copy($sourcePath, $targetPath);
             return;
         }
@@ -684,23 +672,141 @@ class PhotoProcessingService
         imagepng($canvas, $overlayPng);
         imagedestroy($canvas);
 
-        // 3. Proses burning ke video dengan FFmpeg
+        // 3. Proses burning ke video dengan FFmpeg (dengan preset CRF & bitrate aman agar hemat ukuran)
         $tempOutput = tempnam(sys_get_temp_dir(), 'vid_') . '.mp4';
         $cmdFfmpeg = escapeshellcmd($ffmpeg) .
             ' -y -i ' . escapeshellarg($sourcePath) .
             ' -i ' . escapeshellarg($overlayPng) .
-            ' -filter_complex "[0:v][1:v]overlay=0:H-h" -c:v libx264 -preset veryfast -crf 23 -c:a aac -movflags +faststart ' .
+            ' -filter_complex "[0:v][1:v]overlay=0:H-h" -c:v libx264 -preset veryfast -crf 26 -maxrate 2500k -bufsize 5000k -c:a aac -b:a 96k -movflags +faststart ' .
             escapeshellarg($tempOutput) . ' 2>&1';
 
         @shell_exec($cmdFfmpeg);
         @unlink($overlayPng);
 
+        $maxSizeBytes = 6 * 1024 * 1024; // Maksimal 6MB (6,291,456 bytes)
+
         if (file_exists($tempOutput) && filesize($tempOutput) > 1000) {
-            @rename($tempOutput, $targetPath);
+            // Jika hasil burning melebihi batas 6MB, lakukan kompresi adaptif agar ukuran file yang tersimpan <= 6MB
+            if (filesize($tempOutput) > $maxSizeBytes) {
+                $tempOutput = $this->compressVideoUnderLimit($ffmpeg, $ffprobe, $tempOutput, $maxSizeBytes);
+            }
+
+            if (file_exists($tempOutput) && filesize($tempOutput) <= $maxSizeBytes) {
+                @rename($tempOutput, $targetPath);
+            } elseif (file_exists($tempOutput)) {
+                @unlink($tempOutput);
+                if (file_exists($sourcePath) && filesize($sourcePath) <= $maxSizeBytes) {
+                    copy($sourcePath, $targetPath);
+                } else {
+                    throw new \RuntimeException('Ukuran video yang tersimpan di server melebihi batas maksimal 6MB.');
+                }
+            } else {
+                copy($sourcePath, $targetPath);
+            }
         } else {
             @unlink($tempOutput);
-            copy($sourcePath, $targetPath);
+            if (file_exists($sourcePath) && filesize($sourcePath) <= $maxSizeBytes) {
+                copy($sourcePath, $targetPath);
+            } else {
+                throw new \RuntimeException('Ukuran video yang tersimpan di server melebihi batas maksimal 6MB.');
+            }
         }
+    }
+
+    /**
+     * Kompres video adaptif agar ukuran file video yang tersimpan di server tidak melebihi batas maksimal (6MB).
+     */
+    public function compressVideoUnderLimit(
+        string $ffmpeg,
+        ?string $ffprobe,
+        string $videoPath,
+        int $maxSizeBytes = 6291456
+    ): string {
+        if (! file_exists($videoPath) || filesize($videoPath) <= $maxSizeBytes) {
+            return $videoPath;
+        }
+
+        // Tahap 1: Deteksi durasi video jika ada ffprobe untuk menghitung target bitrate presisi
+        $duration = 0.0;
+        if ($ffprobe) {
+            $cmdDur = "\"{$ffprobe}\" -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 " . escapeshellarg($videoPath);
+            $durOut = @shell_exec($cmdDur);
+            if ($durOut && is_numeric(trim($durOut))) {
+                $duration = (float) trim($durOut);
+            }
+        }
+
+        // Jika durasi diketahui, hitung target bitrate untuk ukuran aman 5.2MB (margin aman di bawah 6MB)
+        if ($duration > 0.5) {
+            $safeTargetBytes = 5.2 * 1024 * 1024; // 5.2 MB
+            $targetBits = $safeTargetBytes * 8;
+            $totalBitrateKbps = (int) (($targetBits / $duration) / 1000);
+            $audioBitrateKbps = 64;
+            $videoBitrateKbps = max(100, $totalBitrateKbps - $audioBitrateKbps);
+
+            $tempComp1 = tempnam(sys_get_temp_dir(), 'vid_c1_') . '.mp4';
+            $cmdComp1 = escapeshellcmd($ffmpeg) .
+                ' -y -i ' . escapeshellarg($videoPath) .
+                ' -vf "scale=trunc(iw*min(1\,min(1280/iw\,720/ih))/2)*2:trunc(ih*min(1\,min(1280/iw\,720/ih))/2)*2" ' .
+                ' -c:v libx264 -preset veryfast -b:v ' . $videoBitrateKbps . 'k -maxrate ' . $videoBitrateKbps . 'k -bufsize ' . ($videoBitrateKbps * 2) . 'k ' .
+                ' -c:a aac -b:a ' . $audioBitrateKbps . 'k -movflags +faststart ' .
+                escapeshellarg($tempComp1) . ' 2>&1';
+
+            @shell_exec($cmdComp1);
+
+            if (file_exists($tempComp1) && filesize($tempComp1) > 1000) {
+                @unlink($videoPath);
+                $videoPath = $tempComp1;
+                if (filesize($videoPath) <= $maxSizeBytes) {
+                    return $videoPath;
+                }
+            } else {
+                @unlink($tempComp1);
+            }
+        }
+
+        // Tahap 2: Kompresi CRF 28 dengan batas resolusi 720p
+        if (filesize($videoPath) > $maxSizeBytes) {
+            $tempComp2 = tempnam(sys_get_temp_dir(), 'vid_c2_') . '.mp4';
+            $cmdComp2 = escapeshellcmd($ffmpeg) .
+                ' -y -i ' . escapeshellarg($videoPath) .
+                ' -vf "scale=trunc(iw*min(1\,min(1280/iw\,720/ih))/2)*2:trunc(ih*min(1\,min(1280/iw\,720/ih))/2)*2" ' .
+                ' -c:v libx264 -preset veryfast -crf 28 -c:a aac -b:a 64k -movflags +faststart ' .
+                escapeshellarg($tempComp2) . ' 2>&1';
+
+            @shell_exec($cmdComp2);
+
+            if (file_exists($tempComp2) && filesize($tempComp2) > 1000) {
+                @unlink($videoPath);
+                $videoPath = $tempComp2;
+                if (filesize($videoPath) <= $maxSizeBytes) {
+                    return $videoPath;
+                }
+            } else {
+                @unlink($tempComp2);
+            }
+        }
+
+        // Tahap 3: Kompresi agresif CRF 32 dengan batas resolusi 480p
+        if (filesize($videoPath) > $maxSizeBytes) {
+            $tempComp3 = tempnam(sys_get_temp_dir(), 'vid_c3_') . '.mp4';
+            $cmdComp3 = escapeshellcmd($ffmpeg) .
+                ' -y -i ' . escapeshellarg($videoPath) .
+                ' -vf "scale=trunc(iw*min(1\,min(854/iw\,480/ih))/2)*2:trunc(ih*min(1\,min(854/iw\,480/ih))/2)*2" ' .
+                ' -c:v libx264 -preset veryfast -crf 32 -c:a aac -b:a 48k -movflags +faststart ' .
+                escapeshellarg($tempComp3) . ' 2>&1';
+
+            @shell_exec($cmdComp3);
+
+            if (file_exists($tempComp3) && filesize($tempComp3) > 1000) {
+                @unlink($videoPath);
+                $videoPath = $tempComp3;
+            } else {
+                @unlink($tempComp3);
+            }
+        }
+
+        return $videoPath;
     }
 
     /**

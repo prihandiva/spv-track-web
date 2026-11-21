@@ -97,11 +97,8 @@ Route::middleware('auth')->group(function () {
         Route::put('/pengguna/{user}', [UserController::class, 'update'])->name('users.update');
         Route::delete('/pengguna/{user}', [UserController::class, 'destroy'])->name('users.destroy');
 
-        // Role & Hak Akses
-        Route::get('/role', [RoleController::class, 'index'])->name('roles.index');
-        Route::post('/role', [RoleController::class, 'store'])->name('roles.store');
-        Route::put('/role/{role}', [RoleController::class, 'update'])->name('roles.update');
-        Route::delete('/role/{role}', [RoleController::class, 'destroy'])->name('roles.destroy');
+        // Redirect legacy role URL to user management
+        Route::redirect('/role', '/pengaturan/pengguna');
 
         // Master SOP 27 Titik
         Route::get('/sop', [SopSettingController::class, 'index'])->name('sop.index');

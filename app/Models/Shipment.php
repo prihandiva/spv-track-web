@@ -238,34 +238,19 @@ class Shipment extends Model
         return $this->hasOne(BaleInspection::class);
     }
 
-    public function shipmentOrder(): HasOne
-    {
-        return $this->hasOne(ShipmentOrder::class);
-    }
-
-    public function packingList(): HasOne
-    {
-        return $this->hasOne(PackingList::class);
-    }
-
     public function evidenceItems(): HasMany
     {
         return $this->hasMany(EvidenceItem::class);
     }
 
-    public function photos(): HasMany
+    public function timelineEvidences(): HasMany
     {
-        return $this->hasMany(ShipmentPhoto::class);
+        return $this->hasMany(EvidenceItem::class)->where('is_tambahan', false);
     }
 
-    public function timelinePhotos(): HasMany
+    public function extraEvidences(): HasMany
     {
-        return $this->hasMany(ShipmentPhoto::class)->where('is_extra', false)->orderBy('point_no');
-    }
-
-    public function extraPhotos(): HasMany
-    {
-        return $this->hasMany(ShipmentPhoto::class)->where('is_extra', true)->latest();
+        return $this->hasMany(EvidenceItem::class)->where('is_tambahan', true)->latest();
     }
 
     public function activities(): HasMany
