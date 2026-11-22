@@ -13,16 +13,16 @@ use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
-    /**
-     * Display the SPV-Track dashboard with KPI metrics and multi-period analytics.
-     */
+    // =========================================================================
+    // NAMA FUNCTION : index
+    // FUNGSI        : Menampilkan dashboard utama SPV-Track dengan metrik KPI dan analitik multi-periode
+    // =========================================================================
     public function index(Request $request): View
     {
-        $currentUser = auth()->user() ?? User::first() ?? (object) [
-            'nama_warehouse' => 'Supervisor Staging',
-            'role' => 'admin',
-            'email' => 'admin@spvtrack.com',
-        ];
+        $currentUser = auth()->user();
+        if (! $currentUser) {
+            abort(401, 'Silakan login terlebih dahulu untuk mengakses dashboard.');
+        }
 
         // Overall stats
         $totalShipments = Shipment::count();
@@ -154,7 +154,7 @@ class DashboardController extends Controller
         }
 
         // 6. Recent Shipments for table
-        $recentShipments = Shipment::with(['karyawan', 'karyawans'])
+        $recentShipments = Shipment::with(['karyawan', 'karyawans', 'user'])
             ->latest()
             ->take(6)
             ->get();
@@ -178,12 +178,10 @@ class DashboardController extends Controller
         ]);
     }
 
-    /**
-     * Build multi-period KPI datasets (Harian, Bulanan, Kuartalan, Tahunan).
-     *
-     * @param  Collection  $shipments
-     * @return array<string, array>
-     */
+    // =========================================================================
+    // NAMA FUNCTION : buildMultiPeriodKpiData
+    // FUNGSI        : Membangun dataset metrik KPI multi-periode (Harian, Bulanan, Kuartalan, Tahunan)
+    // =========================================================================
     protected function buildMultiPeriodKpiData($shipments, Carbon $now): array
     {
         $currentYear = $now->year;

@@ -1,4 +1,8 @@
 <x-field-layout>
+@php
+    $isAdminOrSuper = auth()->check() && in_array(auth()->user()->role, ['superadmin', 'admin']);
+    $isOperatorCreating = (auth()->check() && auth()->user()->role === 'operator' && !isset($shipment));
+@endphp
 
     <!-- Page Header -->
     <div style="padding: 4px 2px 8px;">
@@ -25,11 +29,23 @@
                 </div>
             </div>
             @if(isset($shipment))
-                <a href="{{ route('shipments.show', $shipment->id) }}"
-                   style="display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: #285491; background: #eff4fc; border: 1px solid #bfcfe8; padding: 6px 12px; border-radius: 10px; text-decoration: none; transition: background 0.15s;"
-                   onmouseover="this.style.background='#e0edff'" onmouseout="this.style.background='#eff4fc'">
-                    <i class="ph-bold ph-arrow-left"></i> Kembali
-                </a>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    @if($isAdminOrSuper)
+                    <button type="submit"
+                            form="stagingForm"
+                            name="save_action"
+                            value="save_only"
+                            style="display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; color: white; background: #059e3d; border: none; padding: 7px 14px; border-radius: 10px; cursor: pointer; box-shadow: 0 2px 6px rgba(5,158,61,0.25); transition: background 0.15s;"
+                            onmouseover="this.style.background='#047857'" onmouseout="this.style.background='#059e3d'">
+                        <i class="ph-bold ph-floppy-disk"></i> Simpan Perubahan
+                    </button>
+                    @endif
+                    <a href="{{ route('shipments.show', $shipment->id) }}"
+                       style="display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: #285491; background: #eff4fc; border: 1px solid #bfcfe8; padding: 6px 12px; border-radius: 10px; text-decoration: none; transition: background 0.15s;"
+                       onmouseover="this.style.background='#e0edff'" onmouseout="this.style.background='#eff4fc'">
+                        <i class="ph-bold ph-arrow-left"></i> Kembali
+                    </a>
+                </div>
             @endif
         </div>
     </div>
@@ -1075,7 +1091,7 @@
     }
     </script>
 
-    <form action="{{ isset($shipment) ? route('field-app.update', $shipment->id, false) : route('field-app.store', [], false) }}" method="POST" enctype="multipart/form-data"
+    <form id="stagingForm" action="{{ isset($shipment) ? route('field-app.update', $shipment->id, false) : route('field-app.store', [], false) }}" method="POST" enctype="multipart/form-data"
           x-data="stagingFormData()"
           @submit="clearAutoSaveDraft()"
           style="display: flex; flex-direction: column; gap: 24px;">
@@ -1278,14 +1294,30 @@
                                name="tanggal_staging"
                                x-model="tanggalStaging"
                                required
-                               min="{{ date('Y-m-d') }}"
+                               @if($isOperatorCreating)
+                                   min="{{ date('Y-m-d') }}"
+                                   title="Tanggal staging tidak boleh mundur dari hari ini"
+                               @else
+                                   title="Pilih tanggal staging"
+                               @endif
                                class="field-input"
-                               style="font-weight: 700;"
-                               title="Tanggal staging tidak boleh mundur dari hari ini">
-                        <p style="font-size: 10px; color: #059e3d; margin-top: 3px; display: flex; align-items: center; gap: 4px; font-weight: 600;">
-                            <i class="ph-bold ph-lock" style="font-size: 11px;"></i>
-                            Tanggal tidak bisa dipilih mundur (backdate)
-                        </p>
+                               style="font-weight: 700;">
+                        @if($isOperatorCreating)
+                            <p style="font-size: 10px; color: #059e3d; margin-top: 3px; display: flex; align-items: center; gap: 4px; font-weight: 600;">
+                                <i class="ph-bold ph-lock" style="font-size: 11px;"></i>
+                                Tanggal tidak bisa dipilih mundur (backdate)
+                            </p>
+                        @elseif($isAdminOrSuper)
+                            <p style="font-size: 10px; color: #285491; margin-top: 3px; display: flex; align-items: center; gap: 4px; font-weight: 600;">
+                                <i class="ph-bold ph-shield-check" style="font-size: 12px;"></i>
+                                Bebas pilih tanggal (Termasuk backdate)
+                            </p>
+                        @else
+                            <p style="font-size: 10px; color: #64748b; margin-top: 3px; display: flex; align-items: center; gap: 4px;">
+                                <i class="ph-bold ph-calendar-blank" style="font-size: 11px;"></i>
+                                {{ isset($shipment) ? 'Mode Edit: Bebas ubah tanggal' : 'Tanggal staging pengiriman' }}
+                            </p>
+                        @endif
                     </div>
                     <div>
                         <label class="field-label">Kategori Warehouse <span style="color:#ef4444;">*</span></label>
@@ -2096,29 +2128,92 @@
         <div x-cloak x-show="isValid" style="border-radius: 12px; background: #ecfdf5; border: 1.5px solid #a7f3d0; padding: 12px 14px; display: flex; align-items: center; gap: 10px;">
             <i class="ph-fill ph-check-circle" style="color: #059e3d; font-size: 18px; flex-shrink: 0;"></i>
             <div style="font-size: 11px; color: #065f46; font-weight: 700;">
-                Semua data wajib telah lengkap &amp; 9 digit valid. Siap melanjutkan ke Unggah Evidence!
+                Semua data wajib telah lengkap &amp; 9 digit valid. Siap disimpan!
             </div>
         </div>
 
-        <!-- Submit / Next Button -->
-        <button type="submit"
-                :disabled="!isValid"
-                :style="isValid 
-                    ? 'width: 100%; background: linear-gradient(135deg, #285491, #0d5950); color: white; font-weight: 700; font-size: 14px; border: none; border-radius: 14px; padding: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; box-shadow: 0 4px 16px rgba(40,84,145,0.35); transition: all 0.2s; margin-top: 4px;' 
-                    : 'width: 100%; background: #94a3b8; color: #f1f5f9; font-weight: 700; font-size: 14px; border: none; border-radius: 14px; padding: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: not-allowed; box-shadow: none; opacity: 0.7; transition: all 0.2s; margin-top: 4px;'"
-                onmouseover="if (!this.disabled) { this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 24px rgba(40,84,145,0.45)'; }"
-                onmouseout="if (!this.disabled) { this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 16px rgba(40,84,145,0.35)'; }">
-            @if(isset($shipment) && $shipment->status === 'submitted')
-                <i class="ph-bold ph-floppy-disk" style="font-size: 18px;"></i>
-                Simpan Perubahan Data Dokumen
-            @elseif(isset($shipment))
-                Simpan &amp; Lanjut ke Unggah Evidence
-                <i class="ph-bold ph-arrow-right" style="font-size: 16px;"></i>
+        <!-- Action Buttons Container -->
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 4px;">
+            @if(isset($shipment))
+                {{-- MODE EDIT SHIPMENT --}}
+                @if($isAdminOrSuper || $shipment->status === 'submitted')
+                    {{-- Admin / Superadmin atau status Submitted: Tombol Utama SIMPAN PERUBAHAN langsung ke Detail --}}
+                    <button type="submit"
+                            name="save_action"
+                            value="save_only"
+                            :disabled="!isValid"
+                            :style="isValid 
+                                ? 'width: 100%; background: linear-gradient(135deg, #059e3d, #0d5950); color: white; font-weight: 700; font-size: 14px; border: none; border-radius: 14px; padding: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; box-shadow: 0 4px 16px rgba(5,158,61,0.35); transition: all 0.2s;' 
+                                : 'width: 100%; background: #94a3b8; color: #f1f5f9; font-weight: 700; font-size: 14px; border: none; border-radius: 14px; padding: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: not-allowed; box-shadow: none; opacity: 0.7; transition: all 0.2s;'"
+                            onmouseover="if (!this.disabled) { this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 24px rgba(5,158,61,0.45)'; }"
+                            onmouseout="if (!this.disabled) { this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 16px rgba(5,158,61,0.35)'; }">
+                        <i class="ph-bold ph-floppy-disk" style="font-size: 18px;"></i>
+                        Simpan Perubahan Data Dokumen
+                    </button>
+
+                    @if($shipment->status !== 'submitted')
+                    {{-- Jika masih draft, Admin juga punya opsi lanjut ke timeline evidence jika diinginkan --}}
+                    <button type="submit"
+                            name="save_action"
+                            value="save_and_timeline"
+                            :disabled="!isValid"
+                            style="width: 100%; background: white; color: #285491; border: 1.5px solid #bfcfe8; font-weight: 700; font-size: 13px; border-radius: 12px; padding: 11px; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; transition: all 0.15s;"
+                            onmouseover="this.style.background='#eff4fc'" onmouseout="this.style.background='white'">
+                        <span>Simpan &amp; Buka Unggah Evidence</span>
+                        <i class="ph-bold ph-arrow-right" style="font-size: 15px;"></i>
+                    </button>
+                    @endif
+                @else
+                    {{-- Operator Edit Draft --}}
+                    <button type="submit"
+                            name="save_action"
+                            value="save_and_timeline"
+                            :disabled="!isValid"
+                            :style="isValid 
+                                ? 'width: 100%; background: linear-gradient(135deg, #285491, #0d5950); color: white; font-weight: 700; font-size: 14px; border: none; border-radius: 14px; padding: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; box-shadow: 0 4px 16px rgba(40,84,145,0.35); transition: all 0.2s;' 
+                                : 'width: 100%; background: #94a3b8; color: #f1f5f9; font-weight: 700; font-size: 14px; border: none; border-radius: 14px; padding: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: not-allowed; box-shadow: none; opacity: 0.7; transition: all 0.2s;'"
+                            onmouseover="if (!this.disabled) { this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 24px rgba(40,84,145,0.45)'; }"
+                            onmouseout="if (!this.disabled) { this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 16px rgba(40,84,145,0.35)'; }">
+                        Simpan &amp; Lanjut ke Unggah Evidence
+                        <i class="ph-bold ph-arrow-right" style="font-size: 16px;"></i>
+                    </button>
+                    <button type="submit"
+                            name="save_action"
+                            value="save_only"
+                            :disabled="!isValid"
+                            style="width: 100%; background: white; color: #475569; border: 1.5px solid #cbd5e1; font-weight: 700; font-size: 12px; border-radius: 12px; padding: 10px; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer;"
+                            onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+                        <i class="ph-bold ph-floppy-disk"></i>
+                        Simpan Perubahan Saja (Kembali ke Detail)
+                    </button>
+                @endif
             @else
-                Lanjut ke Unggah Evidence
-                <i class="ph-bold ph-arrow-right" style="font-size: 16px;"></i>
+                {{-- MODE CREATE SHIPMENT BARU --}}
+                <button type="submit"
+                        name="save_action"
+                        value="save_and_timeline"
+                        :disabled="!isValid"
+                        :style="isValid 
+                            ? 'width: 100%; background: linear-gradient(135deg, #285491, #0d5950); color: white; font-weight: 700; font-size: 14px; border: none; border-radius: 14px; padding: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; box-shadow: 0 4px 16px rgba(40,84,145,0.35); transition: all 0.2s;' 
+                            : 'width: 100%; background: #94a3b8; color: #f1f5f9; font-weight: 700; font-size: 14px; border: none; border-radius: 14px; padding: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: not-allowed; box-shadow: none; opacity: 0.7; transition: all 0.2s;'"
+                        onmouseover="if (!this.disabled) { this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 24px rgba(40,84,145,0.45)'; }"
+                        onmouseout="if (!this.disabled) { this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 16px rgba(40,84,145,0.35)'; }">
+                    Lanjut ke Unggah Evidence
+                    <i class="ph-bold ph-arrow-right" style="font-size: 16px;"></i>
+                </button>
+                @if($isAdminOrSuper)
+                <button type="submit"
+                        name="save_action"
+                        value="save_only"
+                        :disabled="!isValid"
+                        style="width: 100%; background: white; color: #285491; border: 1.5px solid #bfcfe8; font-weight: 700; font-size: 13px; border-radius: 12px; padding: 11px; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;"
+                        onmouseover="this.style.background='#eff4fc'" onmouseout="this.style.background='white'">
+                    <i class="ph-bold ph-floppy-disk"></i>
+                    Simpan Draft Dokumen (Tanpa ke Evidence)
+                </button>
+                @endif
             @endif
-        </button>
+        </div>
 
 
         <!-- LIGHTBOX MODAL: Zoom Full Foto Dokumen -->

@@ -6,6 +6,7 @@ use App\Models\EvidenceItem;
 use App\Models\Karyawan;
 use App\Models\Shipment;
 use App\Models\SopPhotoPoint;
+use App\Models\User;
 use App\Services\PhotoProcessingService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -184,6 +185,7 @@ class MobileApiController extends Controller
         }
 
         $validated = $request->validate([
+            'user_id' => 'nullable|exists:users,id',
             'jenis_produk' => 'required|string|max:100',
             'jenis_pengiriman' => 'required|in:export,lokal',
             'packing_list_no' => 'required|numeric|digits:9',
@@ -204,7 +206,23 @@ class MobileApiController extends Controller
 
         $karyawanIds = array_values(array_unique(array_filter((array) $validated['karyawan_ids'])));
         $validated['karyawan_id'] = $karyawanIds[0] ?? null;
-        $validated['user_id'] = 1;
+
+        // Tentukan user_id: prioritas dari payload request / auth, atau akun operator/admin aktif secara dinamis
+        $targetUserId = $validated['user_id'] ?? auth()->id();
+        if (! $targetUserId) {
+            $targetUserId = User::where('role', 'operator')->value('id')
+                ?? User::where('role', 'admin')->value('id')
+                ?? User::value('id');
+        }
+
+        if (! $targetUserId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal membuat shipment: Tidak ditemukan akun pengguna aktif di sistem.',
+            ], 422);
+        }
+
+        $validated['user_id'] = $targetUserId;
         $validated['status'] = 'draft';
         if (empty($validated['nama_sopir'])) {
             $validated['nama_sopir'] = '-';
@@ -229,6 +247,14 @@ class MobileApiController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Dokumen pengiriman telah disubmit final. Bukti foto evidence telah dikunci permanen demi keaslian timestamp dan tidak dapat diubah lagi.',
+            ], 403);
+        }
+
+        if (auth()->check() && ! auth()->user()->canEditShipment($shipment)) {
+            $creator = $shipment->user?->nama_warehouse ? 'Dibuat oleh: ' . $shipment->user->nama_warehouse : 'Operator lain';
+            return response()->json([
+                'success' => false,
+                'message' => "Akses ditolak: Anda hanya diperbolehkan mengunggah bukti foto untuk shipment milik akun Anda ({$creator}).",
             ], 403);
         }
 
@@ -273,9 +299,11 @@ class MobileApiController extends Controller
             $capturedAt = $request->input('captured_at') ? Carbon::parse($request->input('captured_at')) : now();
             $timestampText = $capturedAt->format('Y-m-d H:i:s').' WIB';
 
-            $safePlate = preg_replace('/[^A-Za-z0-9]/', '', $shipment->nomor_container_atau_plat ?? 'SPV');
+            // Penamaan berkas: gunakan nomor kontainer, atau fallback ke nomor plat jika kontainer bernilai '0' / kosong
+            $identitasFile = $shipment->identitas_pengiriman;
+            $safePrefix = preg_replace('/[^A-Za-z0-9]/', '', $identitasFile) ?: 'SPV';
             $count = $shipment->evidenceItems()->count() + 1;
-            $fileName = "{$safePlate}_p{$pointId}_{$count}.{$ext}";
+            $fileName = "{$safePrefix}_p{$pointId}_{$count}.{$ext}";
 
             $storageDir = storage_path("app/public/shipments/{$shipment->id}");
             if (! is_dir($storageDir)) {
@@ -286,6 +314,7 @@ class MobileApiController extends Controller
 
             $point = $pointId ? SopPhotoPoint::find($pointId) : null;
             $pointTitle = $point ? "TITIK {$point->urutan}: {$point->nama_titik}" : ($request->boolean('is_tambahan') ? 'FOTO EKSTRA' : 'EVIDENCE');
+            $watermarkSubText = ($identitasFile !== 'SPV') ? $identitasFile : null;
 
             $isVideo = in_array($ext, ['mp4', 'mov', 'webm', '3gp', 'avi', 'm4v', 'quicktime'])
                 || str_starts_with($file->getMimeType() ?? '', 'video/')
@@ -298,7 +327,7 @@ class MobileApiController extends Controller
                         targetPath: $targetPath,
                         stampText: $timestampText,
                         title: $pointTitle,
-                        subText: $shipment->nomor_container_atau_plat
+                        subText: $watermarkSubText
                     );
                 } elseif (in_array($ext, ['jpg', 'jpeg', 'png', 'webp']) && extension_loaded('gd')) {
                     app(PhotoProcessingService::class)->watermarkSingleFile(
@@ -306,7 +335,7 @@ class MobileApiController extends Controller
                         targetPath: $targetPath,
                         stampText: $timestampText,
                         title: $pointTitle,
-                        subText: $shipment->nomor_container_atau_plat
+                        subText: $watermarkSubText
                     );
                 } else {
                     $file->move($storageDir, $fileName);
@@ -340,9 +369,10 @@ class MobileApiController extends Controller
                     'sha256' => file_exists($targetPath) ? hash_file('sha256', $targetPath) : null,
                     'tipe_item' => $isVideo ? 'video' : 'foto',
                     'captured_at' => $capturedAt,
-                    'gps_lat' => -6.200000,
-                    'gps_lng' => 106.816666,
+                    'gps_lat' => $request->filled('gps_lat') ? (float) $request->input('gps_lat') : null,
+                    'gps_lng' => $request->filled('gps_lng') ? (float) $request->input('gps_lng') : null,
                     'is_tambahan' => $request->boolean('is_tambahan', false),
+                    'uploaded_by' => $request->input('user_id') ?: auth()->id(),
                 ]
             );
 
@@ -381,6 +411,20 @@ class MobileApiController extends Controller
      */
     public function finalizeShipment(Request $request, Shipment $shipment): JsonResponse
     {
+        if ($shipment->status === 'submitted') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Dokumen pengiriman telah disubmit final sebelumnya.',
+            ], 403);
+        }
+
+        if (auth()->check() && ! auth()->user()->canEditShipment($shipment)) {
+            $creator = $shipment->user?->nama_warehouse ? 'Dibuat oleh: ' . $shipment->user->nama_warehouse : 'Operator lain';
+            return response()->json([
+                'success' => false,
+                'message' => "Akses ditolak: Anda hanya diperbolehkan melakukan submit final untuk shipment milik akun Anda ({$creator}).",
+            ], 403);
+        }
         $validated = $request->validate([
             'waktu_kedatangan_container' => 'required|date',
             'waktu_keberangkatan_container' => 'required|date',
@@ -419,6 +463,22 @@ class MobileApiController extends Controller
         }
 
         $shipment->update($updates);
+
+        // Catat jejak audit aktivitas Dokumen Disubmit Final via Mobile
+        $actorUser = auth()->user() ?? ($request->filled('user_id') ? User::find($request->input('user_id')) : null);
+        $roleName = $actorUser ? $actorUser->role_display_name : 'Operator Mobile App';
+        $shipment->logActivity(
+            action: 'submitted',
+            title: "Dokumen Disubmit Final oleh {$roleName}",
+            description: 'Seluruh foto evidence SOP telah diverifikasi dan dokumen disubmit ke sistem via Mobile App',
+            changes: [
+                'status' => [
+                    'from' => 'draft',
+                    'to' => 'submitted',
+                ],
+            ],
+            user: $actorUser
+        );
 
         return response()->json([
             'success' => true,

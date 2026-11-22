@@ -3,7 +3,29 @@
     $isSubmitted = ($shipment->status === 'submitted');
     $mandatoryPointIds = $points->where('wajib', true)->pluck('id')->values()->all();
     $initialUploadedPointIds = $shipment->evidenceItems->pluck('sop_photo_point_id')->filter()->unique()->values()->all();
+
+    $sopPointsJsData = $points->map(function ($p) use ($shipment) {
+        $existing = $shipment->evidenceItems->firstWhere('sop_photo_point_id', $p->id);
+        $isVideo = ($p->tipe_item === 'video' || $p->urutan == 27 || stripos($p->nama_titik, 'video') !== false);
+        return [
+            'id' => (int) $p->id,
+            'urutan' => (int) $p->urutan,
+            'nama_titik' => $p->nama_titik,
+            'deskripsi' => $p->deskripsi ?? '',
+            'wajib' => (bool) $p->wajib,
+            'is_video' => $isVideo,
+            'has_evidence' => !is_null($existing),
+            'evidence_url' => $existing ? $existing->file_url : null,
+            'captured_at' => $existing && $existing->captured_at ? $existing->captured_at->format('Y-m-d H:i:s \W\I\B') : null,
+        ];
+    })->values();
 @endphp
+
+<script>
+    window._sopPointsData = @json($sopPointsJsData);
+    window._uploadPhotoRoute = "{{ route('field-app.upload-photo', $shipment->id, false) }}";
+    window._csrfToken = "{{ csrf_token() }}";
+</script>
 
 <script>
     window.openSopPreview = function(pointId, urutan, title, desc) {
@@ -85,6 +107,11 @@
         window.closeSopPreview();
         if (!pointId) return;
 
+        if (type === 'camera') {
+            window.openFullscreenCamera(Number(pointId));
+            return;
+        }
+
         setTimeout(() => {
             const input = document.getElementById(type + '-input-' + pointId) || document.getElementById('initial-' + type + '-input-' + pointId);
             if (input) {
@@ -113,18 +140,6 @@
             openStagingSection: true,
             fpKedatangan: null,
             fpKeberangkatan: null,
-
-            openPointPreview(pointId, urutan, title, desc) {
-                window.openSopPreview(pointId, urutan, title, desc);
-            },
-
-            closePreview() {
-                window.closeSopPreview();
-            },
-
-            retakeFromModal(pointId, type = 'camera') {
-                window.retakeFromLightbox(type);
-            },
 
             init() {
                 this.initPickers();
@@ -292,6 +307,7 @@
                 @if($shipment->tujuan_pengiriman)
                     &bull; Tujuan (Customer): <span style="font-weight:700; color:white;">{{ $shipment->tujuan_pengiriman }}</span>
                 @endif
+                &bull; Akun: <span style="font-weight:700; color:white;">{{ $shipment->user?->nama_warehouse ?? 'Akun Sistem' }}</span>
             </p>
         </div>
         <div style="text-align:right;">
@@ -318,26 +334,6 @@
                 <span x-text="mandatoryUploadedCount"></span> / <span x-text="totalMandatoryCount"></span>
             </p>
             <p style="font-size: 10px; color: #9ca3af; font-weight: 500;">Wajib Terverifikasi</p>
-        </div>
-    </div>
-
-    <!-- Rekomendasi Posisi Kamera Horizontal / Landscape -->
-    <div style="background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%); border: 1.5px solid #93c5fd; border-radius: 14px; padding: 12px 14px; box-shadow: 0 2px 8px rgba(37,99,235,0.06);">
-        <div style="display: flex; align-items: flex-start; gap: 12px;">
-            <div style="width: 38px; height: 38px; border-radius: 10px; background: linear-gradient(135deg, #2563eb, #059e3d); color: white; display: flex; align-items: center; justify-content: center; shrink: 0; box-shadow: 0 2px 6px rgba(37,99,235,0.3);">
-                <i class="ph-bold ph-device-rotate" style="font-size: 20px;"></i>
-            </div>
-            <div style="flex: 1;">
-                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px;">
-                    <p style="font-size: 12px; font-weight: 800; color: #1e3a8a;">Rekomendasi: Posisikan Kamera Horizontal (Landscape)</p>
-                    <span style="font-size: 9px; font-weight: 700; background: #dbeafe; color: #1d4ed8; padding: 2px 8px; border-radius: 6px;">
-                        Mode Mendatar 16:9
-                    </span>
-                </div>
-                <p style="font-size: 11px; color: #334155; margin-top: 3px; line-height: 1.4;">
-                    Posisikan ponsel Anda secara <strong>mendatar (landscape/horizontal)</strong> saat mengambil foto bukti dan merekam video. Sudut pandang container akan lebih luas, seluruh muatan terlihat utuh, dan stempel jam server WIB tercetak sempurna.
-                </p>
-            </div>
         </div>
     </div>
 
@@ -412,6 +408,38 @@
                     <span>{{ $bInsp ? 'Edit / Tinjau' : 'Isi Form Bale' }}</span>
                 </a>
             </div>
+        </div>
+    </div>
+
+    <!-- BANNER HERO: BUKA KAMERA CEPAT FULLSCREEN (PORTRAIT & LANDSCAPE SESUAI SKETSA) -->
+    <div style="background: linear-gradient(135deg, #1e3a8a 0%, #285491 55%, #0d5950 100%); border-radius: 16px; padding: 16px; color: white; box-shadow: 0 4px 18px rgba(40,84,145,0.28); display: flex; flex-direction: column; gap: 12px; border: 1.5px solid rgba(255,255,255,0.15);">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 40px; height: 40px; border-radius: 12px; background: rgba(255,255,255,0.18); display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 2px 6px rgba(0,0,0,0.15);">
+                    <i class="ph-bold ph-camera"></i>
+                </div>
+                <div>
+                    <h2 style="font-size: 14px; font-weight: 800; margin: 0; line-height: 1.2;">Kamera Cepat SOP (Fullscreen)</h2>
+                    <p style="font-size: 11px; color: rgba(255,255,255,0.85); margin: 2px 0 0;">Ambil foto langsung tanpa bolak-balik klik &bull; Bebas pilih titik &bull; Portrait &amp; Landscape</p>
+                </div>
+            </div>
+            <span style="font-size: 10px; font-weight: 800; background: rgba(5,158,61,0.3); color: #86efac; border: 1px solid rgba(134,239,172,0.4); padding: 3px 10px; border-radius: 20px; display: inline-flex; align-items: center; gap: 4px;">
+                <i class="ph-bold ph-lightning"></i> Mode Praktis Lapangan
+            </span>
+        </div>
+
+        <button type="button"
+                onclick="openFullscreenCamera()"
+                style="width: 100%; background: #ffffff; color: #1e3a8a; border: none; font-size: 13px; font-weight: 800; padding: 12px 18px; border-radius: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 14px rgba(0,0,0,0.2); transition: transform 0.15s, background 0.15s;"
+                onmouseover="this.style.background='#f0f9ff'; this.style.transform='scale(1.01)'"
+                onmouseout="this.style.background='#ffffff'; this.style.transform='scale(1)'">
+            <i class="ph-bold ph-aperture" style="font-size: 20px; color: #0284c7;"></i>
+            <span>Buka Kamera Fullscreen &bull; Mulai Jepret Foto SOP</span>
+        </button>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; font-size: 10px; color: rgba(255,255,255,0.75); border-top: 1px solid rgba(255,255,255,0.15); padding-top: 8px;">
+            <span><i class="ph-bold ph-device-rotate"></i> Putar HP mendatar (Landscape) untuk sudut pandang luas</span>
+            <span><i class="ph-bold ph-check-circle"></i> Titik tidak harus urut</span>
         </div>
     </div>
 
@@ -509,12 +537,13 @@
                     @else
                         <!-- Photo Initial Buttons -->
                         <div id="icon-{{$point->id}}" style="display: {{ $existing ? 'none' : 'flex' }}; border-bottom: 1px solid #f0f4f9;">
-                            <label style="flex: 1; padding: 12px 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: background 0.2s;"
-                                   onmouseover="this.style.background='#eff4fc'" onmouseout="this.style.background='transparent'">
-                                <input type="file" id="initial-camera-input-{{$point->id}}" style="display:none;" accept="image/*" capture="environment" onchange="uploadSopPhoto(this, {{ $point->id }})">
+                            <button type="button"
+                                    onclick="openFullscreenCamera({{ $point->id }})"
+                                    style="flex: 1; padding: 12px 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: background 0.2s; background: transparent; border: none;"
+                                    onmouseover="this.style.background='#eff4fc'" onmouseout="this.style.background='transparent'">
                                 <i class="ph-bold ph-camera" style="font-size: 20px; color: #285491; margin-bottom: 3px; display: block;"></i>
                                 <span style="font-size: 10px; font-weight: 700; color: #285491;">Buka Kamera</span>
-                            </label>
+                            </button>
                             <div style="width: 1px; background: #f0f4f9;"></div>
                             <label style="flex: 1; padding: 12px 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: background 0.2s;"
                                    onmouseover="this.style.background='#eff4fc'" onmouseout="this.style.background='transparent'">
@@ -529,18 +558,18 @@
                     <div id="preview-wrapper-{{$point->id}}"
                          onclick="openSopPreview({{ $point->id }}, {{ $point->urutan }}, {{ Js::from($point->nama_titik) }}, {{ Js::from($point->deskripsi) }})"
                          data-point-id="{{ $point->id }}"
-                         data-media-url="{{ $existing ? asset('storage/' . $existing->file_path) : '' }}"
+                         data-media-url="{{ $existing ? $existing->file_url : '' }}"
                          data-is-video="{{ $isExistingVideo ? 'true' : 'false' }}"
                          data-timestamp="{{ $existing && $existing->captured_at ? $existing->captured_at->format('Y-m-d H:i:s') . ' WIB' : '' }}"
                          style="display: {{ $existing ? 'block' : 'none' }}; position: relative; height: 180px; background: #0f172a; cursor: pointer;"
                          title="Klik untuk melihat pratinjau stempel & kejelasan bukti">
 
                         <img id="preview-{{$point->id}}"
-                             src="{{ $existing && !$isExistingVideo ? asset('storage/' . $existing->file_path) : '' }}"
+                             src="{{ $existing && !$isExistingVideo ? $existing->file_url : '' }}"
                              style="width:100%; height:100%; object-fit:contain; opacity:0.95; display: {{ $existing && !$isExistingVideo ? 'block' : 'none' }};" />
 
                         <video id="video-preview-{{$point->id}}"
-                               src="{{ $existing && $isExistingVideo ? asset('storage/' . $existing->file_path) : '' }}"
+                               src="{{ $existing && $isExistingVideo ? $existing->file_url : '' }}"
                                playsinline
                                style="width:100%; height:100%; object-fit:contain; background:#000; display: {{ $existing && $isExistingVideo ? 'block' : 'none' }};"></video>
 
@@ -585,11 +614,12 @@
                                     <i class="ph-bold ph-film-strip" style="font-size:14px;"></i> Ganti File (Maks 6MB)
                                 </label>
                             @else
-                                <label style="display:flex; align-items:center; gap:5px; font-size:11px; font-weight:700; color:#285491; background:#eff4fc; border:1.5px solid #bfcfe8; border-radius:8px; padding:6px 12px; cursor:pointer; transition:background 0.15s;"
+                                <button type="button"
+                                       onclick="openFullscreenCamera({{ $point->id }})"
+                                       style="display:flex; align-items:center; gap:5px; font-size:11px; font-weight:700; color:#285491; background:#eff4fc; border:1.5px solid #bfcfe8; border-radius:8px; padding:6px 12px; cursor:pointer; transition:background 0.15s;"
                                        onmouseover="this.style.background='#dbe7f6'" onmouseout="this.style.background='#eff4fc'" title="Foto Ulang dari Kamera">
-                                    <input type="file" id="camera-input-{{$point->id}}" style="display:none;" accept="image/*" capture="environment" onchange="uploadSopPhoto(this, {{ $point->id }})">
                                     <i class="ph-bold ph-camera" style="font-size:14px;"></i> Foto Ulang
-                                </label>
+                                </button>
                                 <label style="display:flex; align-items:center; gap:5px; font-size:11px; font-weight:600; color:#4b5563; background:#f3f4f6; border:1px solid #e5e7eb; border-radius:8px; padding:6px 12px; cursor:pointer; transition:background 0.15s;"
                                        onmouseover="this.style.background='#e5e7eb'" onmouseout="this.style.background='#f3f4f6'" title="Pilih Foto Lain dari Galeri">
                                     <input type="file" id="gallery-input-{{$point->id}}" style="display:none;" accept="image/*" onchange="uploadSopPhoto(this, {{ $point->id }})">
@@ -1133,6 +1163,11 @@
                             wrapper.dataset.timestamp = data.captured_at || `${formattedTimestamp} WIB`;
                         }
 
+                        // Update in-memory data for camera sync
+                        if (window.syncCameraPointUploaded) {
+                            window.syncCameraPointUploaded(pointId, data.file_url || blobUrl, data.captured_at || formattedTimestamp);
+                        }
+
                         // Reset input so selecting the same filename again still fires onchange
                         input.value = '';
 
@@ -1168,5 +1203,1379 @@
             }
         }
     </script>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- MODAL KAMERA FULLSCREEN SOP INTERAKTIF (POTRAIT & LANDSCAPE)        -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <div id="fullscreen-sop-camera-modal" class="sop-cam-modal is-portrait" style="display: none;">
+        <!-- Root Container -->
+        <div class="sop-cam-container">
+
+            <!-- 1. Header (NAMA TITIK SOP + UNDERLINE DIVIDER) -->
+            <div class="sop-cam-header" id="sop-cam-header">
+                <div class="sop-cam-header-top">
+                    <div class="sop-cam-point-meta">
+                        <span class="sop-cam-badge" id="sop-cam-badge">TITIK 1</span>
+                        <span class="sop-cam-badge-tag" id="sop-cam-type-tag">WAJIB</span>
+                    </div>
+
+                    <div class="sop-cam-top-actions">
+                        <button type="button" class="sop-cam-ctrl-btn" onclick="switchCameraFacing()" id="sop-cam-btn-rotate" title="Balik Kamera Depan/Belakang">
+                            <i class="ph-bold ph-camera-rotate"></i>
+                        </button>
+                        <button type="button" class="sop-cam-ctrl-btn" onclick="toggleCameraTorch()" id="sop-cam-btn-torch" title="Lampu Kilat / Flash">
+                            <i class="ph-bold ph-flashlight"></i>
+                        </button>
+                        <button type="button" class="sop-cam-ctrl-btn sop-cam-ctrl-close" onclick="closeFullscreenCamera()" title="Tutup Kamera">
+                            <i class="ph-bold ph-x"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Judul Titik SOP (Nama Titik SOP) -->
+                <div class="sop-cam-title-box">
+                    <h2 class="sop-cam-title" id="sop-cam-title">1. BUKTI SURAT JALAN / SPK</h2>
+                </div>
+
+                <!-- Underline Divider Sesuai Gambar Sketsa -->
+                <div class="sop-cam-divider"></div>
+
+                <div class="sop-cam-desc-box">
+                    <p class="sop-cam-desc" id="sop-cam-desc">Foto jelas dokumen surat jalan lengkap dengan stempel</p>
+                    <span class="sop-cam-status-pill" id="sop-cam-status-pill">
+                        <i class="ph-bold ph-clock"></i> Belum diambil
+                    </span>
+                </div>
+            </div>
+
+            <!-- 2. Viewfinder Kamera (Live Stream Video + Overlays) -->
+            <div class="sop-cam-viewfinder" id="sop-cam-viewfinder">
+                <video id="sop-cam-video" playsinline autoplay muted></video>
+                <canvas id="sop-cam-canvas" style="display: none;"></canvas>
+
+                <!-- Efek Flash Putih saat Jepret -->
+                <div id="sop-cam-flash" class="sop-cam-flash"></div>
+
+                <!-- Grid & Reticle Bantuan Framing Foto -->
+                <div class="sop-cam-reticle">
+                    <div class="reticle-corner tl"></div>
+                    <div class="reticle-corner tr"></div>
+                    <div class="reticle-corner bl"></div>
+                    <div class="reticle-corner br"></div>
+                </div>
+
+                <!-- Peringatan Akses Kamera Jika Terkendala Izin/Hardware -->
+                <div id="sop-cam-error-box" class="sop-cam-error-overlay" style="display: none;">
+                    <div class="sop-cam-error-card">
+                        <i class="ph-bold ph-camera-slash" style="font-size: 38px; color: #f87171;"></i>
+                        <h4 style="margin: 8px 0 4px; font-size: 14px; font-weight: 800; color: white;">Tidak Dapat Membuka Kamera</h4>
+                        <p id="sop-cam-error-msg" style="margin: 0 0 14px; font-size: 11px; color: #cbd5e1; line-height: 1.4;">
+                            Pastikan izin kamera diizinkan pada browser Anda atau gunakan pilihan pilih foto/rekam dari sistem.
+                        </p>
+                        <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+                            <button type="button" onclick="startCameraStream()" class="sop-cam-fallback-btn primary">
+                                <i class="ph-bold ph-arrows-clockwise"></i> Coba Lagi
+                            </button>
+                            <label class="sop-cam-fallback-btn secondary">
+                                <input type="file" id="sop-cam-error-file-input" style="display: none;" accept="image/*,video/*" onchange="handleCamFallbackUpload(this)">
+                                <i class="ph-bold ph-image"></i> Ambil / Pilih File
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. Dock Kontrol & SOP Points Reel (Bawah di Portrait, Kanan di Landscape) -->
+            <div class="sop-cam-dock" id="sop-cam-dock">
+
+                <!-- SOP Points Scrollable Reel (1 to 27) - Bebas Pilih Titik Mana Saja -->
+                <div class="sop-cam-reel-container">
+                    <div class="sop-cam-reel-header-hint">
+                        <span><i class="ph-bold ph-hand-tap"></i> Ketuk kotak titik manapun (tidak harus berurutan)</span>
+                        <span id="sop-cam-counter-label" style="font-weight: 700; color: #38bdf8;">0/26 Wajib</span>
+                    </div>
+
+                    <div class="sop-cam-reel-scroll" id="sop-cam-reel">
+                        <!-- Kotak-kotak titik SOP 1 - 27 dirender via JS renderCameraReel() -->
+                    </div>
+                </div>
+
+                <!-- Shutter Action Bar -->
+                <div class="sop-cam-shutter-bar">
+                    <!-- Tombol Galeri / File Alternatif -->
+                    <label class="sop-cam-sub-action" title="Pilih File dari Galeri">
+                        <input type="file" id="sop-cam-direct-file" style="display: none;" accept="image/*" onchange="handleDirectCamFileInput(this)">
+                        <div class="sop-cam-sub-icon">
+                            <i class="ph-bold ph-image"></i>
+                        </div>
+                        <span class="sop-cam-sub-label">Galeri</span>
+                    </label>
+
+                    <!-- Large Shutter Capture Button -->
+                    <div class="sop-cam-shutter-btn-wrap">
+                        <button type="button" class="sop-cam-shutter-btn" id="sop-cam-shutter-btn" onclick="handleShutterClick()" title="Ambil Foto SOP">
+                            <div class="sop-cam-shutter-inner" id="sop-cam-shutter-inner">
+                                <i class="ph-fill ph-video-camera" id="sop-cam-shutter-vid-icon" style="display: none; font-size: 24px; color: white;"></i>
+                            </div>
+                        </button>
+                        <!-- Shutter helper badge under button in portrait -->
+                        <span class="sop-cam-shutter-hint" id="sop-cam-shutter-hint">Ambil Foto</span>
+                    </div>
+
+                    <!-- Input tersembunyi untuk video recording camcorder -->
+                    <input type="file" id="sop-cam-video-recorder" style="display: none;" accept="video/*" capture="environment" onchange="handleDirectCamVideoInput(this)">
+
+                    <!-- Tombol Tutup / Selesai -->
+                    <button type="button" class="sop-cam-sub-action" onclick="closeFullscreenCamera()" title="Selesai & Keluar">
+                        <div class="sop-cam-sub-icon" style="background: rgba(255,255,255,0.15);">
+                            <i class="ph-bold ph-check"></i>
+                        </div>
+                        <span class="sop-cam-sub-label">Selesai</span>
+                    </button>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- STYLING CSS RESPONSIVE MODAL KAMERA (POTRAIT & LANDSCAPE)           -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <style>
+        /* Base Modal Fullscreen Overlay */
+        .sop-cam-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 9999999;
+            background: #000000;
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        .sop-cam-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            overflow: hidden;
+            background: #000;
+        }
+
+        /* ------------------------------------------------------------- */
+        /* MODE POTRAIT (Sesuai Gambar Sketsa Kiri)                      */
+        /* ------------------------------------------------------------- */
+        .sop-cam-modal.is-portrait .sop-cam-container {
+            flex-direction: column;
+        }
+
+        /* Header Potrait: NAMA TITIK SOP di Atas + Underline */
+        .sop-cam-modal.is-portrait .sop-cam-header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 40;
+            padding: max(12px, env(safe-area-inset-top)) 16px 10px;
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.95) 0%, rgba(15, 23, 42, 0.75) 75%, transparent 100%);
+            box-sizing: border-box;
+            backdrop-filter: blur(4px);
+        }
+
+        /* Viewfinder Potrait: Area Kamera di Tengah */
+        .sop-cam-modal.is-portrait .sop-cam-viewfinder {
+            flex: 1;
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        /* Bottom Dock Potrait: Kotak 1 2 3 4 5 6 + Tombol Shutter di Bawah */
+        .sop-cam-modal.is-portrait .sop-cam-dock {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 40;
+            display: flex;
+            flex-direction: column;
+            background: linear-gradient(0deg, rgba(15, 23, 42, 0.98) 0%, rgba(15, 23, 42, 0.85) 80%, transparent 100%);
+            padding-bottom: max(14px, env(safe-area-inset-bottom));
+            backdrop-filter: blur(6px);
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .sop-cam-modal.is-portrait .sop-cam-reel-scroll {
+            display: flex;
+            flex-direction: row;
+            overflow-x: auto;
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
+            gap: 10px;
+            padding: 4px 14px 10px;
+            scrollbar-width: none;
+        }
+        .sop-cam-modal.is-portrait .sop-cam-reel-scroll::-webkit-scrollbar {
+            display: none;
+        }
+
+        .sop-cam-modal.is-portrait .sop-cam-shutter-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            padding: 4px 20px 8px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        /* ------------------------------------------------------------- */
+        /* MODE LANDSCAPE (Sesuai Gambar Sketsa Kanan)                   */
+        /* ------------------------------------------------------------- */
+        .sop-cam-modal.is-landscape .sop-cam-container {
+            flex-direction: row;
+        }
+
+        /* Viewfinder Landscape: Area Kamera di Sebelah Kiri / Tengah */
+        .sop-cam-modal.is-landscape .sop-cam-viewfinder {
+            flex: 1;
+            height: 100%;
+            position: relative;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        /* Header Landscape: NAMA TITIK SOP di Kiri Atas Overlaid */
+        .sop-cam-modal.is-landscape .sop-cam-header {
+            position: absolute;
+            top: max(10px, env(safe-area-inset-top));
+            left: max(14px, env(safe-area-inset-left));
+            max-width: 54%;
+            z-index: 40;
+            background: rgba(15, 23, 42, 0.88);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: 14px;
+            padding: 10px 14px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+            box-sizing: border-box;
+        }
+
+        /* Right Dock Landscape: Kolom Kotak 1 2 3 4 5 6 Vertikal + Shutter */
+        .sop-cam-modal.is-landscape .sop-cam-dock {
+            width: 250px;
+            max-width: 38vw;
+            height: 100%;
+            z-index: 40;
+            background: rgba(15, 23, 42, 0.96);
+            backdrop-filter: blur(12px);
+            border-left: 1.5px solid rgba(255, 255, 255, 0.14);
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            padding: max(10px, env(safe-area-inset-top)) 8px max(10px, env(safe-area-inset-bottom)) 8px;
+            box-sizing: border-box;
+        }
+
+        .sop-cam-modal.is-landscape .sop-cam-reel-container {
+            flex: 1;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .sop-cam-modal.is-landscape .sop-cam-reel-scroll {
+            flex: 1;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
+            gap: 10px;
+            padding: 6px 6px 12px;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,0.2) transparent;
+        }
+
+        .sop-cam-modal.is-landscape .sop-cam-shutter-bar {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 18px;
+            padding: 0 4px 0 10px;
+            border-left: 1px solid rgba(255, 255, 255, 0.12);
+            height: 100%;
+        }
+
+        /* ------------------------------------------------------------- */
+        /* ELEMEN HEADER & DIVIDER (Sesuai Sketsa: Nama Titik + Garis)   */
+        /* ------------------------------------------------------------- */
+        .sop-cam-header-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .sop-cam-point-meta {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .sop-cam-badge {
+            font-size: 11px;
+            font-weight: 800;
+            background: #0284c7;
+            color: #ffffff;
+            padding: 2px 8px;
+            border-radius: 6px;
+            letter-spacing: 0.04em;
+        }
+
+        .sop-cam-badge-tag {
+            font-size: 9px;
+            font-weight: 800;
+            background: #ef4444;
+            color: #ffffff;
+            padding: 2px 6px;
+            border-radius: 6px;
+            text-transform: uppercase;
+        }
+
+        .sop-cam-top-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .sop-cam-ctrl-btn {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #ffffff;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .sop-cam-ctrl-btn:active {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(0.94);
+        }
+        .sop-cam-ctrl-btn.active {
+            background: #f59e0b;
+            color: #111827;
+            border-color: #fbbf24;
+        }
+        .sop-cam-ctrl-close {
+            background: rgba(239, 68, 68, 0.3);
+            border-color: rgba(239, 68, 68, 0.5);
+            color: #fca5a5;
+        }
+
+        .sop-cam-title-box {
+            margin-top: 6px;
+        }
+
+        .sop-cam-title {
+            margin: 0;
+            font-size: 15px;
+            font-weight: 800;
+            color: #ffffff;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+            line-height: 1.25;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.7);
+        }
+
+        /* UNDERLINE DIVIDER SESUAI GAMBAR USER */
+        .sop-cam-divider {
+            width: 100%;
+            height: 2.5px;
+            background: linear-gradient(90deg, #38bdf8 0%, #0284c7 60%, rgba(56, 189, 248, 0.2) 100%);
+            border-radius: 2px;
+            margin: 7px 0 6px 0;
+            box-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
+        }
+
+        .sop-cam-desc-box {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .sop-cam-desc {
+            margin: 0;
+            font-size: 11px;
+            color: #cbd5e1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex: 1;
+        }
+
+        .sop-cam-status-pill {
+            font-size: 10px;
+            font-weight: 700;
+            color: #94a3b8;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 2px 8px;
+            border-radius: 12px;
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* ------------------------------------------------------------- */
+        /* VIEWFINDER & RETICLE                                          */
+        /* ------------------------------------------------------------- */
+        #sop-cam-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            background: #000;
+        }
+
+        .sop-cam-flash {
+            position: absolute;
+            inset: 0;
+            background: white;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease-out;
+            z-index: 35;
+        }
+        .sop-cam-flash.flash-active {
+            opacity: 0.95;
+            transition: none;
+        }
+
+        .sop-cam-reticle {
+            position: absolute;
+            top: 22%;
+            bottom: 22%;
+            left: 10%;
+            right: 10%;
+            pointer-events: none;
+            z-index: 25;
+            opacity: 0.5;
+        }
+        .reticle-corner {
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            border-color: rgba(255, 255, 255, 0.7);
+            border-style: solid;
+        }
+        .reticle-corner.tl { top: 0; left: 0; border-width: 2px 0 0 2px; }
+        .reticle-corner.tr { top: 0; right: 0; border-width: 2px 2px 0 0; }
+        .reticle-corner.bl { bottom: 0; left: 0; border-width: 0 0 2px 2px; }
+        .reticle-corner.br { bottom: 0; right: 0; border-width: 0 2px 2px 0; }
+
+        /* Error Overlay */
+        .sop-cam-error-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.92);
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .sop-cam-error-card {
+            background: #1e293b;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            max-width: 320px;
+        }
+        .sop-cam-fallback-btn {
+            font-size: 11.5px;
+            font-weight: 700;
+            padding: 8px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border: none;
+        }
+        .sop-cam-fallback-btn.primary {
+            background: #0284c7;
+            color: white;
+        }
+        .sop-cam-fallback-btn.secondary {
+            background: rgba(255,255,255,0.12);
+            color: #cbd5e1;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        /* ------------------------------------------------------------- */
+        /* KOTAK-KOTAK TITIK SOP (1, 2, 3, 4, 5, 6...) DI REEL           */
+        /* ------------------------------------------------------------- */
+        .sop-cam-reel-header-hint {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 10px;
+            color: #94a3b8;
+            padding: 4px 14px 2px;
+        }
+
+        .sop-reel-card {
+            position: relative;
+            background: #1e293b;
+            border: 2px solid rgba(255, 255, 255, 0.16);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Ukuran Box di Portrait */
+        .sop-cam-modal.is-portrait .sop-reel-card {
+            width: 58px;
+            height: 58px;
+        }
+
+        /* Ukuran Box di Landscape */
+        .sop-cam-modal.is-landscape .sop-reel-card {
+            width: 100%;
+            height: 52px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 0 8px;
+            box-sizing: border-box;
+            gap: 8px;
+        }
+
+        /* Hover & Active Box */
+        .sop-reel-card:hover {
+            border-color: rgba(56, 189, 248, 0.5);
+            background: #243247;
+        }
+        .sop-reel-card.is-active {
+            border-color: #38bdf8 !important;
+            background: #0b2e4f !important;
+            box-shadow: 0 0 14px rgba(56, 189, 248, 0.8), inset 0 0 8px rgba(56, 189, 248, 0.3) !important;
+            transform: scale(1.05);
+            z-index: 5;
+        }
+
+        /* Label Nomor */
+        .sop-reel-num {
+            font-size: 14px;
+            font-weight: 800;
+            color: #e2e8f0;
+            font-family: monospace;
+            z-index: 2;
+        }
+        .sop-reel-card.is-active .sop-reel-num {
+            color: #38bdf8;
+            font-weight: 900;
+        }
+
+        /* Thumbnail Image */
+        .sop-reel-thumb {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 10px;
+            opacity: 0.75;
+            z-index: 1;
+        }
+        .sop-cam-modal.is-landscape .sop-reel-thumb {
+            position: relative;
+            width: 44px;
+            height: 44px;
+            flex-shrink: 0;
+            opacity: 0.9;
+        }
+
+        /* Status Checkmark */
+        .sop-reel-check-badge {
+            position: absolute;
+            top: 3px;
+            right: 3px;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #059e3d;
+            color: white;
+            font-size: 10px;
+            font-weight: 900;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 3;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+        }
+
+        /* Dot Wajib */
+        .sop-reel-wajib-dot {
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #ef4444;
+            box-shadow: 0 0 4px #ef4444;
+            z-index: 3;
+        }
+
+        /* Spinner Saving */
+        .sop-reel-loading {
+            position: absolute;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #38bdf8;
+            font-size: 18px;
+            z-index: 4;
+        }
+
+        /* ------------------------------------------------------------- */
+        /* SHUTTER BUTTON BESAR                                          */
+        /* ------------------------------------------------------------- */
+        .sop-cam-shutter-btn-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .sop-cam-shutter-btn {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: transparent;
+            border: 4px solid #ffffff;
+            padding: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.12s, border-color 0.15s;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+            outline: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .sop-cam-modal.is-landscape .sop-cam-shutter-btn {
+            width: 64px;
+            height: 64px;
+        }
+        .sop-cam-shutter-btn:active {
+            transform: scale(0.92);
+        }
+
+        .sop-cam-shutter-inner {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: #ffffff;
+            transition: background 0.2s, border-radius 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Video Shutter Mode */
+        .sop-cam-shutter-btn.video-mode {
+            border-color: #ef4444;
+        }
+        .sop-cam-shutter-btn.video-mode .sop-cam-shutter-inner {
+            background: #ef4444;
+            box-shadow: 0 0 14px rgba(239, 68, 68, 0.8);
+        }
+
+        .sop-cam-shutter-hint {
+            font-size: 10px;
+            font-weight: 700;
+            color: #cbd5e1;
+            letter-spacing: 0.02em;
+        }
+
+        /* Sub Action Buttons (Galeri & Selesai) */
+        .sop-cam-sub-action {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            background: transparent;
+            border: none;
+            color: #cbd5e1;
+            padding: 6px;
+        }
+        .sop-cam-sub-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: #ffffff;
+            transition: all 0.15s;
+        }
+        .sop-cam-sub-action:active .sop-cam-sub-icon {
+            transform: scale(0.92);
+            background: rgba(255, 255, 255, 0.25);
+        }
+        .sop-cam-sub-label {
+            font-size: 10px;
+            font-weight: 600;
+            color: #94a3b8;
+        }
+    </style>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- LOGIKA JAVASCRIPT KAMERA SOP (WebRTC, Canvas, Upload, Responsive)  -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <script>
+        // State Global Kamera Fullscreen SOP
+        let camStream = null;
+        let camFacingMode = 'environment'; // Default kamera belakang
+        let camTorchActive = false;
+        let currentSopPointId = null;
+        let isUploadingSop = false;
+
+        // =========================================================================
+        // NAMA FUNCTION : openFullscreenCamera
+        // FUNGSI        : Membuka modal fullscreen kamera, mendeteksi orientasi layar
+        //                 (potrait / landscape) dan auto-select titik SOP pertama
+        // =========================================================================
+        window.openFullscreenCamera = function(pointId = null) {
+            const modal = document.getElementById('fullscreen-sop-camera-modal');
+            if (!modal) return;
+
+            if (modal.parentElement !== document.body) {
+                document.body.appendChild(modal);
+            }
+
+            modal.style.display = 'block';
+            document.body.style.overflow = 'hidden';
+
+            // 1. Sinkronisasi orientasi layar
+            updateCameraOrientation();
+            window.addEventListener('resize', updateCameraOrientation);
+            if (screen.orientation) {
+                screen.orientation.addEventListener('change', updateCameraOrientation);
+            }
+
+            // 2. Render kotak-kotak reel titik SOP
+            renderCameraReel();
+
+            // 3. Tentukan titik yang aktif (jika ada param pointId pakai itu, jika tidak cari uncaptured pertama)
+            let targetPointId = pointId;
+            if (!targetPointId) {
+                const firstUncaptured = window._sopPointsData.find(p => !p.has_evidence);
+                targetPointId = firstUncaptured ? firstUncaptured.id : window._sopPointsData[0].id;
+            }
+            selectCameraPoint(targetPointId);
+
+            // 4. Nyalakan stream kamera
+            startCameraStream();
+        };
+
+        // =========================================================================
+        // NAMA FUNCTION : updateCameraOrientation
+        // FUNGSI        : Mendeteksi apakah perangkat dalam mode Potrait atau Landscape
+        //                 dan menerapkan class CSS .is-portrait atau .is-landscape
+        // =========================================================================
+        function updateCameraOrientation() {
+            const modal = document.getElementById('fullscreen-sop-camera-modal');
+            if (!modal) return;
+
+            const isLandscape = window.innerWidth > window.innerHeight;
+            if (isLandscape) {
+                modal.classList.remove('is-portrait');
+                modal.classList.add('is-landscape');
+            } else {
+                modal.classList.remove('is-landscape');
+                modal.classList.add('is-portrait');
+            }
+        }
+
+        // =========================================================================
+        // NAMA FUNCTION : startCameraStream
+        // FUNGSI        : Mengaktifkan WebRTC getUserMedia dengan preferensi kamera
+        //                 belakang & resolusi high-definition (1080p ideal)
+        // =========================================================================
+        async function startCameraStream() {
+            const errorBox = document.getElementById('sop-cam-error-box');
+            const video = document.getElementById('sop-cam-video');
+            if (errorBox) errorBox.style.display = 'none';
+
+            // Hentikan stream sebelumnya jika ada
+            stopCameraStream();
+
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                if (errorBox) {
+                    document.getElementById('sop-cam-error-msg').textContent = 'Browser ini tidak mendukung akses kamera langsung (getUserMedia). Silakan gunakan tombol Ambil / Pilih File.';
+                    errorBox.style.display = 'flex';
+                }
+                return;
+            }
+
+            const constraints = {
+                audio: false,
+                video: {
+                    facingMode: { ideal: camFacingMode },
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 }
+                }
+            };
+
+            try {
+                camStream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = camStream;
+                await video.play();
+
+                // Cek ketersediaan fitur senter / flashlight
+                checkTorchSupport();
+            } catch (err) {
+                console.warn('Gagal membuka kamera dengan constraints ideal, mencoba fallback:', err);
+                try {
+                    // Fallback constraints sederhana
+                    camStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                    video.srcObject = camStream;
+                    await video.play();
+                    checkTorchSupport();
+                } catch (fallbackErr) {
+                    console.error('Kamera tidak dapat diakses:', fallbackErr);
+                    if (errorBox) {
+                        document.getElementById('sop-cam-error-msg').textContent = 'Kamera tidak dapat diakses (' + (fallbackErr.message || 'Izin ditolak') + '). Pastikan izin kamera aktif pada browser.';
+                        errorBox.style.display = 'flex';
+                    }
+                }
+            }
+        }
+
+        // =========================================================================
+        // NAMA FUNCTION : stopCameraStream
+        // FUNGSI        : Menghentikan seluruh tracks stream WebRTC kamera
+        // =========================================================================
+        function stopCameraStream() {
+            if (camStream) {
+                camStream.getTracks().forEach(track => track.stop());
+                camStream = null;
+            }
+            const video = document.getElementById('sop-cam-video');
+            if (video) {
+                video.srcObject = null;
+            }
+        }
+
+        // =========================================================================
+        // NAMA FUNCTION : switchCameraFacing
+        // FUNGSI        : Menukar kamera depan (selfie) dan belakang (environment)
+        // =========================================================================
+        window.switchCameraFacing = function() {
+            camFacingMode = (camFacingMode === 'environment') ? 'user' : 'environment';
+            startCameraStream();
+        };
+
+        // =========================================================================
+        // NAMA FUNCTION : checkTorchSupport & toggleCameraTorch
+        // FUNGSI        : Memeriksa dan menyalakan/mematikan lampu kilat / flashlight
+        // =========================================================================
+        function checkTorchSupport() {
+            const torchBtn = document.getElementById('sop-cam-btn-torch');
+            if (!torchBtn) return;
+
+            const track = camStream?.getVideoTracks()?.[0];
+            const caps = track?.getCapabilities ? track.getCapabilities() : null;
+            if (caps && caps.torch) {
+                torchBtn.style.display = 'flex';
+            } else {
+                torchBtn.style.display = 'none';
+            }
+        }
+
+        window.toggleCameraTorch = async function() {
+            const track = camStream?.getVideoTracks()?.[0];
+            const torchBtn = document.getElementById('sop-cam-btn-torch');
+            if (!track || !track.applyConstraints) return;
+
+            try {
+                camTorchActive = !camTorchActive;
+                await track.applyConstraints({
+                    advanced: [{ torch: camTorchActive }]
+                });
+                if (torchBtn) {
+                    if (camTorchActive) {
+                        torchBtn.classList.add('active');
+                    } else {
+                        torchBtn.classList.remove('active');
+                    }
+                }
+            } catch (e) {
+                console.warn('Gagal mengatur torch:', e);
+            }
+        };
+
+        // =========================================================================
+        // NAMA FUNCTION : renderCameraReel
+        // FUNGSI        : Me-render kotak-kotak titik SOP (1 - 27) di dalam reel dock
+        //                 memperlihatkan thumbnail jika ada foto, centang hijau, dan dot
+        // =========================================================================
+        function renderCameraReel() {
+            const reel = document.getElementById('sop-cam-reel');
+            if (!reel || !window._sopPointsData) return;
+
+            let html = '';
+            let uploadedCount = 0;
+            const totalCount = window._sopPointsData.length;
+            const mandatoryTotal = window._sopPointsData.filter(p => p.wajib).length;
+            let mandatoryUploaded = 0;
+
+            window._sopPointsData.forEach(point => {
+                const hasEvidence = !!point.has_evidence;
+                if (hasEvidence) {
+                    uploadedCount++;
+                    if (point.wajib) mandatoryUploaded++;
+                }
+
+                html += `
+                    <div class="sop-reel-card ${hasEvidence ? 'has-evidence' : ''}"
+                         id="sop-reel-card-${point.id}"
+                         onclick="selectCameraPoint(${point.id})"
+                         title="${point.urutan}. ${point.nama_titik}">
+                        
+                        <!-- Thumbnail Foto jika sudah tersimpan -->
+                        ${point.evidence_url && !point.is_video ? `
+                            <img src="${point.evidence_url}" class="sop-reel-thumb" id="sop-reel-thumb-${point.id}" alt="${point.urutan}">
+                        ` : ''}
+
+                        <!-- Label Nomor Urutan Titik -->
+                        <span class="sop-reel-num" id="sop-reel-num-${point.id}">${point.urutan}</span>
+
+                        <!-- Centang Hijau jika terbukti -->
+                        <div class="sop-reel-check-badge" id="sop-reel-check-${point.id}" style="${hasEvidence ? '' : 'display: none;'}">
+                            ✓
+                        </div>
+
+                        <!-- Dot Merah jika Titik Wajib -->
+                        ${point.wajib && !hasEvidence ? `<div class="sop-reel-wajib-dot" id="sop-reel-wajib-${point.id}"></div>` : ''}
+
+                        <!-- Spinner Loading Saat Menyimpan -->
+                        <div class="sop-reel-loading" id="sop-reel-loading-${point.id}" style="display: none;">
+                            <i class="ph-bold ph-spinner animate-spin"></i>
+                        </div>
+                    </div>
+                `;
+            });
+
+            reel.innerHTML = html;
+
+            const counterLabel = document.getElementById('sop-cam-counter-label');
+            if (counterLabel) {
+                counterLabel.textContent = `${mandatoryUploaded}/${mandatoryTotal} Wajib`;
+            }
+        }
+
+        // =========================================================================
+        // NAMA FUNCTION : selectCameraPoint
+        // FUNGSI        : Memilih titik SOP aktif (operator bebas memilih titik apa saja
+        //                 tanpa harus berurutan). Mengupdate judul, divider underline,
+        //                 dan tombol shutter (foto atau rekaman video camcorder).
+        // =========================================================================
+        window.selectCameraPoint = function(pointId) {
+            currentSopPointId = Number(pointId);
+            const point = window._sopPointsData.find(p => p.id === currentSopPointId);
+            if (!point) return;
+
+            // 1. Update class .is-active pada reel card
+            document.querySelectorAll('.sop-reel-card').forEach(card => card.classList.remove('is-active'));
+            const activeCard = document.getElementById('sop-reel-card-' + point.id);
+            if (activeCard) {
+                activeCard.classList.add('is-active');
+                activeCard.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+            }
+
+            // 2. Update Header Atas
+            const badgeEl = document.getElementById('sop-cam-badge');
+            const typeTagEl = document.getElementById('sop-cam-type-tag');
+            const titleEl = document.getElementById('sop-cam-title');
+            const descEl = document.getElementById('sop-cam-desc');
+            const statusPill = document.getElementById('sop-cam-status-pill');
+
+            if (badgeEl) badgeEl.textContent = `TITIK ${point.urutan}`;
+            if (typeTagEl) {
+                if (point.is_video) {
+                    typeTagEl.textContent = 'VIDEO 6MB';
+                    typeTagEl.style.background = '#dc2626';
+                } else if (point.wajib) {
+                    typeTagEl.textContent = 'WAJIB';
+                    typeTagEl.style.background = '#ef4444';
+                } else {
+                    typeTagEl.textContent = 'OPSIONAL';
+                    typeTagEl.style.background = '#64748b';
+                }
+            }
+            if (titleEl) titleEl.textContent = `${point.urutan}. ${point.nama_titik}`;
+            if (descEl) descEl.textContent = point.deskripsi || '-';
+            if (statusPill) {
+                if (point.has_evidence) {
+                    statusPill.innerHTML = '<i class="ph-bold ph-check-circle" style="color:#22c55e;"></i> ' + (point.captured_at || 'Tersimpan');
+                    statusPill.style.color = '#86efac';
+                    statusPill.style.borderColor = 'rgba(134,239,172,0.4)';
+                } else {
+                    statusPill.innerHTML = '<i class="ph-bold ph-clock"></i> Belum diambil';
+                    statusPill.style.color = '#94a3b8';
+                    statusPill.style.borderColor = 'rgba(255,255,255,0.15)';
+                }
+            }
+
+            // 3. Update Mode Shutter (Foto vs Video Camcorder untuk Titik 27)
+            const shutterBtn = document.getElementById('sop-cam-shutter-btn');
+            const shutterInner = document.getElementById('sop-cam-shutter-inner');
+            const shutterVidIcon = document.getElementById('sop-cam-shutter-vid-icon');
+            const shutterHint = document.getElementById('sop-cam-shutter-hint');
+
+            if (point.is_video) {
+                if (shutterBtn) shutterBtn.classList.add('video-mode');
+                if (shutterVidIcon) shutterVidIcon.style.display = 'block';
+                if (shutterHint) shutterHint.textContent = 'Rekam Video (6MB)';
+            } else {
+                if (shutterBtn) shutterBtn.classList.remove('video-mode');
+                if (shutterVidIcon) shutterVidIcon.style.display = 'none';
+                if (shutterHint) shutterHint.textContent = 'Ambil Foto';
+            }
+        };
+
+        // =========================================================================
+        // NAMA FUNCTION : handleShutterClick
+        // FUNGSI        : Memproses klik tombol shutter (Jepret Foto via Canvas atau
+        //                 buka perekam video jika titik video)
+        // =========================================================================
+        window.handleShutterClick = function() {
+            if (isUploadingSop) return;
+
+            const point = window._sopPointsData.find(p => p.id === currentSopPointId);
+            if (!point) return;
+
+            // Titik Video: Buka perekam video sistem / camcorder
+            if (point.is_video) {
+                const vidInput = document.getElementById('sop-cam-video-recorder');
+                if (vidInput) {
+                    vidInput.click();
+                }
+                return;
+            }
+
+            // Titik Foto: Jepret dari Video Stream
+            takeFullscreenPhoto();
+        };
+
+        // =========================================================================
+        // NAMA FUNCTION : takeFullscreenPhoto
+        // FUNGSI        : Menangkap frame live camera ke HTML Canvas, memicu animasi
+        //                 flash, mengubah ke JPEG Blob dan mengirim upload AJAX
+        // =========================================================================
+        function takeFullscreenPhoto() {
+            const video = document.getElementById('sop-cam-video');
+            const canvas = document.getElementById('sop-cam-canvas');
+            const flash = document.getElementById('sop-cam-flash');
+
+            if (!video || !canvas) return;
+
+            // Efek Flash Putih Kamera
+            if (flash) {
+                flash.classList.add('flash-active');
+                setTimeout(() => flash.classList.remove('flash-active'), 120);
+            }
+
+            // Haptic feedback getaran jika smartphone mendukung
+            if (navigator.vibrate) {
+                navigator.vibrate(40);
+            }
+
+            // Buat canvas sesuai resolusi video asli
+            canvas.width = video.videoWidth || 1280;
+            canvas.height = video.videoHeight || 720;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Ekspor ke Blob JPEG
+            canvas.toBlob(function(blob) {
+                if (!blob) {
+                    alert('Gagal mengambil gambar dari kamera.');
+                    return;
+                }
+                uploadBlobToSopPoint(currentSopPointId, blob, 'camera_capture.jpg');
+            }, 'image/jpeg', 0.92);
+        }
+
+        // =========================================================================
+        // NAMA FUNCTION : uploadBlobToSopPoint
+        // FUNGSI        : Mengirimkan berkas Blob foto / video ke server via AJAX
+        //                 dan memperbarui status kartu secara realtime
+        // =========================================================================
+        async function uploadBlobToSopPoint(pointId, fileOrBlob, filename = 'sop_photo.jpg') {
+            isUploadingSop = true;
+
+            // Indikator loading pada kotak reel
+            const loadingEl = document.getElementById('sop-reel-loading-' + pointId);
+            if (loadingEl) loadingEl.style.display = 'flex';
+
+            const statusPill = document.getElementById('sop-cam-status-pill');
+            if (statusPill) {
+                statusPill.innerHTML = '<i class="ph-bold ph-spinner animate-spin" style="color:#38bdf8;"></i> Mengunggah & memberi stempel...';
+            }
+
+            // Format timestamp lokal
+            const now = new Date();
+            const y = now.getFullYear();
+            const m = String(now.getMonth() + 1).padStart(2, '0');
+            const d = String(now.getDate()).padStart(2, '0');
+            const hh = String(now.getHours()).padStart(2, '0');
+            const mm = String(now.getMinutes()).padStart(2, '0');
+            const ss = String(now.getSeconds()).padStart(2, '0');
+            const formattedTs = `${y}-${m}-${d} ${hh}:${mm}:${ss}`;
+
+            const fd = new FormData();
+            fd.append('file', fileOrBlob, filename);
+            fd.append('sop_photo_point_id', pointId);
+            fd.append('captured_at', formattedTs);
+            fd.append('_token', window._csrfToken);
+
+            try {
+                const response = await fetch(window._uploadPhotoRoute, {
+                    method: 'POST',
+                    body: fd
+                });
+
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                    throw new Error(data.message || 'Gagal menyimpan foto.');
+                }
+
+                // Sukses tersimpan di server
+                syncCameraPointUploaded(pointId, data.file_url, data.captured_at || `${formattedTs} WIB`);
+
+                if (window.showToast) {
+                    window.showToast('Foto Titik berhasil disimpan & distempel.', 'success', 'Tersimpan');
+                }
+
+                // Auto advance: Sarankan titik berikutnya yang belum terisi (namun operator bebas scroll kapan saja)
+                const nextUncaptured = window._sopPointsData.find(p => !p.has_evidence);
+                if (nextUncaptured) {
+                    setTimeout(() => {
+                        selectCameraPoint(nextUncaptured.id);
+                    }, 400);
+                }
+
+            } catch (err) {
+                console.error('Error saat upload SOP Point:', err);
+                alert('Gagal mengunggah foto: ' + err.message);
+                if (err.message && (err.message.includes('6MB') || err.message.toLowerCase().includes('video'))) {
+                    window.showVideoSizeWarningModal(null, err.message);
+                }
+            } finally {
+                if (loadingEl) loadingEl.style.display = 'none';
+                isUploadingSop = false;
+            }
+        }
+
+        // =========================================================================
+        // NAMA FUNCTION : syncCameraPointUploaded
+        // FUNGSI        : Sinkronisasi data in-memory, reel modal kamera, dan kartu
+        //                 timeline di latar belakang tanpa reload halaman
+        // =========================================================================
+        window.syncCameraPointUploaded = function(pointId, fileUrl, capturedAt) {
+            const point = window._sopPointsData.find(p => p.id === Number(pointId));
+            if (point) {
+                point.has_evidence = true;
+                point.evidence_url = fileUrl;
+                point.captured_at = capturedAt;
+            }
+
+            // Update Reel UI
+            const checkBadge = document.getElementById('sop-reel-check-' + pointId);
+            if (checkBadge) checkBadge.style.display = 'flex';
+
+            const wajibDot = document.getElementById('sop-reel-wajib-' + pointId);
+            if (wajibDot) wajibDot.style.display = 'none';
+
+            const reelCard = document.getElementById('sop-reel-card-' + pointId);
+            if (reelCard) {
+                reelCard.classList.add('has-evidence');
+                let thumbImg = document.getElementById('sop-reel-thumb-' + pointId);
+                if (!thumbImg && fileUrl && (!point || !point.is_video)) {
+                    thumbImg = document.createElement('img');
+                    thumbImg.id = 'sop-reel-thumb-' + pointId;
+                    thumbImg.className = 'sop-reel-thumb';
+                    thumbImg.src = fileUrl + '?t=' + Date.now();
+                    reelCard.prepend(thumbImg);
+                } else if (thumbImg && fileUrl) {
+                    thumbImg.src = fileUrl + '?t=' + Date.now();
+                }
+            }
+
+            // Update Header Status jika titik ini yang sedang aktif
+            if (currentSopPointId === Number(pointId)) {
+                const statusPill = document.getElementById('sop-cam-status-pill');
+                if (statusPill) {
+                    statusPill.innerHTML = '<i class="ph-bold ph-check-circle" style="color:#22c55e;"></i> ' + (capturedAt || 'Tersimpan');
+                    statusPill.style.color = '#86efac';
+                    statusPill.style.borderColor = 'rgba(134,239,172,0.4)';
+                }
+            }
+
+            // Update Counter Wajib di Header Reel
+            const mandatoryTotal = window._sopPointsData.filter(p => p.wajib).length;
+            const mandatoryUploaded = window._sopPointsData.filter(p => p.wajib && p.has_evidence).length;
+            const counterLabel = document.getElementById('sop-cam-counter-label');
+            if (counterLabel) {
+                counterLabel.textContent = `${mandatoryUploaded}/${mandatoryTotal} Wajib`;
+            }
+
+            // Sinkronkan juga kartu di halaman timeline luar
+            const numBadge = document.getElementById('num-badge-' + pointId);
+            if (numBadge) {
+                numBadge.textContent = '✓';
+                numBadge.style.color = '#059e3d';
+            }
+
+            const previewWrapper = document.getElementById('preview-wrapper-' + pointId);
+            const previewImg = document.getElementById('preview-' + pointId);
+            const previewVid = document.getElementById('video-preview-' + pointId);
+            const iconBox = document.getElementById('icon-' + pointId);
+            const actionBar = document.getElementById('action-bar-' + pointId);
+            const statusBox = document.getElementById('status-' + pointId);
+            const tsBox = document.getElementById('timestamp-' + pointId);
+
+            if (previewWrapper) {
+                previewWrapper.style.display = 'block';
+                previewWrapper.dataset.mediaUrl = fileUrl;
+                previewWrapper.dataset.timestamp = capturedAt;
+            }
+            if (iconBox) iconBox.style.display = 'none';
+            if (actionBar) actionBar.style.display = 'flex';
+            if (statusBox) statusBox.innerHTML = '<span style="color:#63c384;">✓ Tersimpan</span>';
+            if (tsBox) {
+                const tsText = tsBox.querySelector('.ts-text');
+                if (tsText) tsText.textContent = capturedAt;
+            }
+
+            if (point && point.is_video) {
+                if (previewVid) {
+                    previewVid.src = fileUrl;
+                    previewVid.style.display = 'block';
+                }
+                if (previewImg) previewImg.style.display = 'none';
+            } else {
+                if (previewImg) {
+                    previewImg.src = fileUrl + '?t=' + Date.now();
+                    previewImg.style.display = 'block';
+                }
+                if (previewVid) previewVid.style.display = 'none';
+            }
+
+            // Trigger event Alpine.js
+            window.dispatchEvent(new CustomEvent('photo-uploaded', { detail: { pointId: pointId } }));
+        };
+
+        // =========================================================================
+        // NAMA FUNCTION : handleDirectCamFileInput & handleDirectCamVideoInput
+        // FUNGSI        : Menangani berkas yang diunggah dari galeri atau rekaman
+        //                 camcorder dari dalam modal kamera fullscreen
+        // =========================================================================
+        window.handleDirectCamFileInput = function(input) {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                uploadBlobToSopPoint(currentSopPointId, file, file.name);
+                input.value = '';
+            }
+        };
+
+        window.handleDirectCamVideoInput = function(input) {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+
+                // Cek batas maksimal ukuran video 6MB
+                if (file.size > MAX_VIDEO_BYTES) {
+                    const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+                    window.showVideoSizeWarningModal(sizeMB);
+                    input.value = '';
+                    return;
+                }
+
+                uploadBlobToSopPoint(currentSopPointId, file, file.name);
+                input.value = '';
+            }
+        };
+
+        window.handleCamFallbackUpload = function(input) {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                uploadBlobToSopPoint(currentSopPointId, file, file.name);
+                input.value = '';
+            }
+        };
+
+        // =========================================================================
+        // NAMA FUNCTION : closeFullscreenCamera
+        // FUNGSI        : Menutup modal fullscreen kamera, mematikan media stream
+        //                 dan mengembalikan scroll pada body halaman
+        // =========================================================================
+        window.closeFullscreenCamera = function() {
+            stopCameraStream();
+            const modal = document.getElementById('fullscreen-sop-camera-modal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+            document.body.style.overflow = '';
+            window.removeEventListener('resize', updateCameraOrientation);
+            if (screen.orientation) {
+                screen.orientation.removeEventListener('change', updateCameraOrientation);
+            }
+        };
+    </script>
+
 
 </x-field-layout>

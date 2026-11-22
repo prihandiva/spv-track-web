@@ -101,6 +101,20 @@ class Shipment extends Model
         );
     }
 
+    /**
+     * Dapatkan identitas penamaan berkas atau label utama.
+     * Jika nomor kontainer bernilai '0', kosong, atau 'none', otomatis mengambil nomor plat.
+     */
+    public function getIdentitasPengirimanAttribute(): string
+    {
+        $container = trim((string) ($this->nomor_container_atau_plat ?? ''));
+        if ($container === '0' || $container === '' || strtolower($container) === 'none') {
+            return trim((string) ($this->plat_nomor ?? '')) ?: 'SPV';
+        }
+
+        return $container;
+    }
+
     public function getWarehouseLabelAttribute(): string
     {
         if (($this->warehouse_type ?? 'internal') === 'external') {

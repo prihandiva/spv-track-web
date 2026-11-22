@@ -155,6 +155,12 @@ class UserController extends Controller
             }
         }
 
+        if ($user->shipments()->exists()) {
+            $count = $user->shipments()->count();
+            return redirect()->route('settings.users.index')
+                ->with('error', "Akun {$user->nama_warehouse} tidak dapat dihapus karena terhubung dengan {$count} data shipment/staging di sistem demi integritas audit trail.");
+        }
+
         $nama = $user->nama_warehouse;
         $user->delete();
 

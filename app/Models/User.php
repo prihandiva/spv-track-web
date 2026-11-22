@@ -101,11 +101,12 @@ class User extends Authenticatable
         return in_array($this->role, ['superadmin', 'admin']);
     }
 
-    /**
-     * Check if user has permission to edit a specific shipment:
-     * - Superadmin & Admin: can edit draft and submitted shipments
-     * - Operator: can only edit draft shipments
-     */
+    // =========================================================================
+    // NAMA FUNCTION : canEditShipment
+    // FUNGSI        : Memeriksa hak akses untuk mengedit, mengunggah foto, atau submit shipment:
+    //                 - Superadmin & Admin: dapat mengelola seluruh shipment (draft maupun submitted)
+    //                 - Operator: hanya dapat mengedit & mengunggah pada shipment draft miliknya sendiri (user_id sama)
+    // =========================================================================
     public function canEditShipment(?Shipment $shipment = null): bool
     {
         if ($this->isSuperadmin() || $this->isAdmin()) {
@@ -113,7 +114,26 @@ class User extends Authenticatable
         }
 
         if ($this->isOperator()) {
-            return ! $shipment || $shipment->status === 'draft';
+            return ! $shipment || ($shipment->status === 'draft' && (int) $shipment->user_id === (int) $this->id);
+        }
+
+        return false;
+    }
+
+    // =========================================================================
+    // NAMA FUNCTION : canViewShipment
+    // FUNGSI        : Memeriksa hak akses untuk melihat data shipment & bukti foto:
+    //                 - Superadmin & Admin: dapat melihat seluruh shipment
+    //                 - Operator: dapat melihat shipment jika akunnya berstatus aktif
+    // =========================================================================
+    public function canViewShipment(?Shipment $shipment = null): bool
+    {
+        if ($this->isSuperadmin() || $this->isAdmin()) {
+            return true;
+        }
+
+        if ($this->isOperator()) {
+            return ($this->status ?? 'aktif') === 'aktif';
         }
 
         return false;

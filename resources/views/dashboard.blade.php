@@ -668,16 +668,27 @@
                         </thead>
                         <tbody>
                             @forelse($shipments as $s)
-                                <tr class="border-t border-gray-100 hover:bg-blue-50/20 transition-colors">
+                                @php
+                                    $isMyShipment = auth()->check() && (int)$s->user_id === (int)auth()->id();
+                                    $canEdit = auth()->user()?->canEditShipment($s);
+                                @endphp
+                                <tr class="border-t border-gray-100 hover:bg-blue-50/20 transition-colors {{ $isMyShipment ? 'bg-blue-50/20 border-l-4 border-l-spv-blue' : '' }}">
                                     <td class="px-3.5 py-2.5">
                                         <div class="flex items-center gap-2.5">
-                                            <div class="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style="background:#eff4fc;">
-                                                <i class="ph-fill {{ $s->jenis_pengiriman === 'export' ? 'ph-shipping-container' : 'ph-truck' }} text-sm" style="color:#285491;"></i>
+                                            <div class="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 {{ $isMyShipment ? 'bg-blue-100 text-spv-blue ring-1 ring-blue-300' : 'bg-[#eff4fc] text-[#285491]' }}">
+                                                <i class="ph-fill {{ $s->jenis_pengiriman === 'export' ? 'ph-shipping-container' : 'ph-truck' }} text-sm"></i>
                                             </div>
                                             <div>
-                                                <a href="{{ route('shipments.show', $s->id) }}" class="text-xs font-bold text-gray-800 hover:text-spv-blue">
-                                                    {{ $s->packing_list_no ?: ($s->nomor_container_atau_plat ?? 'SPV-' . $s->id) }}
-                                                </a>
+                                                <div class="flex items-center gap-1.5 flex-wrap">
+                                                    <a href="{{ route('shipments.show', $s->id) }}" class="text-xs font-bold text-gray-800 hover:text-spv-blue">
+                                                        {{ $s->packing_list_no ?: ($s->nomor_container_atau_plat ?? 'SPV-' . $s->id) }}
+                                                    </a>
+                                                    @if($isMyShipment)
+                                                        <span class="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-blue-100 text-spv-blue border border-blue-200">
+                                                            <i class="ph-bold ph-user-check text-[10px]"></i> Milik Anda
+                                                        </span>
+                                                    @endif
+                                                </div>
                                                 <p class="text-[10px] text-gray-400 leading-tight">Cont: {{ $s->nomor_container_atau_plat ?? '-' }} &bull; Plat: {{ $s->plat_nomor ?? '—' }}</p>
                                             </div>
                                         </div>
@@ -692,7 +703,11 @@
                                     </td>
                                     <td class="px-2.5 py-2.5 hidden lg:table-cell">
                                         <p class="text-xs font-medium text-gray-700 leading-tight">{{ $s->karyawan?->nama ?? '-' }}</p>
-                                        <p class="text-[10px] text-gray-400 leading-tight">{{ $s->created_at->format('d M, H:i') }} WIB</p>
+                                        <p class="text-[10px] text-gray-400 leading-tight flex items-center gap-1">
+                                            <span>{{ $s->created_at->format('d M, H:i') }} WIB</span>
+                                            <span>&bull;</span>
+                                            <span class="{{ $isMyShipment ? 'text-spv-blue font-bold' : 'text-gray-500' }}">Akun: {{ $s->user?->nama_warehouse ?? '-' }}</span>
+                                        </p>
                                     </td>
                                     <td class="px-2.5 py-2.5">
                                         @if($s->lead_time_minutes !== null)
@@ -739,13 +754,15 @@
                                             </a>
 
                                             @if($s->status === 'draft')
-                                                <a href="{{ route('field-app.edit', $s->id) }}"
-                                                   title="Lanjutkan Pengisian Draft Staging (Sebelum Ambil Foto)"
-                                                   class="p-1 rounded-lg text-amber-500 hover:text-amber-600 hover:bg-amber-50 transition-colors">
-                                                    <i class="ph-bold ph-pencil-simple-line text-sm"></i>
-                                                </a>
+                                                @if($canEdit)
+                                                    <a href="{{ route('field-app.edit', $s->id) }}"
+                                                       title="Lanjutkan Pengisian Draft Staging (Sebelum Ambil Foto)"
+                                                       class="p-1 rounded-lg text-amber-500 hover:text-amber-600 hover:bg-amber-50 transition-colors">
+                                                        <i class="ph-bold ph-pencil-simple-line text-sm"></i>
+                                                    </a>
+                                                @endif
                                             @else
-                                                @if(auth()->user()?->canEditShipment($s))
+                                                @if($canEdit)
                                                     <a href="{{ route('field-app.edit', $s->id) }}"
                                                        title="Edit Dokumen Shipment"
                                                        class="p-1 rounded-lg text-gray-400 hover:text-spv-blue hover:bg-blue-50 transition-colors">

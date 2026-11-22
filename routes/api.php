@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\ShipmentPhotoController;
+use App\Http\Controllers\MobileApiController;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Route;
 
@@ -23,21 +23,7 @@ Route::get('/server-time', function () {
     ]);
 })->name('api.server-time');
 
-// 2. Tahap 1: Upload Foto Sementara (Burn-in Timestamp Server)
-Route::post('/photos/temp', [ShipmentPhotoController::class, 'uploadTemp'])->name('api.photos.temp.upload');
-Route::get('/photos/temp/{tempId}/file', [ShipmentPhotoController::class, 'previewTemp'])->name('api.photos.temp.file');
-
-// 3. Tahap 2: Submit Final Foto Shipment (Penyimpanan Permanen & Immutable)
-Route::post('/shipments/{shipment}/submit', [ShipmentPhotoController::class, 'submit'])->name('api.shipments.submit');
-Route::post('/shipments/{shipment}/photos/submit', [ShipmentPhotoController::class, 'submit'])->name('api.shipments.photos.submit');
-
-// 4. Akses File Foto Permanen & Listing Foto
-Route::get('/photos/{photo}/file', [ShipmentPhotoController::class, 'servePermanentPhoto'])->name('api.photos.file');
-Route::get('/shipments/{shipment}/photos', [ShipmentPhotoController::class, 'index'])->name('api.shipments.photos.index');
-
-// 5. Endpoint Terintegrasi untuk Aplikasi Mobile SPV-Track (Flutter)
-use App\Http\Controllers\MobileApiController;
-
+// 2. Endpoint Terintegrasi untuk Aplikasi Mobile SPV-Track (Flutter)
 Route::get('/dashboard', [MobileApiController::class, 'dashboard'])->name('api.mobile.dashboard');
 Route::get('/shipments', [MobileApiController::class, 'shipments'])->name('api.mobile.shipments');
 Route::get('/shipments/{shipment}', [MobileApiController::class, 'shipmentDetail'])->name('api.mobile.shipment-detail');

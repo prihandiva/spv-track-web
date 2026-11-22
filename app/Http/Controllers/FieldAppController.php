@@ -16,9 +16,14 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use thiagoalessio\TesseractOCR\TesseractOCR;
 
 class FieldAppController extends Controller
 {
+    // =========================================================================
+    // NAMA FUNCTION : getExternalWarehouses
+    // FUNGSI        : Mengambil daftar nama warehouse eksternal yang aktif untuk dropdown
+    // =========================================================================
     private function getExternalWarehouses(): array
     {
         return ExternalWarehouse::active()
@@ -29,10 +34,12 @@ class FieldAppController extends Controller
             ->all();
     }
 
+    // =========================================================================
+    // NAMA FUNCTION : create
+    // FUNGSI        : Menampilkan halaman form staging input shipment baru (Field App)
+    // =========================================================================
     public function create(): View
     {
-        // For development, we assume user_id = 1 (Admin) is acting as operator
-        // In real app, we'd use auth()->id()
         $karyawans = Karyawan::where('status', 'aktif')->orderBy('nama')->get();
         $externalWarehouses = $this->getExternalWarehouses();
 
@@ -52,6 +59,11 @@ class FieldAppController extends Controller
         return view('field-app.create', compact('karyawans', 'history', 'externalWarehouses'));
     }
 
+    // =========================================================================
+    // NAMA FUNCTION : store
+    // FUNGSI        : Memvalidasi & menyimpan data staging awal shipment (status: draft),
+    //                 lalu mengarahkan operator ke halaman timeline bukti foto SOP
+    // =========================================================================
     public function store(Request $request): RedirectResponse
     {
         if (! $request->has('karyawan_ids') && $request->filled('karyawan_id')) {
@@ -91,6 +103,12 @@ class FieldAppController extends Controller
             ]);
         }
 
+        $user = auth()->user();
+        $isOperator = $user && $user->role === 'operator';
+        $tanggalStagingRule = ($isOperator && ! app()->runningUnitTests())
+            ? 'required|date|after_or_equal:today'
+            : 'required|date';
+
         $validated = $request->validate([
             'jenis_produk' => 'required|string|max:100',
             'jenis_pengiriman' => 'required|in:export,lokal',
@@ -105,7 +123,7 @@ class FieldAppController extends Controller
             'nomor_container_atau_plat' => 'required|string|max:255',
             'cuaca' => 'required|in:kering,mendung,hujan,gerimis',
             'waktu' => 'required|in:siang,sore,malam',
-            'tanggal_staging' => 'required|date'.(app()->runningUnitTests() ? '' : '|after_or_equal:today'),
+            'tanggal_staging' => $tanggalStagingRule,
             'warehouse_type' => 'required|in:internal,external',
             'warehouse_lokasi' => 'required|string|max:255',
             'karyawan_ids' => 'required|array|min:1',
@@ -134,7 +152,11 @@ class FieldAppController extends Controller
         $karyawanIds = array_values(array_unique(array_filter((array) $validated['karyawan_ids'])));
         $validated['karyawan_id'] = $karyawanIds[0] ?? null;
 
-        $validated['user_id'] = auth()->id() ?? 1;
+        $userId = auth()->id();
+        if (! $userId) {
+            abort(401, 'Silakan login terlebih dahulu untuk membuat shipment baru.');
+        }
+        $validated['user_id'] = $userId;
         $validated['status'] = 'draft';
         if (empty($validated['nama_sopir'])) {
             $validated['nama_sopir'] = '-';
@@ -223,15 +245,29 @@ class FieldAppController extends Controller
             ]
         );
 
+        $saveAction = $request->input('save_action');
+        $isAdminOrSuper = $user && in_array($user->role, ['superadmin', 'admin']);
+
+        if ($saveAction === 'save_only' || ($isAdminOrSuper && $saveAction === 'save_only')) {
+            return redirect()->route('shipments.show', $shipment->id)
+                ->with('success', "Draft pengiriman {$shipment->packing_list_no} berhasil dibuat.");
+        }
+
         return redirect()->route('field-app.timeline', $shipment->id);
     }
 
+    // =========================================================================
+    // NAMA FUNCTION : edit
+    // FUNGSI        : Menampilkan form edit informasi pengiriman (staging) yang ada
+    // =========================================================================
     public function edit(Shipment $shipment): View|RedirectResponse
     {
         $user = auth()->user();
-        if ($user && ! $user->canEditShipment($shipment)) {
-            return redirect()->route('shipments.show', $shipment->id)
-                ->with('error', 'Dokumen yang telah berstatus submitted hanya dapat diubah oleh Admin atau Superadmin.');
+        if (! $user || ! $user->canEditShipment($shipment)) {
+            $msg = $shipment->status === 'submitted'
+                ? 'Dokumen yang telah berstatus submitted hanya dapat diubah oleh Admin atau Superadmin.'
+                : 'Akses ditolak: Anda hanya dapat mengubah shipment yang dibuat oleh akun Anda sendiri (' . ($shipment->user?->nama_warehouse ? 'Dibuat oleh: ' . $shipment->user->nama_warehouse : 'Akun lain') . ').';
+            return redirect()->route('shipments.show', $shipment->id)->with('error', $msg);
         }
 
         $shipment->load(['karyawans', 'karyawan']);
@@ -254,12 +290,18 @@ class FieldAppController extends Controller
         return view('field-app.create', compact('shipment', 'karyawans', 'history', 'externalWarehouses'));
     }
 
+    // =========================================================================
+    // NAMA FUNCTION : update
+    // FUNGSI        : Memperbarui data shipment yang sedang diedit dan mencatat log aktivitas
+    // =========================================================================
     public function update(Request $request, Shipment $shipment): RedirectResponse
     {
         $user = auth()->user();
-        if ($user && ! $user->canEditShipment($shipment)) {
-            return redirect()->route('shipments.show', $shipment->id)
-                ->with('error', 'Dokumen yang telah berstatus submitted hanya dapat diubah oleh Admin atau Superadmin.');
+        if (! $user || ! $user->canEditShipment($shipment)) {
+            $msg = $shipment->status === 'submitted'
+                ? 'Dokumen yang telah berstatus submitted hanya dapat diubah oleh Admin atau Superadmin.'
+                : 'Akses ditolak: Anda hanya dapat mengubah shipment yang dibuat oleh akun Anda sendiri (' . ($shipment->user?->nama_warehouse ? 'Dibuat oleh: ' . $shipment->user->nama_warehouse : 'Akun lain') . ').';
+            return redirect()->route('shipments.show', $shipment->id)->with('error', $msg);
         }
 
         if (! $request->has('karyawan_ids') && $request->filled('karyawan_id')) {
@@ -346,6 +388,7 @@ class FieldAppController extends Controller
             try {
                 $validated['waktu_kedatangan_container'] = Carbon::parse($rawWaktuMulai)->toDateTimeString();
             } catch (\Throwable $e) {
+                Log::warning('Format waktu kedatangan container tidak valid saat update shipment: '.$e->getMessage());
             }
         }
 
@@ -446,7 +489,11 @@ class FieldAppController extends Controller
             changes: $changes
         );
 
-        if ($shipment->status === 'submitted') {
+        $saveAction = $request->input('save_action');
+        $isAdminOrSuper = $user && in_array($user->role, ['superadmin', 'admin']);
+
+        // Jika user memilih simpan langsung, atau status submitted, atau admin/superadmin tanpa memilih save_and_timeline
+        if ($saveAction === 'save_only' || $shipment->status === 'submitted' || ($isAdminOrSuper && $saveAction !== 'save_and_timeline')) {
             return redirect()->route('shipments.show', $shipment->id)
                 ->with('success', "Perubahan data dokumen {$shipment->packing_list_no} berhasil disimpan.");
         }
@@ -455,11 +502,23 @@ class FieldAppController extends Controller
             ->with('success', 'Data draft berhasil diperbarui. Silakan lanjutkan ke proses bukti foto evidence.');
     }
 
+    // =========================================================================
+    // NAMA FUNCTION : timeline
+    // FUNGSI        : Menampilkan antarmuka timeline panduan 27 titik foto SOP,
+    //                 status upload evidence, dan tombol submit final
+    // =========================================================================
     public function timeline(Shipment $shipment)
     {
         if ($shipment->status === 'submitted') {
             return redirect()->route('shipments.show', $shipment->id)
                 ->with('info', 'Dokumen pengiriman ini telah disubmit final. Bukti foto evidence telah dikunci permanen demi keaslian timestamp dan tidak dapat diubah lagi.');
+        }
+
+        $user = auth()->user();
+        if (! $user || ! $user->canEditShipment($shipment)) {
+            $creator = $shipment->user?->nama_warehouse ? 'Dibuat oleh: ' . $shipment->user->nama_warehouse : 'Operator lain';
+            return redirect()->route('shipments.show', $shipment->id)
+                ->with('error', "Akses ditolak: Anda hanya dapat melanjutkan proses pengerjaan bukti foto untuk shipment yang dibuat oleh akun Anda ({$creator}). Anda dapat memantau progresnya di halaman detail ini.");
         }
 
         $shipment->load(['evidenceItems', 'containerInspection', 'baleInspection.items']);
@@ -474,12 +533,29 @@ class FieldAppController extends Controller
         return view('field-app.timeline', compact('shipment', 'points', 'history'));
     }
 
+    // =========================================================================
+    // NAMA FUNCTION : uploadPhoto
+    // FUNGSI        : [ALUR PENYIMPANAN FOTO UTAMA]
+    //                 Menerima unggahan bukti foto/video dari Field App, memanggil
+    //                 PhotoProcessingService untuk stamping watermark server (WIB),
+    //                 titik SOP & nomor kontainer, lalu MENYIMPAN LANGSUNG ke direktori
+    //                 permanen "storage/app/public/shipments/{id}/" dan mencatat EvidenceItem.
+    // =========================================================================
     public function uploadPhoto(Request $request, Shipment $shipment)
     {
         if ($shipment->status === 'submitted') {
             return response()->json([
                 'success' => false,
                 'message' => 'Dokumen pengiriman telah disubmit final. Bukti foto evidence telah dikunci permanen demi keaslian timestamp dan tidak dapat diganti atau diunggah ulang.',
+            ], 403);
+        }
+
+        $user = auth()->user();
+        if (! $user || ! $user->canEditShipment($shipment)) {
+            $creator = $shipment->user?->nama_warehouse ? 'Dibuat oleh: ' . $shipment->user->nama_warehouse : 'Operator lain';
+            return response()->json([
+                'success' => false,
+                'message' => "Akses ditolak: Anda hanya diperbolehkan mengunggah bukti foto untuk shipment yang dibuat oleh akun Anda ({$creator}).",
             ], 403);
         }
 
@@ -526,9 +602,11 @@ class FieldAppController extends Controller
             $capturedAt = $request->input('captured_at') ? Carbon::parse($request->input('captured_at')) : now();
             $timestampText = $capturedAt->format('Y-m-d H:i:s').' WIB';
 
-            $safePlate = preg_replace('/[^A-Za-z0-9]/', '', $shipment->nomor_container_atau_plat ?? 'SPV');
+            // Penamaan berkas: gunakan nomor kontainer, atau fallback ke nomor plat jika kontainer bernilai '0' / kosong
+            $identitasFile = $shipment->identitas_pengiriman;
+            $safePrefix = preg_replace('/[^A-Za-z0-9]/', '', $identitasFile) ?: 'SPV';
             $count = $shipment->evidenceItems()->count() + 1;
-            $fileName = "{$safePlate}_p{$pointId}_{$count}.{$ext}";
+            $fileName = "{$safePrefix}_p{$pointId}_{$count}.{$ext}";
 
             $storageDir = storage_path("app/public/shipments/{$shipment->id}");
             if (! is_dir($storageDir)) {
@@ -539,6 +617,7 @@ class FieldAppController extends Controller
 
             $point = $pointId ? SopPhotoPoint::find($pointId) : null;
             $pointTitle = $point ? "TITIK {$point->urutan}: {$point->nama_titik}" : ($request->boolean('is_tambahan') ? 'FOTO EKSTRA' : 'EVIDENCE');
+            $watermarkSubText = ($identitasFile !== 'SPV') ? $identitasFile : null;
 
             $isVideo = in_array($ext, ['mp4', 'mov', 'webm', '3gp', 'avi', 'm4v', 'quicktime'])
                 || str_starts_with($file->getMimeType() ?? '', 'video/')
@@ -552,7 +631,7 @@ class FieldAppController extends Controller
                         targetPath: $targetPath,
                         stampText: $timestampText,
                         title: $pointTitle,
-                        subText: $shipment->nomor_container_atau_plat
+                        subText: $watermarkSubText
                     );
                 } elseif (in_array($ext, ['jpg', 'jpeg', 'png', 'webp']) && extension_loaded('gd')) {
                     app(PhotoProcessingService::class)->watermarkSingleFile(
@@ -560,7 +639,7 @@ class FieldAppController extends Controller
                         targetPath: $targetPath,
                         stampText: $timestampText,
                         title: $pointTitle,
-                        subText: $shipment->nomor_container_atau_plat
+                        subText: $watermarkSubText
                     );
                 } else {
                     $file->move($storageDir, $fileName);
@@ -596,8 +675,8 @@ class FieldAppController extends Controller
                     'size' => $fileSize,
                     'tipe_item' => $isVideo ? 'video' : 'foto',
                     'captured_at' => $capturedAt,
-                    'gps_lat' => -6.200000,
-                    'gps_lng' => 106.816666,
+                    'gps_lat' => $request->filled('gps_lat') ? (float) $request->input('gps_lat') : null,
+                    'gps_lng' => $request->filled('gps_lng') ? (float) $request->input('gps_lng') : null,
                     'is_tambahan' => $request->boolean('is_tambahan', false),
                     'uploaded_by' => auth()->id(),
                 ]
@@ -607,7 +686,7 @@ class FieldAppController extends Controller
                 'success' => true,
                 'message' => $isVideo ? 'Video berhasil diunggah' : 'Foto berhasil diunggah',
                 'evidence_id' => $evidence->id,
-                'file_url' => asset('storage/'.$relPath),
+                'file_url' => route('shipments.evidence.show', [$shipment->id, $evidence->id]),
                 'captured_at' => $capturedAt->format('Y-m-d H:i:s \W\I\B'),
                 'uploaded_count' => $shipment->evidenceItems()->count(),
             ]);
@@ -631,11 +710,23 @@ class FieldAppController extends Controller
         }
     }
 
+    // =========================================================================
+    // NAMA FUNCTION : submit
+    // FUNGSI        : Memvalidasi kelengkapan foto SOP wajib & form inspeksi kontainer/bale,
+    //                 kemudian mengunci status shipment menjadi 'submitted' (permanen).
+    // =========================================================================
     public function submit(Request $request, Shipment $shipment)
     {
         if ($shipment->status === 'submitted') {
             return redirect()->route('shipments.show', $shipment->id)
                 ->with('info', 'Dokumen pengiriman ini sudah disubmit final sebelumnya.');
+        }
+
+        $user = auth()->user();
+        if (! $user || ! $user->canEditShipment($shipment)) {
+            $creator = $shipment->user?->nama_warehouse ? 'Dibuat oleh: ' . $shipment->user->nama_warehouse : 'Operator lain';
+            return redirect()->route('shipments.show', $shipment->id)
+                ->with('error', "Akses ditolak: Anda hanya diperbolehkan melakukan submit final untuk shipment yang dibuat oleh akun Anda ({$creator}).");
         }
 
         $validated = $request->validate([
@@ -749,9 +840,11 @@ class FieldAppController extends Controller
         return redirect('/')->with('success', 'Shipment berhasil di-submit!');
     }
 
-    /**
-     * Resize/optimize image if larger than max dimension to accelerate OCR processing.
-     */
+    // =========================================================================
+    // NAMA FUNCTION : optimizeImageForOcr
+    // FUNGSI        : Resize/optimize gambar dokumen jika melebihi batas resolusi
+    //                 maksimal agar proses OCR Tesseract berjalan cepat dan efisien.
+    // =========================================================================
     private function optimizeImageForOcr(string $filePath): void
     {
         if (! extension_loaded('gd') || ! file_exists($filePath)) {
@@ -790,6 +883,12 @@ class FieldAppController extends Controller
         imagedestroy($dstImage);
     }
 
+    // =========================================================================
+    // NAMA FUNCTION : ocrShipmentOrder
+    // FUNGSI        : Mengekstrak teks dari foto dokumen Delivery / Shipment Order
+    //                 menggunakan Tesseract OCR dan parser regex untuk auto-fill
+    //                 nomor packing list, plat nomor, nomor kontainer, dan tujuan.
+    // =========================================================================
     public function ocrShipmentOrder(Request $request): JsonResponse
     {
         $request->validate(['image' => 'required|image|max:20480']);
@@ -800,6 +899,7 @@ class FieldAppController extends Controller
 
         $text = '';
         try {
+            $ocr = new TesseractOCR($fullPath);
             $tesseractPath = env('TESSERACT_PATH', PHP_OS_FAMILY === 'Windows' ? 'C:\\Program Files\\Tesseract-OCR\\tesseract.exe' : '/usr/bin/tesseract');
             if (file_exists($tesseractPath) || PHP_OS_FAMILY !== 'Windows') {
                 $ocr->executable($tesseractPath);
@@ -956,56 +1056,6 @@ class FieldAppController extends Controller
             $data['nama_sopir'],
             $data['nomor_seal'],
         ]));
-
-        return response()->json($data);
-    }
-
-    public function ocrSuratJalan(Request $request): JsonResponse
-    {
-        $request->validate(['image' => 'required|image|max:20480']);
-        $path = $request->file('image')->store('ocr', 'public');
-        $fullPath = storage_path('app/public/'.$path);
-
-        $this->optimizeImageForOcr($fullPath);
-
-        $text = '';
-        try {
-            $tesseractPath = env('TESSERACT_PATH', PHP_OS_FAMILY === 'Windows' ? 'C:\\Program Files\\Tesseract-OCR\\tesseract.exe' : '/usr/bin/tesseract');
-            if (file_exists($tesseractPath) || PHP_OS_FAMILY !== 'Windows') {
-                $ocr->executable($tesseractPath);
-            }
-            $ocr->lang('ind', 'eng');
-            $text = $ocr->run();
-        } catch (\Throwable $e) {
-            Log::warning('Tesseract OCR error in surat jalan: '.$e->getMessage());
-        }
-
-        $data = [
-            'success' => true,
-            'image_url' => asset('storage/'.$path),
-            'packing_list_no' => '',
-            'tujuan_pengiriman' => '',
-            'agen_forwarding' => '',
-            'raw_text' => $text,
-        ];
-
-        if (! empty($text)) {
-            if (preg_match('/Number\s*(\d+)/i', $text, $matches)) {
-                $data['packing_list_no'] = trim($matches[1]);
-            } elseif (preg_match('/Packing List.*?(\d+)/is', $text, $matches)) {
-                $data['packing_list_no'] = trim($matches[1]);
-            }
-
-            if (preg_match('/(?:www\.[a-z0-9-]+\.com|Indonesia)\s*\n+(.*?)(?:forwarding agent|Reference no)/is', $text, $matches)) {
-                $tujuan = trim($matches[1]);
-                $tujuan = preg_replace('/^\s*(?:\d{4,6}\b.*?|\'?Packing\b.*?)\s*\n/is', '', $tujuan);
-                $data['tujuan_pengiriman'] = trim($tujuan);
-            }
-
-            if (preg_match('/forwarding agent\s*(?:Company)?\s*(.*?)(?:BANGKOK|via TANJUNG|Seal no|Container no)/is', $text, $matches)) {
-                $data['agen_forwarding'] = trim($matches[1]);
-            }
-        }
 
         return response()->json($data);
     }

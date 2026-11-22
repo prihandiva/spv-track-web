@@ -19,11 +19,18 @@ class InspectionController extends Controller
     /**
      * Tampilkan form inspeksi kondisi kontainer
      */
-    public function editContainer(Shipment $shipment): View
+    public function editContainer(Shipment $shipment): View|RedirectResponse
     {
+        $user = auth()->user();
+        if (! $user || ! $user->canEditShipment($shipment)) {
+            $creator = $shipment->user?->nama_warehouse ? 'Dibuat oleh: ' . $shipment->user->nama_warehouse : 'Operator lain';
+            return redirect()->route('shipments.show', $shipment->id)
+                ->with('error', "Akses ditolak: Anda hanya diperbolehkan mengisi formulir inspeksi kontainer untuk shipment milik akun Anda ({$creator}).");
+        }
+
         $karyawans = Karyawan::where('status', 'aktif')->orderBy('nama')->get();
 
-        $defaultPetugas = $shipment->allKaryawans()->pluck('nama')->first() ?: ($shipment->karyawan?->nama ?? auth()->user()?->name);
+        $defaultPetugas = $shipment->allKaryawans()->pluck('nama')->first() ?: ($shipment->karyawan?->nama ?? auth()->user()?->nama_warehouse);
         // Find inspector in karyawans if available
         $inspectorKaryawan = $karyawans->firstWhere('position', 'inspektor') ?: $karyawans->firstWhere('nama', $defaultPetugas);
         $defaultInspektor = $inspectorKaryawan ? $inspectorKaryawan->nama : $defaultPetugas;
@@ -56,7 +63,14 @@ class InspectionController extends Controller
      */
     public function saveContainer(Request $request, Shipment $shipment): RedirectResponse
     {
-        $isOperator = auth()->user()?->isOperator() ?? false;
+        $user = auth()->user();
+        if (! $user || ! $user->canEditShipment($shipment)) {
+            $creator = $shipment->user?->nama_warehouse ? 'Dibuat oleh: ' . $shipment->user->nama_warehouse : 'Operator lain';
+            return redirect()->route('shipments.show', $shipment->id)
+                ->with('error', "Akses ditolak: Anda hanya diperbolehkan menyimpan formulir inspeksi kontainer untuk shipment milik akun Anda ({$creator}).");
+        }
+
+        $isOperator = $user->isOperator();
 
         $validated = $request->validate([
             'loading_date' => $isOperator ? 'required|date|after_or_equal:today' : 'required|date',
@@ -156,11 +170,18 @@ class InspectionController extends Controller
     /**
      * Tampilkan form inspeksi kondisi bale / sodium
      */
-    public function editBale(Shipment $shipment): View
+    public function editBale(Shipment $shipment): View|RedirectResponse
     {
+        $user = auth()->user();
+        if (! $user || ! $user->canEditShipment($shipment)) {
+            $creator = $shipment->user?->nama_warehouse ? 'Dibuat oleh: ' . $shipment->user->nama_warehouse : 'Operator lain';
+            return redirect()->route('shipments.show', $shipment->id)
+                ->with('error', "Akses ditolak: Anda hanya diperbolehkan mengisi formulir inspeksi bale untuk shipment milik akun Anda ({$creator}).");
+        }
+
         $karyawans = Karyawan::where('status', 'aktif')->orderBy('nama')->get();
 
-        $defaultPetugas = $shipment->allKaryawans()->pluck('nama')->first() ?: ($shipment->karyawan?->nama ?? auth()->user()?->name);
+        $defaultPetugas = $shipment->allKaryawans()->pluck('nama')->first() ?: ($shipment->karyawan?->nama ?? auth()->user()?->nama_warehouse);
         $secondEyeKaryawan = $karyawans->count() > 1 ? $karyawans[1]->nama : 'Supervisor Warehouse';
 
         $inspection = $shipment->baleInspection ?: new BaleInspection([
@@ -199,7 +220,14 @@ class InspectionController extends Controller
      */
     public function saveBale(Request $request, Shipment $shipment): RedirectResponse
     {
-        $isOperator = auth()->user()?->isOperator() ?? false;
+        $user = auth()->user();
+        if (! $user || ! $user->canEditShipment($shipment)) {
+            $creator = $shipment->user?->nama_warehouse ? 'Dibuat oleh: ' . $shipment->user->nama_warehouse : 'Operator lain';
+            return redirect()->route('shipments.show', $shipment->id)
+                ->with('error', "Akses ditolak: Anda hanya diperbolehkan menyimpan formulir inspeksi bale untuk shipment milik akun Anda ({$creator}).");
+        }
+
+        $isOperator = $user->isOperator();
 
         $validated = $request->validate([
             'loading_date' => $isOperator ? 'required|date|after_or_equal:today' : 'required|date',

@@ -34,6 +34,8 @@
                         <span class="text-gray-300 hidden sm:inline">&bull;</span>
                         <span>Dibuat: <span class="text-gray-700 font-medium">{{ $shipment->created_at->format('d M Y, H:i') }} WIB</span></span>
                         <span class="text-gray-300 hidden sm:inline">&bull;</span>
+                        <span>Created by account: <strong class="{{ (auth()->check() && (int)$shipment->user_id === (int)auth()->id()) ? 'text-spv-blue font-bold' : 'text-gray-800' }}">{{ $shipment->user?->nama_warehouse ?? 'Akun Sistem' }} ({{ $shipment->user?->role_display_name ?? 'Operator' }})</strong>@if(auth()->check() && (int)$shipment->user_id === (int)auth()->id()) <span class="text-[10px] px-1.5 py-0.2 rounded bg-blue-100 text-spv-blue font-bold ml-1">Milik Anda</span>@endif</span>
+                        <span class="text-gray-300 hidden sm:inline">&bull;</span>
                         <span>Petugas: <strong class="text-gray-700">{{ $shipment->allKaryawans()->pluck('nama')->join(', ') ?: ($shipment->karyawan?->nama ?? '-') }}</strong></span>
                     </div>
                 </div>
@@ -41,12 +43,20 @@
 
             <div class="grid grid-cols-1 sm:grid-cols-2 xl:flex xl:items-center gap-2.5 w-full xl:w-auto pt-3.5 xl:pt-0 border-t xl:border-t-0 border-gray-100">
                 @if($shipment->status === 'draft')
-                    <a href="{{ route('field-app.edit', $shipment->id) }}"
-                       class="order-first xl:order-last flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-[0_4px_12px_rgba(245,158,11,0.25)] hover:shadow-lg transition-all col-span-1 sm:col-span-2 xl:col-auto whitespace-nowrap"
-                       title="Periksa & edit data sebelum mengambil foto evidence">
-                        <i class="ph-bold ph-pencil-simple-line text-base"></i>
-                        <span>Lanjutkan Pengisian Draft</span>
-                    </a>
+                    @if(auth()->user()?->canEditShipment($shipment))
+                        <a href="{{ route('field-app.edit', $shipment->id) }}"
+                           class="order-first xl:order-last flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-[0_4px_12px_rgba(245,158,11,0.25)] hover:shadow-lg transition-all col-span-1 sm:col-span-2 xl:col-auto whitespace-nowrap"
+                           title="Periksa & edit data sebelum mengambil foto evidence">
+                            <i class="ph-bold ph-pencil-simple-line text-base"></i>
+                            <span>Lanjutkan Pengisian Draft</span>
+                        </a>
+                    @else
+                        <div class="order-first xl:order-last flex items-center justify-center gap-1.5 bg-slate-100 text-slate-600 border border-slate-200 text-xs font-semibold px-3.5 py-2.5 rounded-xl col-span-1 sm:col-span-2 xl:col-auto whitespace-nowrap"
+                             title="Shipment ini sedang dikerjakan oleh {{ $shipment->user?->nama_warehouse ?? 'operator lain' }}. Anda dapat melihat bukti di bawah.">
+                            <i class="ph-bold ph-lock-key text-slate-400 text-sm"></i>
+                            <span>Dikerjakan oleh: {{ Str::limit($shipment->user?->nama_warehouse ?? 'Operator Lain', 20) }}</span>
+                        </div>
+                    @endif
                 @else
                     @if(auth()->user()?->canEditShipment($shipment))
                     <a href="{{ route('field-app.edit', $shipment->id) }}"
@@ -206,6 +216,28 @@
                 <div>
                     <span class="text-gray-400 block text-[11px] mb-0.5">Lokasi Gudang:</span>
                     <span class="font-semibold text-gray-700">{{ $shipment->warehouse_label }}</span>
+                </div>
+                <div class="col-span-2 pt-3 border-t border-gray-100 flex items-center justify-between gap-3">
+                    <div>
+                        <span class="text-gray-400 block text-[11px] mb-0.5">Created by Account (Pembuat Shipment):</span>
+                        <div class="flex items-center gap-1.5 mt-0.5">
+                            <div class="w-6 h-6 rounded-md bg-blue-50 text-spv-blue flex items-center justify-center shrink-0">
+                                <i class="ph-bold ph-user text-xs"></i>
+                            </div>
+                            <span class="font-bold text-gray-800 text-xs">{{ $shipment->user?->nama_warehouse ?? 'Akun Sistem' }}</span>
+                            <span class="text-[11px] text-gray-400">({{ $shipment->user?->username ?? $shipment->user?->email ?? 'ID: ' . ($shipment->user_id ?? '-') }})</span>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200">
+                            {{ $shipment->user?->role_display_name ?? 'Operator' }}
+                        </span>
+                        @if(auth()->check() && (int)$shipment->user_id === (int)auth()->id())
+                            <span class="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-blue-100 text-spv-blue border border-blue-200 mt-1 block">
+                                <i class="ph-bold ph-user-check text-[10px]"></i> Akun Anda
+                            </span>
+                        @endif
+                    </div>
                 </div>
             </div>
         </div>
@@ -651,7 +683,7 @@
                     || ($evidence->tipe_item ?? null) === 'video'
                     || preg_match('/\.(mp4|mov|webm|3gp|avi|m4v|ogg)$/i', (string)($filePath . ' ' . $fileName)));
 
-                $mediaUrl = asset('storage/' . $evidence->file_path);
+                $mediaUrl = $evidence->file_url;
 
                 $galleryItems[] = [
                     'id' => 'point-' . $p->urutan,
@@ -669,7 +701,7 @@
         foreach ($extraEvidences as $extra) {
             $filePath = $extra->file_path ?? '';
             $isVideo = ($extra->tipe_item === 'video') || preg_match('/\.(mp4|mov|webm|3gp|avi|m4v|ogg)$/i', (string)$filePath);
-            $mediaUrl = asset('storage/' . $extra->file_path);
+            $mediaUrl = $extra->file_url;
             $galleryItems[] = [
                 'id' => 'extra-' . $extra->id,
                 'point_no' => null,
@@ -868,7 +900,7 @@
             @foreach($points as $point)
                 @php
                     $evidence = $shipment->evidenceItems->firstWhere('sop_photo_point_id', $point->id);
-                    $mediaUrl = $evidence ? asset('storage/' . $evidence->file_path) : null;
+                    $mediaUrl = $evidence ? $evidence->file_url : null;
                     $stampedTime = $evidence?->captured_at ? $evidence->captured_at->format('d/m/Y H:i:s \W\I\B') : ($evidence?->created_at ? $evidence->created_at->format('d/m/Y H:i:s \W\I\B') : null);
 
                     $filePath = $evidence->file_path ?? '';
@@ -983,7 +1015,7 @@
                         @php
                             $extraFilePath = $extra->file_path ?? '';
                             $isExtraVideo = ($extra->tipe_item === 'video') || preg_match('/\.(mp4|mov|webm|3gp|avi|m4v|ogg)$/i', (string)$extraFilePath);
-                            $extraMediaUrl = asset('storage/' . $extra->file_path);
+                            $extraMediaUrl = $extra->file_url;
                         @endphp
                         <div class="rounded-xl border border-purple-100 bg-white shadow-sm overflow-hidden flex flex-col transition-all hover:shadow-md">
                             <div class="p-3 border-b border-gray-100 flex items-center justify-between bg-purple-50/30">

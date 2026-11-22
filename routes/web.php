@@ -7,10 +7,8 @@ use App\Http\Controllers\FieldAppController;
 use App\Http\Controllers\InspectionController;
 use App\Http\Controllers\KaryawanController;
 use App\Http\Controllers\LaporanController;
-use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\ShipmentController;
-use App\Http\Controllers\ShipmentPhotoController;
 use App\Http\Controllers\SopSettingController;
 use App\Http\Controllers\SystemSettingController;
 use App\Http\Controllers\UserController;
@@ -55,6 +53,7 @@ Route::middleware('auth')->group(function () {
     });
 
     Route::get('/shipments/{shipment}', [ShipmentController::class, 'show'])->name('shipments.show')->whereNumber('shipment');
+    Route::get('/shipments/{shipment}/evidence/{evidence}', [ShipmentController::class, 'serveEvidence'])->name('shipments.evidence.show')->whereNumber('shipment')->whereNumber('evidence');
     Route::delete('/shipments/{shipment}', [ShipmentController::class, 'destroy'])->name('shipments.destroy')->whereNumber('shipment')->middleware('role:superadmin');
 
     // 4. Create & Edit Shipment (Form Staging Input)
@@ -72,7 +71,6 @@ Route::middleware('auth')->group(function () {
     Route::post('/field-app/{shipment}/upload-photo', [FieldAppController::class, 'uploadPhoto'])->name('field-app.upload-photo');
     Route::post('/field-app/{shipment}/submit', [FieldAppController::class, 'submit'])->name('field-app.submit');
     Route::post('/field-app/ocr/shipment-order', [FieldAppController::class, 'ocrShipmentOrder'])->name('field-app.ocr.shipment-order');
-    Route::post('/field-app/ocr/surat-jalan', [FieldAppController::class, 'ocrSuratJalan'])->name('field-app.ocr.surat-jalan');
 
     // 5b. Form Tambahan: Inspeksi Kontainer & Inspeksi Bale
     Route::get('/field-app/{shipment}/container-inspection', [InspectionController::class, 'editContainer'])->name('field-app.container-inspection');
@@ -109,20 +107,17 @@ Route::middleware('auth')->group(function () {
         Route::delete('/sop/{sopPhotoPoint}', [SopSettingController::class, 'destroy'])->name('sop.destroy');
         Route::post('/sop/reset-defaults', [SopSettingController::class, 'resetDefaults'])->name('sop.reset-defaults');
 
-        // Master Warehouse Eksternal
+        // Master Warehouse Eksternal (Hanya aksi yang digunakan di view modal: index, store, update, destroy, toggle-status)
         Route::patch('/warehouse-eksternal/{externalWarehouse}/toggle-status', [ExternalWarehouseController::class, 'toggleStatus'])->name('external-warehouses.toggle-status');
-        Route::resource('warehouse-eksternal', ExternalWarehouseController::class)->names('external-warehouses')->parameters(['warehouse-eksternal' => 'externalWarehouse']);
+        Route::resource('warehouse-eksternal', ExternalWarehouseController::class)
+            ->only(['index', 'store', 'update', 'destroy'])
+            ->names('external-warehouses')
+            ->parameters(['warehouse-eksternal' => 'externalWarehouse']);
 
         // Parameter Sistem & Warehouse
         Route::get('/sistem', [SystemSettingController::class, 'index'])->name('system.index');
         Route::put('/sistem', [SystemSettingController::class, 'update'])->name('system.update');
     });
-
-    // 7. Photo Serving & Temp Previews
-    Route::get('/photos/{photo}/file', [ShipmentPhotoController::class, 'servePermanentPhoto'])->name('photos.file');
-    Route::get('/photos/temp/{tempId}/file', [ShipmentPhotoController::class, 'previewTemp'])->name('photos.temp.file');
-    Route::post('/photos/temp', [ShipmentPhotoController::class, 'uploadTemp'])->name('photos.temp.upload');
-    Route::post('/shipments/{shipment}/photos/submit', [ShipmentPhotoController::class, 'submit'])->name('photos.submit');
 });
 
 // Server Time API (Public / Utility)

@@ -2,34 +2,21 @@
 
 namespace App\Services;
 
-use App\Models\EvidenceItem;
-use Carbon\Carbon;
-use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use RuntimeException;
 
 class PhotoProcessingService
 {
-    protected string $disk = 'local'; // Maps to storage/app/private
-    protected string $saveDisk= 's3';
-
     /**
      * Batas ukuran file foto yang disimpan di storage (bytes).
      * Default: 2MB = 2 * 1024 * 1024
      */
     const MAX_FILE_BYTES = 2 * 1024 * 1024; // 2 MB
 
-    /**
-     * Kompres gambar GD resource ke JPEG binary yang ukurannya ≤ MAX_FILE_BYTES.
-     * Strategi: turunkan quality bertahap (88→75→60→45→30), lalu downscale resolusi
-     * jika masih melebihi batas setelah semua quality dicoba.
-     *
-     * @param  resource  $imageResource  GD image resource (sudah dikoreksi EXIF)
-     * @param  int       $maxBytes       Ukuran maksimal output dalam byte
-     * @return string                    JPEG binary yang sudah dikompres
-     */
+    // =========================================================================
+    // NAMA FUNCTION : compressToMaxSize
+    // FUNGSI        : Kompres gambar GD resource ke format JPEG binary berukuran ≤ 2MB
+    //                 dengan menurunkan quality bertahap tanpa merusak/downscale resolusi foto
+    // =========================================================================
     protected function compressToMaxSize($imageResource, int $maxBytes = self::MAX_FILE_BYTES): string
     {
         // ─────────────────────────────────────────────────────────────────
@@ -58,263 +45,11 @@ class PhotoProcessingService
         return ob_get_clean();
     }
 
-    /**
-     * Memproses upload sementara:
-     * 1. Hitung SHA-256 dan ukuran file asli.
-     * 2. Koreksi rotasi EXIF.
-     * 3. Tempelkan (burn-in) jam server Asia/Jakarta format dd/MM/yyyy HH:mm:ss WIB.
-     * 4. Buat thumbnail terkompresi untuk listing ringan.
-     * 5. Simpan ke private disk folder temp_photos/{temp_id}.
-     */
-    public function processTemporaryUpload(UploadedFile $file, array $attributes, ?int $userId = null): array
-    {
-        $tempId = (string) Str::uuid();
-        $tempDir = "temp_photos/{$tempId}";
-
-        // 1. Ekstrak captured_at dari EXIF atau input pengguna
-        $filePath = $file->getRealPath();
-        $exif = @exif_read_data($filePath);
-        $capturedAt = null;
-
-        if (! empty($attributes['captured_at'])) {
-            try {
-                $capturedAt = Carbon::parse($attributes['captured_at'])->setTimezone('Asia/Jakarta');
-            } catch (\Throwable $e) {
-                // Ignore parse error
-            }
-        }
-
-        if (! $capturedAt && ! empty($exif['DateTimeOriginal'])) {
-            try {
-                $capturedAt = Carbon::createFromFormat('Y:m:d H:i:s', $exif['DateTimeOriginal'], 'Asia/Jakarta');
-            } catch (\Throwable $e) {
-                // Ignore parse error
-            }
-        }
-
-        if (! $capturedAt) {
-            $capturedAt = Carbon::now('Asia/Jakarta');
-        }
-
-        // Jam server saat ini (Asia/Jakarta)
-        $stampedAt = Carbon::now('Asia/Jakarta');
-        $stampedAtFormatted = $stampedAt->format('d/m/Y H:i:s').' WIB';
-
-        // 2. Load image resource di GD untuk koreksi EXIF, kompresi, burn-in, dan thumbnail
-        $mime = $file->getMimeType() ?: 'image/jpeg';
-        $imageResource = $this->createImageResource($filePath, $mime);
-        if (! $imageResource) {
-            throw new RuntimeException('Format gambar tidak didukung atau file gambar rusak.');
-        }
-
-        // Koreksi orientasi EXIF jika ada
-        $imageResource = $this->fixExifOrientation($imageResource, $exif);
-
-        // 3. Kompres file "original" ke maksimal MAX_FILE_BYTES (default 2 MB)
-        //    File yang disimpan adalah hasil kompresi (bukan ukuran kamera asli).
-        $compressedOriginalData = $this->compressToMaxSize($imageResource, self::MAX_FILE_BYTES);
-
-        $originalRelPath = "{$tempDir}/original.jpg";
-        Storage::disk($this->disk)->put($originalRelPath, $compressedOriginalData);
-
-        // SHA-256 dan ukuran dihitung dari hasil kompresi yang benar-benar disimpan
-        $sha256 = hash('sha256', $compressedOriginalData);
-        $size   = strlen($compressedOriginalData);
-
-        // 4. Burn-in timestamp (gunakan imageResource yang masih ada di memori)
-        $pointLabel = $attributes['point_label'] ?? 'Evidence';
-        $pointNo = isset($attributes['point_no']) && $attributes['point_no'] !== null ? (int) $attributes['point_no'] : null;
-        $isExtra = (bool) ($attributes['is_extra'] ?? false);
-
-        $stampedResource = $this->applyBurnInStamp(
-            $imageResource,
-            $stampedAtFormatted,
-            $pointNo,
-            $pointLabel,
-            $isExtra,
-            $capturedAt ? $capturedAt->format('d/m/Y H:i:s').' WIB' : null
-        );
-
-        // Simpan stamped image — juga dikompres agar tidak melebihi batas
-        $stampedRelPath = "{$tempDir}/stamped.jpg";
-        $stampedData    = $this->compressToMaxSize($stampedResource, self::MAX_FILE_BYTES);
-        Storage::disk($this->disk)->put($stampedRelPath, $stampedData);
-        unset($stampedData);
-
-        // 5. Generate thumbnail (max 500x500 mempertahankan rasio)
-        $thumbnailResource = $this->createThumbnail($stampedResource, 500);
-        $thumbnailRelPath = "{$tempDir}/thumbnail.jpg";
-        $thumbTempFile = tempnam(sys_get_temp_dir(), 'thmb_');
-        imagejpeg($thumbnailResource, $thumbTempFile, 80);
-        Storage::disk($this->disk)->put($thumbnailRelPath, file_get_contents($thumbTempFile));
-        @unlink($thumbTempFile);
-
-        // Bersihkan GD memory
-        imagedestroy($imageResource);
-        imagedestroy($stampedResource);
-        imagedestroy($thumbnailResource);
-
-        // 6. Simpan metadata ke disk temp
-        $meta = [
-            'temp_id' => $tempId,
-            'point_no' => $pointNo,
-            'point_label' => $pointLabel,
-            'is_extra' => $isExtra,
-            'mime' => $mime,
-            'size' => $size,
-            'sha256' => $sha256,
-            'captured_at' => $capturedAt->toIso8601String(),
-            'stamped_at' => $stampedAt->toIso8601String(),
-            'stamped_at_formatted' => $stampedAtFormatted,
-            'uploaded_by' => $userId,
-            'created_at' => now()->toIso8601String(),
-        ];
-
-        Storage::disk($this->disk)->put("{$tempDir}/metadata.json", json_encode($meta, JSON_PRETTY_PRINT));
-
-        return [
-            'temp_id' => $tempId,
-            'point_no' => $pointNo,
-            'point_label' => $pointLabel,
-            'is_extra' => $isExtra,
-            'captured_at' => $capturedAt->format('d/m/Y H:i:s').' WIB',
-            'stamped_at' => $stampedAtFormatted,
-            'size' => $size,
-            'sha256' => $sha256,
-            'preview_url' => route('photos.temp.file', ['tempId' => $tempId, 'type' => 'stamped']),
-            'original_url' => route('photos.temp.file', ['tempId' => $tempId, 'type' => 'original']),
-            'thumbnail_url' => route('photos.temp.file', ['tempId' => $tempId, 'type' => 'thumbnail']),
-        ];
-    }
-
-    /**
-     * Memindahkan foto sementara ke penyimpanan permanen shipment dan mencatat ke database.
-     */
-    public function promoteTempToPermanent(
-        string $tempId,
-        int $shipmentId,
-        ?int $pointNo,
-        string $pointLabel,
-        bool $isExtra,
-        ?int $userId,
-        ?string $ocrText = null
-    ): EvidenceItem {
-        $meta = $this->getTempMetadata($tempId);
-        if (! $meta) {
-            throw new RuntimeException("Data upload sementara dengan ID {$tempId} tidak ditemukan atau sudah kadaluarsa.");
-        }
-
-        $permDir = "shipments/{$shipmentId}";
-        $safePrefix = $isExtra ? "extra_{$tempId}" : "p{$pointNo}_{$tempId}";
-        $permStampedPath = "{$permDir}/{$safePrefix}_stamped.jpg";
-
-        $tempStamped = "temp_photos/{$tempId}/stamped.jpg";
-
-        // Pastikan file temp ada
-        if (! Storage::disk($this->disk)->exists($tempStamped)) {
-            throw new RuntimeException("File foto sementara {$tempId} tidak lengkap.");
-        }
-
-        // Pindahkan file ke lokasi permanen
-        Storage::disk($this->saveDisk)->move($tempStamped, $permStampedPath);
-
-        // Buat record database permanen di evidence_items
-        $photo = EvidenceItem::create([
-            'shipment_id' => $shipmentId,
-            'sop_photo_point_id' => $pointNo,
-            'file_path' => $permStampedPath,
-            'file_name' => basename($permStampedPath),
-            'tipe_item' => 'foto',
-            'is_tambahan' => $isExtra,
-            'size' => $meta['size'] ?? 0,
-            'sha256' => $meta['sha256'] ?? '',
-            'captured_at' => ! empty($meta['captured_at']) ? Carbon::parse($meta['captured_at']) : null,
-            'uploaded_by' => $userId ?? ($meta['uploaded_by'] ?? null),
-        ]);
-
-        // Bersihkan sisa direktori temp
-        Storage::disk($this->disk)->deleteDirectory("temp_photos/{$tempId}");
-
-        return $photo;
-    }
-
-    /**
-     * Mengambil metadata upload sementara.
-     */
-    public function getTempMetadata(string $tempId): ?array
-    {
-        $metaPath = "temp_photos/{$tempId}/metadata.json";
-        if (! Storage::disk($this->disk)->exists($metaPath)) {
-            return null;
-        }
-
-        $content = Storage::disk($this->disk)->get($metaPath);
-
-        return json_decode($content, true);
-    }
-
-    /**
-     * Mengambil path absolut file sementara di disk private.
-     */
-    public function getTempFilePath(string $tempId, string $type = 'stamped'): ?string
-    {
-        $type = match ($type) {
-            'original' => 'original.jpg',
-            'thumbnail' => 'thumbnail.jpg',
-            default => 'stamped.jpg',
-        };
-
-        $relPath = "temp_photos/{$tempId}/{$type}";
-        if (! Storage::disk($this->disk)->exists($relPath)) {
-            return null;
-        }
-
-        return Storage::disk($this->disk)->path($relPath);
-    }
-
-    /**
-     * Menghapus upload sementara secara manual.
-     */
-    public function deleteTempUpload(string $tempId): void
-    {
-        Storage::disk($this->disk)->deleteDirectory("temp_photos/{$tempId}");
-    }
-
-    /**
-     * Membersihkan upload sementara yang sudah kadaluarsa (default 24 jam).
-     */
-    public function cleanExpiredTempUploads(int $hoursOld = 24): int
-    {
-        $count = 0;
-        $allTempDirs = Storage::disk($this->disk)->directories('temp_photos');
-        $cutoff = Carbon::now()->subHours($hoursOld);
-
-        foreach ($allTempDirs as $dir) {
-            $metaPath = "{$dir}/metadata.json";
-            if (Storage::disk($this->disk)->exists($metaPath)) {
-                $meta = json_decode(Storage::disk($this->disk)->get($metaPath), true);
-                $createdAt = ! empty($meta['created_at']) ? Carbon::parse($meta['created_at']) : null;
-
-                if ($createdAt && $createdAt->lt($cutoff)) {
-                    Storage::disk($this->disk)->deleteDirectory($dir);
-                    $count++;
-                }
-            } else {
-                // Jika tidak ada metadata dan foldernya lebih lama dari cutoff waktu modifikasi
-                $fullPath = Storage::disk($this->disk)->path($dir);
-                if (file_exists($fullPath) && filemtime($fullPath) < $cutoff->timestamp) {
-                    Storage::disk($this->disk)->deleteDirectory($dir);
-                    $count++;
-                }
-            }
-        }
-
-        return $count;
-    }
-
-    /**
-     * Buat image GD resource berdasarkan file dan MIME type.
-     */
+    // =========================================================================
+    // NAMA FUNCTION : createImageResource
+    // FUNGSI        : [HELPER STAMPING]
+    //                 Membuat resource GD Image dari file path (JPEG, PNG, WEBP)
+    // =========================================================================
     protected function createImageResource(string $filePath, ?string $mime = null)
     {
         if (empty($mime) || $mime === 'image/' || $mime === 'image') {
@@ -350,26 +85,68 @@ class PhotoProcessingService
         return $content !== false ? @imagecreatefromstring($content) : false;
     }
 
-    /**
-     * Koreksi rotasi foto dari tag EXIF Orientation.
-     */
-    protected function fixExifOrientation($image, ?array $exif)
+    // =========================================================================
+    // NAMA FUNCTION : fixExifOrientation
+    // FUNGSI        : [HELPER STAMPING]
+    //                 Memperbaiki orientasi rotasi foto kamera ponsel berdasarkan tag EXIF (1-8)
+    //                 tanpa menyebabkan TypeError jika EXIF tidak ditemukan / bernilai boolean false
+    // =========================================================================
+    protected function fixExifOrientation($image, $exif = null)
     {
-        if (empty($exif['Orientation'])) {
+        if (! is_array($exif) || empty($exif['Orientation'])) {
             return $image;
         }
 
-        return match ($exif['Orientation']) {
-            3 => imagerotate($image, 180, 0),
-            6 => imagerotate($image, -90, 0),
-            8 => imagerotate($image, 90, 0),
+        $orientation = (int) $exif['Orientation'];
+        $rotated = match ($orientation) {
+            3 => @imagerotate($image, 180, 0),
+            6 => @imagerotate($image, -90, 0),
+            8 => @imagerotate($image, 90, 0),
             default => $image,
         };
+
+        if ($rotated !== false && $rotated !== $image) {
+            imagedestroy($image);
+
+            return $rotated;
+        }
+
+        return $image;
     }
 
-    /**
-     * Stempel file gambar langsung pada disk dengan koreksi orientasi EXIF & ukuran font proporsional resolusi kamera.
-     */
+    // =========================================================================
+    // NAMA FUNCTION : detectOrientation
+    // FUNGSI        : [HELPER ORIENTASI FOTO & VIDEO]
+    //                 Mendeteksi orientasi kanvas (portrait, square 1:1, ultrawide, landscape)
+    //                 berdasarkan rasio aspek lebar dan tinggi secara presisi
+    // =========================================================================
+    public function detectOrientation(int $width, int $height): string
+    {
+        $ratio = $width / max(1, $height);
+
+        if ($ratio < 0.92) {
+            return 'portrait';
+        }
+
+        if ($ratio <= 1.08) {
+            return 'square'; // Rasio 1:1 (Persegi)
+        }
+
+        if ($ratio > 2.0) {
+            return 'ultrawide'; // Panorama / Wide Banner
+        }
+
+        return 'landscape';
+    }
+
+    // =========================================================================
+    // NAMA FUNCTION : watermarkSingleFile
+    // FUNGSI        : [INTI ALGORITMA STAMPING FOTO UTAMA]
+    //                 Menempelkan banner stempel waktu server (WIB), judul titik SOP,
+    //                 dan nomor kontainer/plat langsung pada file gambar target
+    //                 secara adaptif terhadap seluruh rasio aspek (1:1 Square, Ultrawide,
+    //                 Landscape, Portrait) dengan jaminan stempel WAJIB tertempel.
+    // =========================================================================
     public function watermarkSingleFile(
         string $sourcePath,
         string $targetPath,
@@ -384,7 +161,10 @@ class PhotoProcessingService
 
         $imageInfo = @getimagesize($sourcePath);
         $mime = $imageInfo['mime'] ?? (@mime_content_type($sourcePath) ?: 'image/jpeg');
-        $exif = function_exists('exif_read_data') ? @exif_read_data($sourcePath) : null;
+
+        // EXIF data membaca aman: jika exif_read_data mengembalikan false (seperti pada PNG/WebP/foto tanpa EXIF), gunakan null
+        $rawExif = function_exists('exif_read_data') ? @exif_read_data($sourcePath) : null;
+        $exif = is_array($rawExif) ? $rawExif : null;
 
         $img = $this->createImageResource($sourcePath, $mime);
         if (! $img) {
@@ -396,7 +176,7 @@ class PhotoProcessingService
         // 1. Koreksi orientasi kamera ponsel (EXIF tag 3, 6, 8) agar tidak miring/terbalik
         $img = $this->fixExifOrientation($img, $exif);
 
-        // Optimasi resolusi kamera sangat tinggi agar tidak boros memori GD
+        // Optimasi resolusi kamera sangat tinggi (> 2800px) agar memori GD efisien
         $maxDimension = 2800;
         $origW = imagesx($img);
         $origH = imagesy($img);
@@ -412,32 +192,39 @@ class PhotoProcessingService
 
         $w = imagesx($img);
         $h = imagesy($img);
-        $minDim = min($w, $h);
-        $isPortrait = $h > $w;
 
-        // 2. Skala proporsional terhadap resolusi foto kamera:
-        // Pada orientasi potrait, berikan ruang vertikal banner lebih leluasa agar teks tidak mepet bawah
-        $barHeight = $isPortrait ? (int) max(100, $minDim * 0.14) : (int) max(88, $minDim * 0.125);
+        // 2. Deteksi Orientasi Presisi (Square 1:1, Ultra-Wide, Landscape, Portrait)
+        $orientation = $this->detectOrientation($w, $h);
+
+        // Hitung tinggi banner secara proporsional sesuai rasio orientasi foto
+        $barHeight = match ($orientation) {
+            'portrait'  => (int) max(72, min(round($h * 0.12), round($w * 0.16))),
+            'square'    => (int) max(68, round($h * 0.12)),
+            'ultrawide' => (int) max(64, min(round($h * 0.22), 160)),
+            default     => (int) max(68, round($h * 0.13)), // landscape
+        };
+
+        // Pastikan tinggi banner tidak melebihi 60% tinggi gambar pada gambar beresolusi sangat kecil
+        $barHeight = min($barHeight, (int) max(40, round($h * 0.60)));
         $barY = $h - $barHeight;
-        $accentHeight = (int) max(4, $minDim * 0.005);
-        $paddingX = (int) max(20, $w * 0.03);
-        $maxWidth = $w - (2 * $paddingX);
 
-        // Ukuran font dasar
-        $fontSizeTime = max(18, (int) ($minDim * 0.034));
-        $fontSizeTitle = max(13, (int) ($fontSizeTime * 0.70));
+        $accentHeight = (int) max(3, min(8, round($barHeight * 0.04)));
+        $paddingX = (int) max(16, min(round($w * 0.03), 60));
+        $maxWidth = max(50, $w - (2 * $paddingX));
+
+        $contentHeight = $barHeight - $accentHeight;
 
         // 3. Banner hitam transparan di bagian bawah foto
         $darkBar = imagecolorallocatealpha($img, 10, 15, 26, 30);
         imagefilledrectangle($img, 0, $barY, $w, $h, $darkBar);
 
-        // Garis aksen biru SPV
+        // Garis aksen biru SPV di tepi atas banner
         $accentColor = imagecolorallocate($img, 37, 99, 235);
         imagefilledrectangle($img, 0, $barY, $w, $barY + $accentHeight, $accentColor);
 
         // Warna teks
         $white = imagecolorallocate($img, 255, 255, 255);
-        $gold = imagecolorallocate($img, 250, 204, 21); // Kuning emas untuk jam
+        $gold = imagecolorallocate($img, 250, 204, 21); // Amber / Kuning emas untuk timestamp
         $lightGray = imagecolorallocate($img, 229, 231, 235);
         $blackShadow = imagecolorallocate($img, 0, 0, 0);
 
@@ -446,6 +233,10 @@ class PhotoProcessingService
             $line1 .= '  |  '.$subText;
         }
         $line2 = str_starts_with($stampText, 'JAM') || str_starts_with($stampText, 'DIAMBIL') ? $stampText : 'JAM SERVER : '.$stampText;
+
+        // Ukuran font dasar diturunkan secara proporsional dari tinggi konten banner
+        $fontSizeTitle = (int) max(9, min(52, round($contentHeight * 0.22)));
+        $fontSizeTime = (int) max(11, min(72, round($contentHeight * 0.32)));
 
         $fontFile = null;
         $candidateFonts = [
@@ -467,13 +258,25 @@ class PhotoProcessingService
         $ttfRendered = false;
         if ($fontFile && function_exists('imagettftext')) {
             try {
-                // Auto-scale font agar tidak terpotong di orientasi potrait maupun nama titik yang panjang
-                $fontSizeTitle = $this->fitFontSize($line1, $fontSizeTitle, $maxWidth, $fontFile, 12);
-                $fontSizeTime = $this->fitFontSize($line2, $fontSizeTime, $maxWidth, $fontFile, 14);
+                // Skala font otomatis agar teks pas di dalam lebar batas foto
+                $fontSizeTitle = $this->fitFontSize($line1, $fontSizeTitle, $maxWidth, $fontFile, 8);
+                $fontSizeTime = $this->fitFontSize($line2, $fontSizeTime, $maxWidth, $fontFile, 9);
 
-                $yLine1 = $barY + $accentHeight + (int) ($barHeight * ($isPortrait ? 0.36 : 0.35));
-                $yLine2 = $barY + $accentHeight + (int) ($barHeight * ($isPortrait ? 0.76 : 0.74));
-                $shadowOffset = max(2, (int) ($fontSizeTime * 0.05));
+                // Potong teks jika tetap melebihi kanvas pada ukuran font terkecil
+                $line1 = $this->fitTextToWidth($line1, $fontSizeTitle, $maxWidth, $fontFile);
+                $line2 = $this->fitTextToWidth($line2, $fontSizeTime, $maxWidth, $fontFile);
+
+                $yLine1 = (int) round($barY + $accentHeight + ($contentHeight * 0.38));
+                $yLine2 = (int) round($barY + $accentHeight + ($contentHeight * 0.80));
+
+                // Jamin line 2 tidak terpotong di tepi bawah kanvas
+                $bboxFinal2 = @imagettfbbox($fontSizeTime, 0, $fontFile, $line2);
+                $descender2 = $bboxFinal2 ? max($bboxFinal2[1], $bboxFinal2[3]) : 0;
+                if ($yLine2 + $descender2 >= $h - 2) {
+                    $yLine2 = $h - $descender2 - 4;
+                }
+
+                $shadowOffset = max(1, min(4, (int) round($fontSizeTime * 0.05)));
 
                 // Shadow teks agar kontras tinggi
                 @imagettftext($img, $fontSizeTitle, 0, $paddingX + $shadowOffset, $yLine1 + $shadowOffset, $blackShadow, $fontFile, $line1);
@@ -488,9 +291,9 @@ class PhotoProcessingService
         }
 
         if (! $ttfRendered) {
-            $paddingX = 16;
-            $yLine1 = $barY + 14;
-            $yLine2 = $barY + 45;
+            $paddingX = (int) max(10, min(24, round($w * 0.02)));
+            $yLine1 = (int) round($barY + $accentHeight + ($contentHeight * 0.20));
+            $yLine2 = (int) round($barY + $accentHeight + ($contentHeight * 0.60));
             @imagestring($img, 4, $paddingX, $yLine1, $line1, $white);
             @imagestring($img, 5, $paddingX, $yLine2, $line2, $gold);
         }
@@ -506,9 +309,11 @@ class PhotoProcessingService
         }
     }
 
-    /**
-     * Cari lokasi binary ffmpeg yang dapat dieksekusi di server.
-     */
+    // =========================================================================
+    // NAMA FUNCTION : getFfmpegBinary
+    // FUNGSI        : [HELPER VIDEO]
+    //                 Mendeteksi path binary FFmpeg yang terpasang di sistem operasi server
+    // =========================================================================
     public function getFfmpegBinary(): ?string
     {
         $candidates = [
@@ -533,9 +338,11 @@ class PhotoProcessingService
         return null;
     }
 
-    /**
-     * Cari lokasi binary ffprobe yang dapat dieksekusi di server.
-     */
+    // =========================================================================
+    // NAMA FUNCTION : getFfprobeBinary
+    // FUNGSI        : [HELPER VIDEO]
+    //                 Mendeteksi path binary FFprobe untuk membaca resolusi dan durasi video
+    // =========================================================================
     public function getFfprobeBinary(): ?string
     {
         $candidates = [
@@ -560,9 +367,13 @@ class PhotoProcessingService
         return null;
     }
 
-    /**
-     * Stempel hardcode burn-in permanen pada video menggunakan FFmpeg dan banner GD transparan.
-     */
+    // =========================================================================
+    // NAMA FUNCTION : watermarkVideoSingleFile
+    // FUNGSI        : [INTI ALGORITMA STAMPING VIDEO UTAMA]
+    //                 Menempelkan banner stempel waktu server (WIB) & info titik/kontainer
+    //                 pada video bukti evidence SOP menggunakan FFmpeg drawbox/drawtext
+    //                 serta kompresi ukuran maksimal 6MB
+    // =========================================================================
     public function watermarkVideoSingleFile(
         string $sourcePath,
         string $targetPath,
@@ -593,17 +404,22 @@ class PhotoProcessingService
             }
         }
 
-        $minDim = min($w, $h);
-        $isPortrait = $h > $w;
+        $orientation = $this->detectOrientation($w, $h);
 
-        // 2. Banner proporsional sesuai rasio video
-        $barHeight = $isPortrait ? (int) max(72, $minDim * 0.14) : (int) max(64, $minDim * 0.125);
-        $accentHeight = (int) max(3, $minDim * 0.006);
-        $paddingX = (int) max(16, $w * 0.03);
-        $maxWidth = $w - (2 * $paddingX);
+        // 2. Banner proporsional sesuai rasio orientasi video
+        $barHeight = match ($orientation) {
+            'portrait'  => (int) max(64, min(round($h * 0.12), round($w * 0.15))),
+            'square'    => (int) max(60, round($h * 0.12)),
+            'ultrawide' => (int) max(56, min(round($h * 0.20), 120)),
+            default     => (int) max(60, round($h * 0.125)),
+        };
+        $accentHeight = (int) max(3, min(6, round($barHeight * 0.04)));
+        $paddingX = (int) max(16, min(round($w * 0.03), 48));
+        $maxWidth = max(50, $w - (2 * $paddingX));
 
-        $fontSizeTime = max(13, (int) ($minDim * 0.034));
-        $fontSizeTitle = max(10, (int) ($fontSizeTime * 0.70));
+        $contentHeight = $barHeight - $accentHeight;
+        $fontSizeTitle = (int) max(8, min(36, round($contentHeight * 0.22)));
+        $fontSizeTime = (int) max(10, min(48, round($contentHeight * 0.32)));
 
         $canvas = imagecreatetruecolor($w, $barHeight);
         imagealphablending($canvas, false);
@@ -648,22 +464,25 @@ class PhotoProcessingService
         }
 
         if ($fontFile && function_exists('imagettftext')) {
-            $fontSizeTitle = $this->fitFontSize($line1, $fontSizeTitle, $maxWidth, $fontFile, 10);
-            $fontSizeTime = $this->fitFontSize($line2, $fontSizeTime, $maxWidth, $fontFile, 12);
+            $fontSizeTitle = $this->fitFontSize($line1, $fontSizeTitle, $maxWidth, $fontFile, 8);
+            $fontSizeTime = $this->fitFontSize($line2, $fontSizeTime, $maxWidth, $fontFile, 10);
 
-            $yLine1 = $accentHeight + (int) ($barHeight * 0.40);
-            $yLine2 = $accentHeight + (int) ($barHeight * 0.80);
-            $shadowOffset = max(1, (int) ($fontSizeTime * 0.05));
+            $line1 = $this->fitTextToWidth($line1, $fontSizeTitle, $maxWidth, $fontFile);
+            $line2 = $this->fitTextToWidth($line2, $fontSizeTime, $maxWidth, $fontFile);
 
-            imagettftext($canvas, $fontSizeTitle, 0, $paddingX + $shadowOffset, $yLine1 + $shadowOffset, $blackShadow, $fontFile, $line1);
-            imagettftext($canvas, $fontSizeTitle, 0, $paddingX, $yLine1, $lightGray, $fontFile, $line1);
+            $yLine1 = $accentHeight + (int) round($contentHeight * 0.38);
+            $yLine2 = $accentHeight + (int) round($contentHeight * 0.80);
+            $shadowOffset = max(1, (int) round($fontSizeTime * 0.05));
 
-            imagettftext($canvas, $fontSizeTime, 0, $paddingX + $shadowOffset, $yLine2 + $shadowOffset, $blackShadow, $fontFile, $line2);
-            imagettftext($canvas, $fontSizeTime, 0, $paddingX, $yLine2, $gold, $fontFile, $line2);
+            @imagettftext($canvas, $fontSizeTitle, 0, $paddingX + $shadowOffset, $yLine1 + $shadowOffset, $blackShadow, $fontFile, $line1);
+            @imagettftext($canvas, $fontSizeTitle, 0, $paddingX, $yLine1, $lightGray, $fontFile, $line1);
+
+            @imagettftext($canvas, $fontSizeTime, 0, $paddingX + $shadowOffset, $yLine2 + $shadowOffset, $blackShadow, $fontFile, $line2);
+            @imagettftext($canvas, $fontSizeTime, 0, $paddingX, $yLine2, $gold, $fontFile, $line2);
         } else {
             $paddingX = 16;
-            $yLine1 = 12;
-            $yLine2 = 36;
+            $yLine1 = (int) round($barHeight * 0.25);
+            $yLine2 = (int) round($barHeight * 0.65);
             imagestring($canvas, 4, $paddingX, $yLine1, $line1, $white);
             imagestring($canvas, 5, $paddingX, $yLine2, $line2, $gold);
         }
@@ -713,9 +532,12 @@ class PhotoProcessingService
         }
     }
 
-    /**
-     * Kompres video adaptif agar ukuran file video yang tersimpan di server tidak melebihi batas maksimal (6MB).
-     */
+    // =========================================================================
+    // NAMA FUNCTION : compressVideoUnderLimit
+    // FUNGSI        : [HELPER VIDEO]
+    //                 Mengompresi video menggunakan FFmpeg kalkulasi two-pass / multi-tier
+    //                 agar ukuran file video yang disimpan di server tidak melebihi 6MB
+    // =========================================================================
     public function compressVideoUnderLimit(
         string $ffmpeg,
         ?string $ffprobe,
@@ -809,123 +631,26 @@ class PhotoProcessingService
         return $videoPath;
     }
 
-    /**
-     * Menempelkan (burn-in) banner stempel jam server dan metadata titik ke gambar.
-     */
-    protected function applyBurnInStamp(
-        $sourceImage,
-        string $stampedAtFormatted,
-        ?int $pointNo,
-        string $pointLabel,
-        bool $isExtra,
-        ?string $capturedAtFormatted
-    ) {
-        $w = imagesx($sourceImage);
-        $h = imagesy($sourceImage);
-        $minDim = min($w, $h);
-        $isPortrait = $h > $w;
-
-        // Buat kanvas duplikat
-        $canvas = imagecreatetruecolor($w, $h);
-        imagecopy($canvas, $sourceImage, 0, 0, 0, 0, $w, $h);
-
-        // Skala proporsional terhadap resolusi foto kamera
-        $barHeight = $isPortrait ? (int) max(100, $minDim * 0.14) : (int) max(88, $minDim * 0.125);
-        $barY = $h - $barHeight;
-        $accentHeight = (int) max(4, $minDim * 0.005);
-        $paddingX = (int) max(20, $w * 0.03);
-        $maxWidth = $w - (2 * $paddingX);
-
-        $fontSizeTime = max(18, (int) ($minDim * 0.034));
-        $fontSizeTitle = max(13, (int) ($fontSizeTime * 0.70));
-
-        // Gambar banner hitam transparan di bagian bawah foto
-        // Alpha GD: 0 = solid, 127 = transparan penuh. 30 = ~75% solid
-        $darkBar = imagecolorallocatealpha($canvas, 10, 15, 26, 30);
-        imagefilledrectangle($canvas, 0, $barY, $w, $h, $darkBar);
-
-        // Garis aksen biru/hijau di tepi atas banner
-        $accentColor = imagecolorallocate($canvas, 37, 99, 235); // SPV blue
-        imagefilledrectangle($canvas, 0, $barY, $w, $barY + $accentHeight, $accentColor);
-
-        // Warna teks
-        $white = imagecolorallocate($canvas, 255, 255, 255);
-        $gold = imagecolorallocate($canvas, 250, 204, 21); // Amber / gold untuk jam
-        $lightGray = imagecolorallocate($canvas, 229, 231, 235);
-        $blackShadow = imagecolorallocate($canvas, 0, 0, 0);
-
-        // Format teks stempel
-        $tagTitle = $isExtra ? '[FOTO EKSTRA] '.mb_strtoupper($pointLabel) : "[TITIK {$pointNo}] ".mb_strtoupper($pointLabel);
-        $line1 = 'SPV-TRACK EVIDENCE  |  '.$tagTitle;
-        $line2 = 'JAM SERVER : '.$stampedAtFormatted;
-        if ($capturedAtFormatted) {
-            $line2 .= '  |  AMBIL : '.$capturedAtFormatted;
-        }
-
-        // Cari font TTF sistem atau gunakan font yang dibundel
-        $fontFile = null;
-        $candidateFonts = [
-            resource_path('fonts/bold.ttf'),
-            resource_path('fonts/regular.ttf'),
-            'C:/Windows/Fonts/arialbd.ttf',
-            'C:/Windows/Fonts/arial.ttf',
-            'C:/Windows/Fonts/calibrib.ttf',
-            '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
-        ];
-
-        foreach ($candidateFonts as $f) {
-            if (file_exists($f)) {
-                $fontFile = $f;
-                break;
-            }
-        }
-
-        if ($fontFile && function_exists('imagettftext')) {
-            // Auto-scale font agar tidak terpotong di orientasi potrait maupun nama titik yang panjang
-            $fontSizeTitle = $this->fitFontSize($line1, $fontSizeTitle, $maxWidth, $fontFile, 12);
-            $fontSizeTime = $this->fitFontSize($line2, $fontSizeTime, $maxWidth, $fontFile, 14);
-
-            $yLine1 = $barY + $accentHeight + (int) ($barHeight * ($isPortrait ? 0.36 : 0.35));
-            $yLine2 = $barY + $accentHeight + (int) ($barHeight * ($isPortrait ? 0.76 : 0.74));
-            $shadowOffset = max(2, (int) ($fontSizeTime * 0.05));
-
-            // Render Line 1 (Tag & Title) dengan shadow
-            imagettftext($canvas, $fontSizeTitle, 0, $paddingX + $shadowOffset, $yLine1 + $shadowOffset, $blackShadow, $fontFile, $line1);
-            imagettftext($canvas, $fontSizeTitle, 0, $paddingX, $yLine1, $lightGray, $fontFile, $line1);
-
-            // Render Line 2 (Timestamp Utama - Bold & Emas/Kuning terang) dengan shadow
-            imagettftext($canvas, $fontSizeTime, 0, $paddingX + $shadowOffset, $yLine2 + $shadowOffset, $blackShadow, $fontFile, $line2);
-            imagettftext($canvas, $fontSizeTime, 0, $paddingX, $yLine2, $gold, $fontFile, $line2);
-        } else {
-            // Fallback GD built-in font jika TTF tidak ditemukan
-            $paddingX = 16;
-            $yLine1 = $barY + 14;
-            $yLine2 = $barY + 45;
-
-            imagestring($canvas, 4, $paddingX, $yLine1, $line1, $white);
-            imagestring($canvas, 5, $paddingX, $yLine2, $line2, $gold);
-        }
-
-        return $canvas;
-    }
-
-    /**
-     * Menyesuaikan ukuran font secara proporsional agar teks tidak terpotong di tepi kanan gambar.
-     */
-    protected function fitFontSize(string $text, int $initialSize, int $maxWidth, ?string $fontFile, int $minSize = 12): int
+    // =========================================================================
+    // NAMA FUNCTION : fitFontSize
+    // FUNGSI        : [HELPER STAMPING]
+    //                 Menghitung ukuran font TrueType terbaik secara otomatis agar
+    //                 teks stempel pas di dalam lebar gambar tanpa terpotong di kanan
+    // =========================================================================
+    protected function fitFontSize(string $text, int $initialSize, int $maxWidth, ?string $fontFile, int $minSize = 10): int
     {
-        if (! $fontFile || ! function_exists('imagettfbbox') || empty($text)) {
-            return $initialSize;
+        if (! $fontFile || ! function_exists('imagettfbbox') || empty($text) || $maxWidth <= 10) {
+            return max($minSize, $initialSize);
         }
 
         $size = $initialSize;
         $bbox = @imagettfbbox($size, 0, $fontFile, $text);
         if (! $bbox) {
-            return $initialSize;
+            return max($minSize, $initialSize);
         }
 
         $textWidth = abs($bbox[4] - $bbox[0]);
-        $safeMax = (int) floor($maxWidth * 0.98);
+        $safeMax = (int) floor($maxWidth * 0.95);
 
         if ($textWidth > $safeMax && $textWidth > 0) {
             $size = max($minSize, (int) floor($size * ($safeMax / $textWidth)));
@@ -934,28 +659,43 @@ class PhotoProcessingService
         return $size;
     }
 
-    /**
-     * Membuat thumbnail dengan kompresi dan dimensi maksimum yang ditentukan.
-     */
-    protected function createThumbnail($sourceImage, int $maxDimension = 500)
+    // =========================================================================
+    // NAMA FUNCTION : fitTextToWidth
+    // FUNGSI        : [HELPER STAMPING]
+    //                 Memotong teks bukti dengan ellipsis (...) jika panjang karakter
+    //                 masih melebihi lebar batas kanvas pada ukuran font terkecil
+    // =========================================================================
+    protected function fitTextToWidth(string $text, int $fontSize, int $maxWidth, ?string $fontFile): string
     {
-        $w = imagesx($sourceImage);
-        $h = imagesy($sourceImage);
-
-        if ($w <= $maxDimension && $h <= $maxDimension) {
-            $newW = $w;
-            $newH = $h;
-        } elseif ($w > $h) {
-            $newW = $maxDimension;
-            $newH = (int) round(($h * $maxDimension) / $w);
-        } else {
-            $newH = $maxDimension;
-            $newW = (int) round(($w * $maxDimension) / $h);
+        if (! $fontFile || ! function_exists('imagettfbbox') || empty($text) || $maxWidth <= 10) {
+            return $text;
         }
 
-        $thumb = imagecreatetruecolor($newW, $newH);
-        imagecopyresampled($thumb, $sourceImage, 0, 0, 0, 0, $newW, $newH, $w, $h);
+        $safeMax = (int) floor($maxWidth * 0.95);
+        $bbox = @imagettfbbox($fontSize, 0, $fontFile, $text);
+        if (! $bbox) {
+            return $text;
+        }
 
-        return $thumb;
+        $width = abs($bbox[4] - $bbox[0]);
+        if ($width <= $safeMax) {
+            return $text;
+        }
+
+        $ellipsis = '...';
+        $len = mb_strlen($text);
+        while ($len > 3) {
+            $len -= 2;
+            $candidate = mb_substr($text, 0, $len) . $ellipsis;
+            $bbox = @imagettfbbox($fontSize, 0, $fontFile, $candidate);
+            if ($bbox && abs($bbox[4] - $bbox[0]) <= $safeMax) {
+                return $candidate;
+            }
+        }
+
+        return $text;
     }
+
+
+
 }

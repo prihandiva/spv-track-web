@@ -40,6 +40,10 @@ class EvidenceItem extends Model
 
     public function getFileUrlAttribute(): string
     {
+        if ($this->shipment_id) {
+            return route('shipments.evidence.show', [$this->shipment_id, $this->id]);
+        }
+
         return asset('storage/'.$this->file_path);
     }
 

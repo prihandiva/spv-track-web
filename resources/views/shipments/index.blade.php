@@ -122,6 +122,8 @@
                 <div class="overflow-x-auto pb-2 -mx-3.5 px-3.5 sm:mx-0 sm:px-0 flex gap-3 sm:gap-3.5 scrollbar-thin snap-x snap-mandatory">
                     @foreach($activeStagingShipments as $staging)
                         @php
+                            $isMyStaging = auth()->check() && (int)$staging->user_id === (int)auth()->id();
+                            $canEditStaging = auth()->user()?->canEditShipment($staging);
                             $evidenceDone = $staging->evidenceItems->count();
                             $percent = round(($evidenceDone / 27) * 100);
                             $officers = $staging->allKaryawans()->pluck('nama')->toArray();
@@ -129,8 +131,27 @@
                             $extraCount = count($officers) > 1 ? count($officers) - 1 : 0;
                             $identifier = $staging->packing_list_no ?: ($staging->nomor_container_atau_plat ?? 'SPV-' . $staging->id);
                         @endphp
-                        <div class="w-[82vw] max-w-[280px] sm:w-[285px] sm:min-w-[285px] shrink-0 snap-start bg-white rounded-2xl border border-gray-200/80 p-3.5 hover:shadow-md hover:border-spv-blue/40 transition-all flex flex-col justify-between group">
+                        <div class="w-[82vw] max-w-[285px] sm:w-[290px] sm:min-w-[290px] shrink-0 snap-start rounded-2xl p-3.5 transition-all flex flex-col justify-between group relative {{ $isMyStaging ? 'bg-blue-50/30 border-2 border-spv-blue shadow-md shadow-blue-500/10 ring-2 ring-spv-blue/10' : 'bg-white border border-gray-200/80 hover:shadow-md hover:border-gray-300' }}">
                             <div>
+                                <!-- Ownership Banner -->
+                                @if($isMyStaging)
+                                    <div class="flex items-center justify-between gap-1 mb-2 px-2 py-1 rounded-lg bg-blue-100/80 border border-blue-200/90 text-spv-blue">
+                                        <span class="text-[10px] font-extrabold flex items-center gap-1.5">
+                                            <i class="ph-fill ph-user-check text-xs"></i>
+                                            <span>Milik Akun Anda</span>
+                                        </span>
+                                        <span class="text-[9px] font-bold px-1.5 py-0.2 rounded bg-spv-blue text-white uppercase tracking-wider">Anda</span>
+                                    </div>
+                                @else
+                                    <div class="flex items-center justify-between gap-1 mb-2 px-2 py-1 rounded-lg bg-slate-50 border border-slate-200/80 text-gray-600">
+                                        <span class="text-[10px] font-medium flex items-center gap-1 truncate" title="Dibuat oleh {{ $staging->user?->nama_warehouse ?? 'Operator Lain' }}">
+                                            <i class="ph-bold ph-user text-[11px] text-gray-400"></i>
+                                            <span class="truncate">{{ Str::limit($staging->user?->nama_warehouse ?? 'Operator Lain', 18) }}</span>
+                                        </span>
+                                        <span class="text-[9px] text-gray-400 font-semibold shrink-0">Operator Lain</span>
+                                    </div>
+                                @endif
+
                                 <!-- Card Header -->
                                 <div class="flex items-start justify-between gap-2 mb-2">
                                     <div class="flex items-center gap-2.5 min-w-0">
@@ -167,9 +188,15 @@
                                         </span>
                                     </div>
                                     <div class="flex items-center justify-between gap-2">
-                                        <span class="text-gray-400 shrink-0">Petugas:</span>
+                                        <span class="text-gray-400 shrink-0">Petugas Staging:</span>
                                         <span class="font-medium text-gray-700 truncate max-w-[150px] text-right" title="{{ implode(', ', $officers) }}">
                                             {{ $primaryOfficer }}{{ $extraCount > 0 ? " +{$extraCount}" : '' }}
+                                        </span>
+                                    </div>
+                                    <div class="flex items-center justify-between gap-2">
+                                        <span class="text-gray-400 shrink-0">Akun Pembuat:</span>
+                                        <span class="font-semibold {{ $isMyStaging ? 'text-spv-blue' : 'text-gray-600' }} truncate max-w-[150px] text-right" title="{{ $staging->user?->nama_warehouse ?? 'Sistem' }}">
+                                            {{ $staging->user?->nama_warehouse ?? 'Akun Sistem' }}
                                         </span>
                                     </div>
                                 </div>
@@ -190,16 +217,25 @@
 
                             <!-- Action Buttons -->
                             <div class="flex items-center gap-1.5 mt-3 pt-2.5 border-t border-gray-100">
-                                <a href="{{ route('field-app.timeline', $staging->id) }}" target="_blank"
-                                   class="flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold text-white bg-spv-blue hover:bg-blue-800 shadow-sm transition-all text-center">
-                                    <i class="ph-bold ph-camera text-sm"></i>
-                                    <span>Unggah Evidence</span>
-                                </a>
-                                <a href="{{ route('field-app.edit', $staging->id) }}"
-                                   class="w-8 h-8 rounded-xl border border-gray-200 text-gray-600 hover:text-spv-blue hover:bg-blue-50 transition-colors flex items-center justify-center shrink-0"
-                                   title="Edit Data Staging">
-                                    <i class="ph-bold ph-pencil-simple text-sm"></i>
-                                </a>
+                                @if($canEditStaging)
+                                    <a href="{{ route('field-app.timeline', $staging->id) }}" target="_blank"
+                                       class="flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-bold text-white bg-spv-blue hover:bg-blue-800 shadow-sm transition-all text-center">
+                                        <i class="ph-bold ph-camera text-sm"></i>
+                                        <span>Unggah Evidence</span>
+                                    </a>
+                                    <a href="{{ route('field-app.edit', $staging->id) }}"
+                                       class="w-8 h-8 rounded-xl border border-gray-200 text-gray-600 hover:text-spv-blue hover:bg-blue-50 transition-colors flex items-center justify-center shrink-0"
+                                       title="Edit Data Staging">
+                                        <i class="ph-bold ph-pencil-simple text-sm"></i>
+                                    </a>
+                                @else
+                                    <a href="{{ route('shipments.show', $staging->id) }}"
+                                       class="flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-all text-center"
+                                       title="Shipment ini sedang dikerjakan oleh {{ $staging->user?->nama_warehouse ?? 'operator lain' }}. Anda dapat melihat progres di halaman detail.">
+                                        <i class="ph-bold ph-eye text-sm text-slate-500"></i>
+                                        <span>Pantau Detail</span>
+                                    </a>
+                                @endif
                                 <a href="{{ route('shipments.show', $staging->id) }}"
                                    class="w-8 h-8 rounded-xl border border-gray-200 text-gray-600 hover:text-spv-blue hover:bg-blue-50 transition-colors flex items-center justify-center shrink-0"
                                    title="Lihat Detail">
@@ -249,19 +285,34 @@
                 </thead>
                 <tbody>
                     @forelse($shipments as $shipment)
-                        <tr style="border-top: 1px solid #f0f4f9;" onmouseover="this.style.background='#fafcff'" onmouseout="this.style.background='transparent'">
+                        @php
+                            $isMyShipment = auth()->check() && (int)$shipment->user_id === (int)auth()->id();
+                            $canEdit = auth()->user()?->canEditShipment($shipment);
+                        @endphp
+                        <tr style="border-top: 1px solid #f0f4f9;"
+                            class="{{ $isMyShipment ? 'bg-blue-50/20 border-l-4 border-l-spv-blue' : '' }}"
+                            onmouseover="this.style.background='#fafcff'"
+                            onmouseout="this.style.background='{{ $isMyShipment ? '#f6f9fe' : 'transparent' }}'">
                             <td class="px-3.5 py-2.5">
                                 <div class="flex items-center gap-2.5">
-                                    <div class="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style="background:#eff4fc;">
-                                        <i class="ph-fill {{ $shipment->jenis_pengiriman === 'export' ? 'ph-shipping-container' : 'ph-truck' }} text-sm" style="color:#285491;"></i>
+                                    <div class="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 {{ $isMyShipment ? 'bg-blue-100 text-spv-blue ring-1 ring-blue-300' : 'bg-[#eff4fc] text-[#285491]' }}">
+                                        <i class="ph-fill {{ $shipment->jenis_pengiriman === 'export' ? 'ph-shipping-container' : 'ph-truck' }} text-sm"></i>
                                     </div>
                                     <div>
-                                        <a href="{{ route('shipments.show', $shipment->id) }}" class="text-xs font-bold text-gray-800 hover:text-spv-blue transition-colors">
-                                            {{ $shipment->packing_list_no ?: ($shipment->nomor_container_atau_plat ?? 'SPV-' . $shipment->id) }}
-                                        </a>
+                                        <div class="flex items-center gap-1.5 flex-wrap">
+                                            <a href="{{ route('shipments.show', $shipment->id) }}" class="text-xs font-bold text-gray-800 hover:text-spv-blue transition-colors">
+                                                {{ $shipment->packing_list_no ?: ($shipment->nomor_container_atau_plat ?? 'SPV-' . $shipment->id) }}
+                                            </a>
+                                            @if($isMyShipment)
+                                                <span class="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-blue-100 text-spv-blue border border-blue-200">
+                                                    <i class="ph-bold ph-user-check text-[10px]"></i> Milik Anda
+                                                </span>
+                                            @endif
+                                        </div>
                                         <p class="text-[10px] text-gray-400 leading-tight">Cont: {{ $shipment->nomor_container_atau_plat ?? '-' }} &bull; Plat: {{ $shipment->plat_nomor ?? ($shipment->shipment_no ?? '—') }}@if($shipment->nomor_seal) &bull; Seal: {{ $shipment->nomor_seal }}@endif</p>
                                     </div>
                                 </div>
+                            </td>
                             <td class="px-3 py-2.5">
                                 @php
                                     $pLower = strtolower($shipment->jenis_produk ?? '');
@@ -287,8 +338,14 @@
                                     $petugasNames = $shipment->allKaryawans()->pluck('nama')->join(', ') ?: ($shipment->karyawan?->nama ?? '-');
                                 @endphp
                                 <div class="whitespace-normal max-w-[180px] lg:max-w-[210px] cursor-default" title="{{ $petugasNames }}">
-                                    <p class="text-xs text-gray-600 leading-snug line-clamp-2" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                                    <p class="text-xs text-gray-700 leading-snug line-clamp-1">
                                         {{ $petugasNames }}
+                                    </p>
+                                    <p class="text-[10px] text-gray-400 mt-0.5 flex items-center gap-1">
+                                        <span>Akun:</span>
+                                        <span class="font-medium {{ $isMyShipment ? 'text-spv-blue font-bold' : 'text-gray-600' }} truncate max-w-[130px]" title="{{ $shipment->user?->nama_warehouse ?? '-' }}">
+                                            {{ $shipment->user?->nama_warehouse ?? '-' }}
+                                        </span>
                                     </p>
                                 </div>
                             </td>
@@ -325,13 +382,15 @@
                                     </a>
 
                                     @if($shipment->status === 'draft')
-                                        <a href="{{ route('field-app.edit', $shipment->id) }}"
-                                           title="Lanjutkan Pengisian Draft Staging (Sebelum Ambil Foto)"
-                                           class="p-1 rounded-lg transition-all text-amber-500 hover:text-amber-600 hover:bg-amber-50">
-                                            <i class="ph-bold ph-pencil-simple-line text-sm"></i>
-                                        </a>
+                                        @if($canEdit)
+                                            <a href="{{ route('field-app.edit', $shipment->id) }}"
+                                               title="Lanjutkan Pengisian Draft Staging (Sebelum Ambil Foto)"
+                                               class="p-1 rounded-lg transition-all text-amber-500 hover:text-amber-600 hover:bg-amber-50">
+                                                <i class="ph-bold ph-pencil-simple-line text-sm"></i>
+                                            </a>
+                                        @endif
                                     @else
-                                        @if(auth()->user()?->canEditShipment($shipment))
+                                        @if($canEdit)
                                             <a href="{{ route('field-app.edit', $shipment->id) }}"
                                                title="Edit Dokumen Shipment"
                                                class="p-1 rounded-lg transition-all text-gray-400 hover:text-spv-blue hover:bg-blue-50">
@@ -370,21 +429,30 @@
         <div class="block md:hidden divide-y divide-gray-100">
             @forelse($shipments as $shipment)
                 @php
+                    $isMyShipment = auth()->check() && (int)$shipment->user_id === (int)auth()->id();
+                    $canEdit = auth()->user()?->canEditShipment($shipment);
                     $officers = $shipment->allKaryawans()->pluck('nama')->toArray();
                     $primaryOfficer = count($officers) > 0 ? implode(', ', $officers) : ($shipment->karyawan?->nama ?? '-');
                     $identifier = $shipment->packing_list_no ?: ($shipment->nomor_container_atau_plat ?? 'SPV-' . $shipment->id);
                 @endphp
-                <div class="p-3.5 hover:bg-slate-50/60 transition-colors">
+                <div class="p-3.5 transition-colors {{ $isMyShipment ? 'bg-blue-50/25 border-l-4 border-l-spv-blue hover:bg-blue-50/40' : 'hover:bg-slate-50/60' }}">
                     <!-- Top row: ID / Type & Status -->
                     <div class="flex items-start justify-between gap-2">
                         <div class="flex items-center gap-2.5 min-w-0">
-                            <div class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 {{ $shipment->jenis_pengiriman === 'export' ? 'bg-purple-50 text-purple-700' : 'bg-blue-50 text-blue-700' }}">
+                            <div class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 {{ $isMyShipment ? 'bg-blue-100 text-spv-blue ring-1 ring-blue-300' : ($shipment->jenis_pengiriman === 'export' ? 'bg-purple-50 text-purple-700' : 'bg-blue-50 text-blue-700') }}">
                                 <i class="ph-fill {{ $shipment->jenis_pengiriman === 'export' ? 'ph-shipping-container' : 'ph-truck' }} text-base"></i>
                             </div>
                             <div class="min-w-0">
-                                <a href="{{ route('shipments.show', $shipment->id) }}" class="text-xs font-bold text-gray-800 hover:text-spv-blue transition-colors truncate block" title="{{ $identifier }}">
-                                    {{ $identifier }}
-                                </a>
+                                <div class="flex items-center gap-1.5 flex-wrap">
+                                    <a href="{{ route('shipments.show', $shipment->id) }}" class="text-xs font-bold text-gray-800 hover:text-spv-blue transition-colors truncate block" title="{{ $identifier }}">
+                                        {{ $identifier }}
+                                    </a>
+                                    @if($isMyShipment)
+                                        <span class="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-blue-100 text-spv-blue border border-blue-200">
+                                            Milik Anda
+                                        </span>
+                                    @endif
+                                </div>
                                 <p class="text-[10px] text-gray-400 leading-tight truncate">
                                     Cont: {{ $shipment->nomor_container_atau_plat ?? '-' }} &bull; Plat: {{ $shipment->plat_nomor ?? ($shipment->shipment_no ?? '—') }}@if($shipment->nomor_seal) &bull; Seal: {{ $shipment->nomor_seal }}@endif
                                 </p>
@@ -423,10 +491,15 @@
                         </div>
                     </div>
 
-                    <div class="mt-1.5 text-[11px] flex items-center gap-1.5 text-gray-500">
-                        <i class="ph-bold ph-user text-gray-400 text-xs shrink-0"></i>
-                        <span class="text-gray-400 text-[10px] shrink-0">Petugas:</span>
-                        <span class="font-medium text-gray-700 truncate">{{ $primaryOfficer }}</span>
+                    <div class="mt-1.5 text-[11px] flex items-center justify-between text-gray-500">
+                        <div class="flex items-center gap-1.5 truncate">
+                            <i class="ph-bold ph-user text-gray-400 text-xs shrink-0"></i>
+                            <span class="text-gray-400 text-[10px] shrink-0">Petugas:</span>
+                            <span class="font-medium text-gray-700 truncate">{{ $primaryOfficer }}</span>
+                        </div>
+                        <div class="text-[10px] text-gray-400 shrink-0 ml-2">
+                            Akun: <strong class="{{ $isMyShipment ? 'text-spv-blue font-bold' : 'text-gray-600' }}">{{ $shipment->user?->nama_warehouse ?? '-' }}</strong>
+                        </div>
                     </div>
 
                     <!-- Actions Bar -->
@@ -450,13 +523,15 @@
                         </a>
 
                         @if($shipment->status === 'draft')
-                            <a href="{{ route('field-app.edit', $shipment->id) }}"
-                               title="Lanjutkan Draft"
-                               class="w-8 h-8 rounded-xl border border-amber-200 text-amber-600 bg-amber-50 hover:bg-amber-100 transition-colors flex items-center justify-center shrink-0">
-                                <i class="ph-bold ph-pencil-simple-line text-sm"></i>
-                            </a>
+                            @if($canEdit)
+                                <a href="{{ route('field-app.edit', $shipment->id) }}"
+                                   title="Lanjutkan Draft"
+                                   class="w-8 h-8 rounded-xl border border-amber-200 text-amber-600 bg-amber-50 hover:bg-amber-100 transition-colors flex items-center justify-center shrink-0">
+                                    <i class="ph-bold ph-pencil-simple-line text-sm"></i>
+                                </a>
+                            @endif
                         @else
-                            @if(auth()->user()?->canEditShipment($shipment))
+                            @if($canEdit)
                                 <a href="{{ route('field-app.edit', $shipment->id) }}"
                                    title="Edit"
                                    class="w-8 h-8 rounded-xl border border-gray-200 text-gray-500 hover:text-spv-blue hover:bg-blue-50 transition-colors flex items-center justify-center shrink-0">

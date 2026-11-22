@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\EvidenceItem;
 use App\Models\Shipment;
 use App\Models\SopPhotoPoint;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -14,7 +15,7 @@ class ShipmentController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Shipment::with(['karyawan', 'karyawans', 'evidenceItems'])->latest();
+        $query = Shipment::with(['karyawan', 'karyawans', 'user', 'evidenceItems'])->latest();
 
         if ($search = $request->input('search')) {
             $term = '%'.strtolower($search).'%';
@@ -47,7 +48,7 @@ class ShipmentController extends Controller
 
         // Ambil data armada yang sedang dalam proses staging aktif (status: draft)
         $activeStagingShipments = Shipment::where('status', 'draft')
-            ->with(['karyawan', 'karyawans', 'evidenceItems'])
+            ->with(['karyawan', 'karyawans', 'user', 'evidenceItems'])
             ->latest()
             ->get();
 
@@ -68,6 +69,59 @@ class ShipmentController extends Controller
         $points = SopPhotoPoint::orderBy('urutan')->get();
 
         return view('shipments.show', compact('shipment', 'points'));
+    }
+
+    // =========================================================================
+    // NAMA FUNCTION : serveEvidence
+    // FUNGSI        : Menyajikan berkas foto/video evidence secara aman melalui
+    //                 autentikasi dan pengecekan hak akses (mencegah link ditembak langsung)
+    // =========================================================================
+    public function serveEvidence(Request $request, Shipment $shipment, EvidenceItem $evidence)
+    {
+        // 1. Pastikan item evidence benar-benar milik shipment ini
+        if ((int) $evidence->shipment_id !== (int) $shipment->id) {
+            abort(404, 'Bukti foto tidak sesuai dengan data dokumen pengiriman.');
+        }
+
+        $user = auth()->user();
+        if (! $user) {
+            abort(401, 'Silakan login terlebih dahulu untuk mengakses bukti foto.');
+        }
+
+        // 2. Cek otorisasi: Superadmin & Admin boleh semua; Operator hanya shipment miliknya
+        if (! $user->canViewShipment($shipment)) {
+            abort(403, 'Akses ditolak: Anda tidak memiliki hak akses melihat bukti foto shipment ini.');
+        }
+
+        // 3. Cari path berkas fisik di storage
+        $relPath = ltrim($evidence->file_path, '/\\');
+        $possiblePaths = [
+            storage_path('app/private/' . $relPath),
+            storage_path('app/' . $relPath),
+            storage_path('app/public/' . $relPath),
+            public_path('storage/' . $relPath),
+        ];
+
+        $targetPath = null;
+        foreach ($possiblePaths as $p) {
+            if (file_exists($p) && ! is_dir($p)) {
+                $targetPath = $p;
+                break;
+            }
+        }
+
+        if (! $targetPath) {
+            abort(404, 'Berkas foto atau video tidak ditemukan di server.');
+        }
+
+        $isVideo = ($evidence->tipe_item === 'video' || preg_match('/\.(mp4|mov|webm|3gp|avi|m4v)$/i', $targetPath));
+        $mime = $isVideo ? 'video/mp4' : (mime_content_type($targetPath) ?: 'image/jpeg');
+
+        return response()->file($targetPath, [
+            'Content-Type' => $mime,
+            'Cache-Control' => 'private, no-transform, max-age=86400',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 
     /**
