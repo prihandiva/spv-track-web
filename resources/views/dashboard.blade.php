@@ -654,15 +654,13 @@
                 </div>
 
                 <div class="overflow-x-auto">
-                    <table class="w-full text-left whitespace-nowrap">
+                    <table class="w-full text-left">
                         <thead style="background:#fafbfd;">
                             <tr>
-                                <th class="px-3.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Identitas Armada</th>
-                                <th class="px-2.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider hidden sm:table-cell">Produk</th>
-                                <th class="px-2.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider hidden md:table-cell">Tipe</th>
-                                <th class="px-2.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider hidden lg:table-cell">Petugas & Waktu</th>
-                                <th class="px-2.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Lead Time Staging</th>
-                                <th class="px-2.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Status</th>
+                                <th class="px-3.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Identitas Armada &amp; Produk</th>
+                                <th class="px-3 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Petugas &amp; Waktu</th>
+                                <th class="px-3 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Lead Time Staging</th>
+                                <th class="px-3 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Status</th>
                                 <th class="px-3.5 py-2.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-right">Aksi</th>
                             </tr>
                         </thead>
@@ -671,58 +669,87 @@
                                 @php
                                     $isMyShipment = auth()->check() && (int)$s->user_id === (int)auth()->id();
                                     $canEdit = auth()->user()?->canEditShipment($s);
+                                    $cleanCont = trim((string)($s->nomor_container_atau_plat ?? ''));
+                                    $hasCont = $cleanCont !== '' && $cleanCont !== '0' && strtolower($s->jenis_pengiriman) !== 'lokal';
+                                    $isExport = strtolower($s->jenis_pengiriman) === 'export';
                                 @endphp
                                 <tr class="border-t border-gray-100 hover:bg-blue-50/20 transition-colors {{ $isMyShipment ? 'bg-blue-50/20 border-l-4 border-l-spv-blue' : '' }}">
+                                    <!-- Identitas Armada & Produk -->
                                     <td class="px-3.5 py-2.5">
                                         <div class="flex items-center gap-2.5">
                                             <div class="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 {{ $isMyShipment ? 'bg-blue-100 text-spv-blue ring-1 ring-blue-300' : 'bg-[#eff4fc] text-[#285491]' }}">
-                                                <i class="ph-fill {{ $s->jenis_pengiriman === 'export' ? 'ph-shipping-container' : 'ph-truck' }} text-sm"></i>
+                                                <i class="ph-fill {{ $isExport ? 'ph-shipping-container' : 'ph-truck' }} text-sm"></i>
                                             </div>
-                                            <div>
+                                            <div class="min-w-0">
                                                 <div class="flex items-center gap-1.5 flex-wrap">
                                                     <a href="{{ route('shipments.show', $s->id) }}" class="text-xs font-bold text-gray-800 hover:text-spv-blue">
                                                         {{ $s->packing_list_no ?: ($s->nomor_container_atau_plat ?? 'SPV-' . $s->id) }}
                                                     </a>
+                                                    <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold capitalize {{ $isExport ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-slate-100 text-slate-700 border border-slate-200' }}">
+                                                        {{ $s->jenis_pengiriman }}
+                                                    </span>
                                                     @if($isMyShipment)
                                                         <span class="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-blue-100 text-spv-blue border border-blue-200">
                                                             <i class="ph-bold ph-user-check text-[10px]"></i> Milik Anda
                                                         </span>
                                                     @endif
                                                 </div>
-                                                <p class="text-[10px] text-gray-400 leading-tight">Cont: {{ $s->nomor_container_atau_plat ?? '-' }} &bull; Plat: {{ $s->plat_nomor ?? '—' }}</p>
+                                                <p class="text-[10px] text-gray-400 leading-tight mt-0.5 flex items-center gap-1 flex-wrap">
+                                                    <span class="text-gray-600 font-medium capitalize">{{ $s->jenis_produk ?: 'Fiber' }}</span>
+                                                    <span class="text-gray-300">&bull;</span>
+                                                    @if($hasCont)
+                                                        <span>Cont: <strong class="text-gray-700 font-semibold">{{ $cleanCont }}</strong></span>
+                                                        <span class="text-gray-300">&bull;</span>
+                                                    @elseif(!$isExport)
+                                                        <span class="text-gray-500 font-medium">Truk Lokal</span>
+                                                        <span class="text-gray-300">&bull;</span>
+                                                    @endif
+                                                    <span>Plat: <strong class="text-gray-700 font-semibold">{{ $s->plat_nomor ?? '—' }}</strong></span>
+                                                </p>
                                             </div>
                                         </div>
                                     </td>
-                                    <td class="px-2.5 py-2.5 hidden sm:table-cell">
-                                        <span class="text-xs font-medium text-gray-700 capitalize">{{ $s->jenis_produk }}</span>
-                                    </td>
-                                    <td class="px-2.5 py-2.5 hidden md:table-cell">
-                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold capitalize {{ $s->jenis_pengiriman === 'export' ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-gray-100 text-gray-700' }}">
-                                            {{ $s->jenis_pengiriman }}
-                                        </span>
-                                    </td>
-                                    <td class="px-2.5 py-2.5 hidden lg:table-cell">
-                                        <p class="text-xs font-medium text-gray-700 leading-tight">{{ $s->karyawan?->nama ?? '-' }}</p>
-                                        <p class="text-[10px] text-gray-400 leading-tight flex items-center gap-1">
+
+                                    <!-- Petugas & Waktu -->
+                                    <td class="px-3 py-2.5">
+                                        <p class="text-xs font-semibold text-gray-700 leading-tight truncate max-w-[150px]" title="{{ $s->karyawan?->nama ?? '-' }}">
+                                            {{ $s->karyawan?->nama ?? '-' }}
+                                        </p>
+                                        <p class="text-[10px] text-gray-400 leading-tight mt-0.5 flex items-center gap-1 flex-wrap">
                                             <span>{{ $s->created_at->format('d M, H:i') }} WIB</span>
                                             <span>&bull;</span>
-                                            <span class="{{ $isMyShipment ? 'text-spv-blue font-bold' : 'text-gray-500' }}">Akun: {{ $s->user?->nama_warehouse ?? '-' }}</span>
+                                            <span class="truncate max-w-[120px] {{ $isMyShipment ? 'text-spv-blue font-bold' : 'text-gray-500' }}" title="Akun: {{ $s->user?->nama_warehouse ?? '-' }}">
+                                                Akun: {{ $s->user?->nama_warehouse ?? '-' }}
+                                            </span>
                                         </p>
                                     </td>
-                                    <td class="px-2.5 py-2.5">
+
+                                    <!-- Lead Time Staging -->
+                                    <td class="px-3 py-2.5">
                                         @if($s->lead_time_minutes !== null)
                                             <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-sm"
                                                  title="Waktu Mulai: {{ $s->waktu_awal_staging?->format('d/m/Y H:i') }} WIB &#10;Waktu Selesai: {{ $s->waktu_akhir_staging?->format('d/m/Y H:i') }} WIB &#10;Total Durasi Staging: {{ $s->lead_time_formatted }}">
                                                 <i class="ph-bold ph-timer text-emerald-600 text-xs"></i>
                                                 <span class="text-xs font-bold text-emerald-800">{{ $s->lead_time_formatted }}</span>
                                             </div>
+                                            @php
+                                                $start = $s->waktu_awal_staging;
+                                                $end = $s->waktu_akhir_staging;
+                                                $isDiffDay = $start && $end && $start->format('Y-m-d') !== $end->format('Y-m-d');
+                                            @endphp
                                             <p class="text-[10px] text-gray-400 mt-0.5 leading-tight flex items-center gap-1">
-                                                <span>{{ $s->waktu_awal_staging?->format('H:i') }}</span>
-                                                <i class="ph-bold ph-arrow-right text-[9px] text-gray-300"></i>
-                                                <span>{{ $s->waktu_akhir_staging?->format('H:i') }} WIB</span>
+                                                @if($isDiffDay)
+                                                    <span>{{ $start?->format('d/m H:i') }}</span>
+                                                    <i class="ph-bold ph-arrow-right text-[9px] text-gray-300"></i>
+                                                    <span>{{ $end?->format('d/m H:i') }} WIB</span>
+                                                @else
+                                                    <span>{{ $start?->format('H:i') }}</span>
+                                                    <i class="ph-bold ph-arrow-right text-[9px] text-gray-300"></i>
+                                                    <span>{{ $end?->format('H:i') }} WIB</span>
+                                                @endif
                                             </p>
                                         @elseif($s->status === 'draft')
-                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
                                                 <i class="ph-bold ph-hourglass-simple text-xs"></i> Sedang Berjalan
                                             </span>
                                             @if($s->waktu_awal_staging)
@@ -734,54 +761,58 @@
                                             <span class="text-xs text-gray-400">—</span>
                                         @endif
                                     </td>
-                                    <td class="px-2.5 py-2.5">
+
+                                    <!-- Status -->
+                                    <td class="px-3 py-2.5">
                                         @if($s->status === 'submitted')
-                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>Submitted
                                             </span>
                                         @else
-                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
                                                 <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>Draft
                                             </span>
                                         @endif
                                     </td>
+
+                                    <!-- Aksi -->
                                     <td class="px-3.5 py-2.5 text-right">
                                         <div class="flex items-center justify-end gap-1">
                                             <a href="{{ route('shipments.show', $s->id) }}"
                                                 title="Lihat Detail Shipment"
-                                                class="p-1 rounded-lg text-gray-400 hover:text-spv-blue hover:bg-blue-50 transition-colors">
-                                                <i class="ph-bold ph-eye text-sm"></i>
+                                                class="p-1.5 rounded-lg text-gray-400 hover:text-spv-blue hover:bg-blue-50 transition-colors">
+                                                <i class="ph-bold ph-eye text-base"></i>
                                             </a>
 
                                             @if($s->status === 'draft')
                                                 @if($canEdit)
                                                     <a href="{{ route('field-app.edit', $s->id) }}"
                                                        title="Lanjutkan Pengisian Draft Staging (Sebelum Ambil Foto)"
-                                                       class="p-1 rounded-lg text-amber-500 hover:text-amber-600 hover:bg-amber-50 transition-colors">
-                                                        <i class="ph-bold ph-pencil-simple-line text-sm"></i>
+                                                       class="p-1.5 rounded-lg text-amber-500 hover:text-amber-600 hover:bg-amber-50 transition-colors">
+                                                        <i class="ph-bold ph-pencil-simple-line text-base"></i>
                                                     </a>
                                                 @endif
                                             @else
                                                 @if($canEdit)
                                                     <a href="{{ route('field-app.edit', $s->id) }}"
                                                        title="Edit Dokumen Shipment"
-                                                       class="p-1 rounded-lg text-gray-400 hover:text-spv-blue hover:bg-blue-50 transition-colors">
-                                                        <i class="ph-bold ph-pencil-simple text-sm"></i>
+                                                       class="p-1.5 rounded-lg text-gray-400 hover:text-spv-blue hover:bg-blue-50 transition-colors">
+                                                        <i class="ph-bold ph-pencil-simple text-base"></i>
                                                     </a>
                                                 @endif
                                             @endif
 
                                             <a href="{{ route('shipments.download-pdf', $s->id) }}"
                                                 title="Download PDF Laporan"
-                                                class="p-1 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors">
-                                                <i class="ph-bold ph-file-pdf text-sm"></i>
+                                                class="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors">
+                                                <i class="ph-bold ph-file-pdf text-base"></i>
                                             </a>
                                         </div>
                                     </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="7" class="text-center py-8 text-xs text-gray-400">Belum ada data shipment</td>
+                                    <td colspan="5" class="text-center py-8 text-xs text-gray-400">Belum ada data shipment</td>
                                 </tr>
                             @endforelse
                         </tbody>
