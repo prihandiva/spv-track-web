@@ -1,0 +1,128 @@
+services:
+    app:
+        build:
+            context: .
+            dockerfile: Dockerfile
+            target: app
+        env_file:
+            - .env.production
+        restart: unless-stopped
+        volumes:
+            - storage-data:/var/www/html/storage
+        depends_on:
+            postgres:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+        networks:
+            - spv-track-net
+        healthcheck:
+            test:
+                - CMD-SHELL
+                - 'php -r ''exit(@fsockopen("127.0.0.1", 9000) ? 0 : 1);'''
+            interval: 15s
+            timeout: 5s
+            retries: 5
+            start_period: 30s
+        init: true
+
+    nginx:
+        build:
+            context: .
+            dockerfile: Dockerfile
+            target: nginx
+        ports:
+            - "127.0.0.1:8080:80"
+        volumes:
+            - storage-data:/var/www/html/storage:ro
+        depends_on:
+            app:
+                condition: service_healthy
+        networks:
+            spv-track-net:
+                ipv4_address: 172.30.0.10
+        restart: unless-stopped
+        init: true
+
+    queue:
+        build:
+            context: .
+            dockerfile: Dockerfile
+            target: app
+        env_file:
+            - .env.production
+        command:
+            - php
+            - artisan
+            - queue:work
+            - --sleep=3
+            - --tries=3
+            - --timeout=90
+            - --memory=256
+        volumes:
+            - storage-data:/var/www/html/storage
+        depends_on:
+            postgres:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+        networks:
+            - spv-track-net
+        restart: unless-stopped
+        init: true
+
+    postgres:
+        image: postgres:15-alpine
+        env_file:
+            - .env.production
+        environment:
+            POSTGRES_DB: ${DB_DATABASE:?Set DB_DATABASE in .env.production}
+            POSTGRES_USER: ${DB_USERNAME:?Set DB_USERNAME in .env.production}
+            POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env.production}
+        volumes:
+            - db-data:/var/lib/postgresql/data
+        restart: unless-stopped
+        healthcheck:
+            test:
+                - CMD-SHELL
+                - 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"'
+            interval: 10s
+            timeout: 5s
+            retries: 5
+            start_period: 15s
+        networks:
+            - spv-track-net
+
+    redis:
+        image: redis:7-alpine
+        env_file:
+            - .env.production
+        command:
+            - /bin/sh
+            - -c
+            - 'exec redis-server --appendonly yes --save 60 1 --requirepass "$$REDIS_PASSWORD"'
+        volumes:
+            - redis-data:/data
+        restart: unless-stopped
+        healthcheck:
+            test:
+                - CMD-SHELL
+                - 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping | grep -qx PONG'
+            interval: 10s
+            timeout: 5s
+            retries: 5
+        networks:
+            - spv-track-net
+
+volumes:
+    storage-data:
+    db-data:
+    redis-data:
+
+networks:
+    spv-track-net:
+        driver: bridge
+        ipam:
+            config:
+                - subnet: 172.30.0.0/24
+                  gateway: 172.30.0.1

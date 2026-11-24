@@ -1,59 +1,151 @@
-FROM php:8.3-apache
 
-# Install system dependencies (including Tesseract OCR, Node 22, libpq for Postgres, GD)
-RUN apt-get update && apt-get install -y \
+# --------------------------------------------------
+# 1. Build frontend assets
+# --------------------------------------------------
+FROM node:22-alpine AS frontend
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci --no-audit --no-fund
+
+COPY . .
+RUN npm run build
+
+
+# --------------------------------------------------
+# 2. Laravel PHP-FPM application
+# --------------------------------------------------
+FROM php:8.4-fpm-alpine AS app
+
+RUN apk add --no-cache \
+    ffmpeg \
+    libpq \
+    libzip \
+    libpng \
+    libjpeg-turbo \
+    freetype \
+    libxml2 \
+    oniguruma \
+    bash \
     curl \
-    git \
-    zip \
-    unzip \
+    supervisor \
+    postgresql-dev \
+    mariadb-connector-c-dev \
     libpng-dev \
-    libjpeg-dev \
-    libfreetype6-dev \
-    libonig-dev \
-    libxml2-dev \
-    libpq-dev \
+    libjpeg-turbo-dev \
+    freetype-dev \
     libzip-dev \
-    tesseract-ocr \
-    tesseract-ocr-ind \
-    ca-certificates \
-    gnupg \
-    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y nodejs \
+    oniguruma-dev \
+    libxml2-dev \
+    linux-headers \
+    autoconf \
+    gcc \
+    g++ \
+    make \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install pdo pdo_pgsql mbstring exif pcntl bcmath gd zip opcache \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+    && docker-php-ext-install -j$(nproc) \
+        pdo_pgsql \
+        pdo_mysql \
+        mysqli \
+        pdo \
+        mbstring \
+        exif \
+        pcntl \
+        bcmath \
+        gd \
+        zip \
+        opcache \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
+    && apk del --no-cache autoconf gcc g++ make linux-headers \
+    && rm -rf /var/cache/apk/* /tmp/pear
 
-# Install Composer
-COPY --from=composer:2.7 /usr/bin/composer /usr/bin/composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Enable Apache mod_rewrite
-RUN a2enmod rewrite
-
-# Copy virtual host configuration
-COPY docker/vhost.conf /etc/apache2/sites-available/000-default.conf
-
-# Set working directory
 WORKDIR /var/www/html
 
-# Copy application source
-COPY . /var/www/html
+# Install dependencies from the lockfile first.
+COPY composer.json composer.lock ./
 
-# Copy and setup entrypoint script
+RUN composer install \
+    --no-dev \
+    --no-interaction \
+    --no-progress \
+    --no-scripts \
+    --prefer-dist \
+    --optimize-autoloader
+
+# Copy the application source.
+COPY . .
+
+# Replace the source tree's public/build with built Vite assets.
+COPY --from=frontend /app/public/build ./public/build
+
+# Create Laravel's public storage symlink at build time so
+# it is also present in the separate Nginx image.
+
+# Prepare Laravel writable directories and public storage link.
+RUN set -eux; \
+    mkdir -p \
+        storage/app/public \
+        storage/framework/cache/data \
+        storage/framework/sessions \
+        storage/framework/views \
+        storage/logs \
+        bootstrap/cache; \
+    if [ -L public/storage ]; then \
+        echo "Storage symlink already exists"; \
+    elif [ -e public/storage ]; then \
+        echo "ERROR: public/storage exists and is not a symlink"; \
+        ls -ld public/storage; \
+        exit 1; \
+    else \
+        ln -s ../storage/app/public public/storage; \
+    fi; \
+    rm -f bootstrap/cache/packages.php \
+          bootstrap/cache/services.php; \
+    composer dump-autoload \
+        --no-dev \
+        --optimize \
+        --no-scripts; \
+    php artisan package:discover --ansi; \
+    chown -R www-data:www-data storage bootstrap/cache
+
+
+# Production OPcache settings.
+RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini" \
+    && printf '%s\n' \
+        'opcache.memory_consumption=128' \
+        'opcache.interned_strings_buffer=16' \
+        'opcache.max_accelerated_files=20000' \
+        'opcache.validate_timestamps=0' \
+        > "$PHP_INI_DIR/conf.d/opcache-production.ini"
+
+
+# Update php upload limit and post max size to 100M
+RUN printf '%s\n' \
+        'post_max_size=32M' \
+        'upload_max_filesize=32M' \
+        > "$PHP_INI_DIR/conf.d/uploads.ini"
+
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh \
-    && chmod +x /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
-# Install PHP dependencies
-RUN composer install --no-dev --optimize-autoloader --no-interaction
-
-# Install Node dependencies and build frontend assets with Vite
-RUN npm install \
-    && npm run build
-
-# Set permissions for Laravel storage and cache
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
-    && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
-
-EXPOSE 80 10000
+EXPOSE 9000
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["php-fpm", "-F"]
+
+
+# --------------------------------------------------
+# 3. Separate Nginx frontend
+# --------------------------------------------------
+FROM nginx:stable-alpine AS nginx
+
+RUN rm -f /etc/nginx/conf.d/default.conf
+
+COPY docker/nginx.conf /etc/nginx/nginx.conf
+COPY --from=app /var/www/html/public /var/www/html/public
+
+EXPOSE 80
