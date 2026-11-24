@@ -871,7 +871,7 @@
                 </div>
                 <div>
                     <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">Jumlah Total Bale <span class="text-red-500">*</span></label>
-                    <input type="number" name="jumlah_bale" value="{{ old('jumlah_bale', $inspection->jumlah_bale ?: $shipment->jumlah_bale) }}" placeholder="Contoh: 86" min="1" required
+                    <input type="number" name="jumlah_bale" value="{{ old('jumlah_bale', $inspection->jumlah_bale ?: ($shipment->jumlah_bale ?: 84)) }}" placeholder="Contoh: 84" min="1" required
                            class="form-req w-full text-sm font-bold px-3.5 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
                     <p class="field-error-msg hidden text-[11px] text-red-600 font-semibold mt-1 items-center gap-1">
                         <i class="ph-bold ph-warning-circle"></i> Jumlah total bale wajib diisi

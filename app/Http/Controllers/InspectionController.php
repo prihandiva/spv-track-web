@@ -192,6 +192,7 @@ class InspectionController extends Controller
             'nomor_surat_jalan' => $shipment->packing_list_no,
             'nama_pelanggan' => $shipment->tujuan_pengiriman,
             'nomor_kontainer_truk' => $shipment->nomor_container_atau_plat,
+            'jumlah_bale' => 84,
             'jenis_bale' => ['tx_ecovero'],
             'jenis_label' => ['tanpa_label'],
             'first_eye_nama' => $defaultPetugas,
